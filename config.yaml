@@ -1,0 +1,31 @@
+# SERS Analysis Pipeline Configuration
+# Copy to config.yaml and modify as needed
+
+dataset:
+  folder_to_group:
+    colorectal+cancer_SERS: "CRC"
+    DM_SERS: "DIA"
+    HTN_SERS: "HBP"
+    HTN+DM_SERS: "H.D."
+    lung+cancer_SERS: "LUN"
+    normal_SERS: "NOR"
+    pancreatic+cancer_SERS: "PAN"
+    
+
+preprocessing:
+  do_smooth: true
+  smooth_window: 11      # Must be odd, >= smooth_poly + 2
+  smooth_poly: 3         # Savitzky-Golay polynomial order
+  baseline_window: 101   # Rolling minimum window
+  use_snv: true          # Standard Normal Variate normalization
+
+qc:
+  corr_threshold: 0.95   # Min correlation between replicates
+  min_snr: 3.0           # Minimum signal-to-noise ratio
+  expected_reps: 5       # Expected replicates per sample
+
+modeling:
+  n_splits: 5            # Cross-validation folds
+  use_pca: false         # Dimensionality reduction
+  pca_components: 30     # If use_pca is true
+  random_state: 42       # For reproducibility
