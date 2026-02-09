@@ -1,0 +1,49 @@
+# Data files
+data/raw_data/
+data/Nor_thermo/
+data/clinical_data/
+data/processed/
+
+# Results
+results/
+
+# Models & artifacts
+models/
+mlruns/
+mlartifacts/
+.mlflow/
+runs/
+logs/
+experiments/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Environment
+.env
+.env.local
+secrets/
+credentials/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.log
+*.db
+*.sqlite
+.cache/
