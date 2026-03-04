@@ -1,14 +1,10 @@
 # Data files
-data/raw_data/
-data/Nor_thermo/
-data/clinical_data/
-data/processed/
+data/
 
 # Results
 results/
 
 # Models & artifacts
-models/
 mlruns/
 mlartifacts/
 .mlflow/
@@ -47,3 +43,16 @@ Thumbs.db
 *.db
 *.sqlite
 .cache/
+
+# Images & Figures
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.tif
+*.svg
+*.ico
+*.webp
+figures/

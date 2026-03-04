@@ -2,24 +2,52 @@
 Preprocessing functions and statistics for SERS spectroscopy data.
 
 This module contains:
-- Preprocessing pipeline functions
+- Post-QC preprocessing pipeline (trim → smooth → baseline → normalize)
+- Multiple normalization methods (SNV, Min-Max, L2, Area)
 - Replicate variance calculation
 - Group-level variance analysis
 - Quality control metrics
+
+Preprocessing Philosophy for SERS Urine Metabolomics:
+------------------------------------------------------
+After QC filters out unreliable spectra, preprocessing transforms raw
+intensity data into a format suitable for ML models. The key steps are:
+
+1. Trim: Remove non-fingerprint regions (substrate features, noise)
+2. Smooth: Reduce high-frequency noise while preserving peak shapes
+3. Baseline correction: Remove fluorescence background
+4. Normalize: Remove measurement artifacts (SERS hot-spot variation)
+
+Normalization Choice Matters:
+- SNV: Removes scale + offset, preserves peak ratios (recommended for SERS)
+- Min-Max: Maps to [0,1], destroys absolute intensity info
+- L2 (Vector): Unit vector, preserves ratios like SNV
+- Area: Normalizes by total signal, preserves relative contributions
+- None: Keeps raw intensities (use when absolute intensity is informative)
+
+Reference:
+    Previous discussion: SNV recommended over Min-Max for SERS cancer screening
+    because Min-Max destroys inter-sample intensity differences that may carry
+    diagnostic information (e.g., metabolite concentration differences).
 """
 
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, Literal
 
 import numpy as np
 import pandas as pd
-from scipy.stats import variation
-
-from .signal import smooth, baseline_correction, snv, resample
+from scipy.signal import savgol_filter
+from scipy.interpolate import interp1d
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+FINGERPRINT_REGION = (400, 2200)  # Default trim region (cm⁻¹)
 
 
 class PreprocessingError(Exception):
@@ -27,23 +55,486 @@ class PreprocessingError(Exception):
     pass
 
 
-def preprocess_spectra(
-    raw_spectra: Dict,
+# =============================================================================
+# 1. Spectral Trimming
+# =============================================================================
+def trim_spectrum(
+    x: np.ndarray,
+    y: np.ndarray,
+    region: Tuple[float, float] = FINGERPRINT_REGION
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Trim spectrum to specified wavenumber region.
+
+    Removes non-fingerprint regions that contain substrate features
+    (paper C-H/O-H stretches in 2200+ cm⁻¹) and low-wavenumber noise
+    (0-400 cm⁻¹) which are not metabolite signals.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Wavenumber values (cm⁻¹)
+    y : np.ndarray
+        Intensity values
+    region : tuple of float
+        (min_wavenumber, max_wavenumber) to keep
+
+    Returns
+    -------
+    x_trimmed, y_trimmed : tuple of np.ndarray
+
+    Notes
+    -----
+    Must be applied BEFORE smoothing/baseline to avoid edge artifacts
+    from signal processing at region boundaries.
+    """
+    mask = (x >= region[0]) & (x <= region[1])
+
+    if not mask.any():
+        raise PreprocessingError(
+            f"No data points in region {region}. "
+            f"Data range: {x.min():.1f}-{x.max():.1f} cm⁻¹"
+        )
+
+    n_removed = len(x) - mask.sum()
+    if n_removed > 0:
+        logger.debug(
+            f"Trimmed {n_removed} points outside {region[0]}-{region[1]} cm⁻¹"
+        )
+
+    return x[mask], y[mask]
+
+
+def trim_to_grid(
     grid: np.ndarray,
-    config
+    region: Tuple[float, float] = FINGERPRINT_REGION
+) -> np.ndarray:
+    """
+    Trim common grid to fingerprint region.
+
+    Parameters
+    ----------
+    grid : np.ndarray
+        Full common wavenumber grid
+    region : tuple of float
+        (min, max) wavenumber region
+
+    Returns
+    -------
+    np.ndarray
+        Trimmed grid
+    """
+    mask = (grid >= region[0]) & (grid <= region[1])
+    return grid[mask]
+
+
+# =============================================================================
+# 2. Smoothing
+# =============================================================================
+def smooth(
+    y: np.ndarray,
+    window_length: int = 11,
+    polyorder: int = 3
+) -> np.ndarray:
+    """
+    Savitzky-Golay smoothing filter.
+
+    Reduces high-frequency noise while preserving peak shapes and positions.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+    window_length : int
+        Filter window size (must be odd, >= polyorder + 2)
+    polyorder : int
+        Polynomial order for fitting
+
+    Returns
+    -------
+    np.ndarray
+        Smoothed intensity values
+    """
+    if window_length % 2 == 0:
+        window_length += 1
+        logger.warning(f"Window length must be odd, adjusted to {window_length}")
+
+    if window_length <= polyorder:
+        raise PreprocessingError(
+            f"window_length ({window_length}) must be > polyorder ({polyorder})"
+        )
+
+    return savgol_filter(y, window_length=window_length, polyorder=polyorder, mode="interp")
+
+
+# =============================================================================
+# 3. Baseline Correction
+# =============================================================================
+def baseline_correction(
+    y: np.ndarray,
+    window: int = 101
+) -> np.ndarray:
+    """
+    Rolling minimum baseline correction.
+
+    Estimates baseline as the rolling minimum of the spectrum,
+    then subtracts it. This removes the broad fluorescence background
+    common in SERS measurements.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+    window : int
+        Rolling window size for minimum calculation
+
+    Returns
+    -------
+    np.ndarray
+        Baseline-corrected intensity values (all >= 0)
+    """
+    baseline = pd.Series(y).rolling(
+        window, center=True, min_periods=1
+    ).min().to_numpy()
+
+    return y - baseline
+
+
+# =============================================================================
+# 4. Normalization Methods
+# =============================================================================
+def snv(y: np.ndarray) -> np.ndarray:
+    """
+    Standard Normal Variate (SNV) normalization.
+
+    SNV(y) = (y - mean(y)) / std(y)
+
+    Removes multiplicative scatter effects (SERS hot-spot variation).
+    Preserves peak ratios and spectral shape.
+    Most commonly used normalization for SERS spectroscopy.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+
+    Returns
+    -------
+    np.ndarray
+        Normalized intensity values (zero mean, unit variance)
+
+    Notes
+    -----
+    Recommended for SERS cancer screening because:
+    - SERS hot-spots cause same sample to vary 2-10x in overall intensity
+    - This variation is measurement artifact, not diagnostic information
+    - SNV removes it while preserving metabolite peak ratios
+    """
+    mean = y.mean()
+    std = y.std()
+
+    if std > 1e-10:
+        return (y - mean) / std
+    else:
+        logger.warning("Near-zero std in SNV, returning mean-centered only")
+        return y - mean
+
+
+def minmax_scale(y: np.ndarray) -> np.ndarray:
+    """
+    Min-Max scaling to [0, 1] range.
+
+    MinMax(y) = (y - min(y)) / (max(y) - min(y))
+
+    Maps all values to [0, 1]. Preserves spectral shape only.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+
+    Returns
+    -------
+    np.ndarray
+        Scaled intensity values in [0, 1]
+
+    Warnings
+    --------
+    Min-Max destroys absolute intensity differences between samples.
+    If cancer patients have higher metabolite concentrations (= higher peaks),
+    Min-Max makes cancer and normal spectra look identical if they have
+    the same shape. Use with caution for diagnostic applications.
+
+    May be useful when:
+    - Comparing spectral shapes across very different equipment
+    - Input to models that require [0,1] range (some neural networks)
+    - Equipment with highly variable baseline levels
+    """
+    y_min = y.min()
+    y_max = y.max()
+    range_val = y_max - y_min
+
+    if range_val > 1e-10:
+        return (y - y_min) / range_val
+    else:
+        logger.warning("Near-zero range in min-max scaling, returning zeros")
+        return np.zeros_like(y)
+
+
+def vector_normalize(y: np.ndarray) -> np.ndarray:
+    """
+    Vector (L2) normalization.
+
+    L2(y) = y / ||y||₂
+
+    Normalizes spectrum to unit length. Preserves peak ratios
+    and angular relationships between spectra.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+
+    Returns
+    -------
+    np.ndarray
+        L2-normalized intensity values (unit vector)
+
+    Notes
+    -----
+    Similar to SNV in preserving peak ratios, but:
+    - Does not center to zero mean
+    - Better geometric interpretation (cosine similarity = dot product)
+    - Useful for spectral matching and library search
+    """
+    norm = np.linalg.norm(y)
+
+    if norm > 1e-10:
+        return y / norm
+    else:
+        logger.warning("Near-zero L2 norm, returning original")
+        return y.copy()
+
+
+def area_normalize(y: np.ndarray) -> np.ndarray:
+    """
+    Area (total signal) normalization.
+
+    Area(y) = y / Σ|y|
+
+    Normalizes by total integrated signal. Each point represents
+    its fractional contribution to the total spectrum.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+
+    Returns
+    -------
+    np.ndarray
+        Area-normalized intensity values (sum of abs = 1)
+
+    Notes
+    -----
+    Preserves relative contributions of different spectral features.
+    Useful when comparing metabolite composition ratios.
+    Uses absolute values to handle baseline-corrected spectra
+    that may have negative values near zero.
+    """
+    total = np.sum(np.abs(y))
+
+    if total > 1e-10:
+        return y / total
+    else:
+        logger.warning("Near-zero total area, returning original")
+        return y.copy()
+
+
+def normalize_spectrum(
+    y: np.ndarray,
+    method: str = "snv"
+) -> np.ndarray:
+    """
+    Apply normalization by method name.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Input intensity values
+    method : str
+        One of: "snv", "minmax", "l2", "area", "none"
+
+    Returns
+    -------
+    np.ndarray
+        Normalized intensity values
+
+    Raises
+    ------
+    ValueError
+        If method is not recognized
+    """
+    methods = {
+        "snv": snv,
+        "minmax": minmax_scale,
+        "l2": vector_normalize,
+        "area": area_normalize,
+        "none": lambda y: y.copy(),
+    }
+
+    if method not in methods:
+        raise ValueError(
+            f"Unknown normalization method: '{method}'. "
+            f"Choose from: {list(methods.keys())}"
+        )
+
+    return methods[method](y)
+
+
+# =============================================================================
+# 5. Resampling
+# =============================================================================
+def resample(
+    x: np.ndarray,
+    y: np.ndarray,
+    grid: np.ndarray
+) -> np.ndarray:
+    """
+    Interpolate spectrum to common wavenumber grid.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Original wavenumber array
+    y : np.ndarray
+        Original intensity array
+    grid : np.ndarray
+        Target wavenumber grid
+
+    Returns
+    -------
+    np.ndarray
+        Resampled intensity values
+    """
+    return np.interp(grid, x, y)
+
+
+# =============================================================================
+# 6. Full Preprocessing Pipeline (Post-QC)
+# =============================================================================
+def preprocess_single_spectrum(
+    x: np.ndarray,
+    y: np.ndarray,
+    grid: np.ndarray,
+    do_trim: bool = True,
+    trim_region: Tuple[float, float] = FINGERPRINT_REGION,
+    do_smooth: bool = True,
+    smooth_window: int = 11,
+    smooth_poly: int = 3,
+    do_baseline: bool = True,
+    baseline_window: int = 101,
+    normalization: str = "snv",
+) -> np.ndarray:
+    """
+    Apply full preprocessing pipeline to a single spectrum.
+
+    Pipeline order:
+        ① Trim to fingerprint region (400-2200 cm⁻¹)
+        ② Savitzky-Golay smoothing
+        ③ Rolling minimum baseline correction
+        ④ Normalization (SNV / MinMax / L2 / Area / None)
+        ⑤ Resample to common grid
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Wavenumber values
+    y : np.ndarray
+        Intensity values
+    grid : np.ndarray
+        Target common wavenumber grid (should be trimmed to same region)
+    do_trim : bool
+        Whether to trim to fingerprint region
+    trim_region : tuple of float
+        (min, max) wavenumber for trimming
+    do_smooth : bool
+        Whether to apply Savitzky-Golay smoothing
+    smooth_window : int
+        Smoothing window size
+    smooth_poly : int
+        Smoothing polynomial order
+    do_baseline : bool
+        Whether to apply baseline correction
+    baseline_window : int
+        Baseline rolling window size
+    normalization : str
+        Normalization method: "snv", "minmax", "l2", "area", "none"
+
+    Returns
+    -------
+    np.ndarray
+        Preprocessed intensity on common grid
+    """
+    y_proc = y.copy()
+
+    # ① Trim
+    if do_trim:
+        x, y_proc = trim_spectrum(x, y_proc, region=trim_region)
+
+    # ② Smooth
+    if do_smooth:
+        y_proc = smooth(y_proc, window_length=smooth_window, polyorder=smooth_poly)
+
+    # ③ Baseline correction
+    if do_baseline:
+        y_proc = baseline_correction(y_proc, window=baseline_window)
+
+    # ④ Normalize
+    y_proc = normalize_spectrum(y_proc, method=normalization)
+
+    # ⑤ Resample to common grid
+    y_grid = resample(x, y_proc, grid)
+
+    return y_grid
+
+
+def preprocess_spectra(
+    raw_spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    grid: np.ndarray,
+    config,
+    qc_passed_keys: Optional[set] = None,
 ) -> Tuple[Dict, pd.DataFrame]:
     """
-    Preprocess raw spectra with smoothing, baseline correction, and normalization.
-    
+    Preprocess raw spectra with full pipeline.
+
+    If qc_passed_keys is provided, only those spectra are processed.
+    This connects the QC pipeline output to preprocessing.
+
     Parameters
     ----------
     raw_spectra : dict
         Dict with keys (group, sample_id, replicate) -> (x, y)
     grid : np.ndarray
-        Common wavenumber grid for resampling
+        Common wavenumber grid for resampling.
+        If config.preprocessing.do_trim is True, this grid will be
+        automatically trimmed to the fingerprint region.
     config : Config
-        Configuration object with preprocessing parameters
-        
+        Configuration object with preprocessing parameters.
+        Expected attributes:
+            config.preprocessing.do_trim (bool)
+            config.preprocessing.trim_region (list/tuple, e.g. [400, 2200])
+            config.preprocessing.do_smooth (bool)
+            config.preprocessing.smooth_window (int)
+            config.preprocessing.smooth_poly (int)
+            config.preprocessing.do_baseline (bool)
+            config.preprocessing.baseline_window (int)
+            config.preprocessing.normalization (str)
+            config.preprocessing.use_snv (bool, legacy)
+    qc_passed_keys : set, optional
+        Set of (group, sample_id, replicate) keys that passed QC.
+        If None, all spectra are processed.
+
     Returns
     -------
     processed : dict
@@ -51,30 +542,70 @@ def preprocess_spectra(
     stats_df : pd.DataFrame
         Statistics for each spectrum (raw and processed)
     """
+    prep = config.preprocessing
+
+    # Resolve normalization method
+    # Support both new 'normalization' field and legacy 'use_snv'
+    normalization = getattr(prep, 'normalization', None)
+    if normalization is None:
+        # Legacy: fall back to use_snv flag
+        normalization = "snv" if getattr(prep, 'use_snv', True) else "none"
+
+    # Trim settings
+    do_trim = getattr(prep, 'do_trim', True)
+    trim_region = tuple(getattr(prep, 'trim_region', list(FINGERPRINT_REGION)))
+
+    # Baseline settings
+    do_baseline = getattr(prep, 'do_baseline', True)
+    baseline_window = getattr(prep, 'baseline_window', 101)
+
+    # Prepare trimmed grid
+    if do_trim:
+        proc_grid = trim_to_grid(grid, region=trim_region)
+    else:
+        proc_grid = grid
+
+    logger.info(f"Preprocessing pipeline:")
+    logger.info(f"  ① Trim: {do_trim} → region {trim_region} cm⁻¹")
+    logger.info(f"  ② Smooth: {prep.do_smooth} (window={prep.smooth_window}, poly={prep.smooth_poly})")
+    logger.info(f"  ③ Baseline: {do_baseline} (window={baseline_window})")
+    logger.info(f"  ④ Normalization: {normalization}")
+    logger.info(f"  ⑤ Resample: {len(proc_grid)} grid points")
+
+    # Filter to QC-passed keys
+    if qc_passed_keys is not None:
+        keys_to_process = [k for k in raw_spectra if k in qc_passed_keys]
+        n_skipped = len(raw_spectra) - len(keys_to_process)
+        logger.info(f"  QC filter: processing {len(keys_to_process)}/{len(raw_spectra)} "
+                     f"spectra ({n_skipped} failed QC)")
+    else:
+        keys_to_process = list(raw_spectra.keys())
+        logger.info(f"  No QC filter: processing all {len(keys_to_process)} spectra")
+
     processed = {}
     stats = []
 
-    for key, (x, y) in raw_spectra.items():
+    for key in keys_to_process:
+        x, y = raw_spectra[key]
         group, sid, rep = key
 
         try:
             y_raw = y.copy()
 
-            # Apply preprocessing steps
-            if config.preprocessing.do_smooth:
-                y = smooth(
-                    y,
-                    config.preprocessing.smooth_window,
-                    config.preprocessing.smooth_poly
-                )
-            
-            y = baseline_correction(y, config.preprocessing.baseline_window)
-
-            if config.preprocessing.use_snv:
-                y = snv(y)
-
-            # Resample to common grid
-            y_grid = resample(x, y, grid)
+            # Apply full pipeline
+            y_grid = preprocess_single_spectrum(
+                x=x,
+                y=y,
+                grid=proc_grid,
+                do_trim=do_trim,
+                trim_region=trim_region,
+                do_smooth=prep.do_smooth,
+                smooth_window=prep.smooth_window,
+                smooth_poly=prep.smooth_poly,
+                do_baseline=do_baseline,
+                baseline_window=baseline_window,
+                normalization=normalization,
+            )
 
             processed[key] = y_grid
 
@@ -83,7 +614,8 @@ def preprocess_spectra(
                 "group": group,
                 "sample_id": sid,
                 "replicate": rep,
-                "n_points": len(y_grid),
+                "n_points_raw": len(y_raw),
+                "n_points_proc": len(y_grid),
                 "raw_mean": float(y_raw.mean()),
                 "raw_std": float(y_raw.std()),
                 "raw_min": float(y_raw.min()),
@@ -91,16 +623,23 @@ def preprocess_spectra(
                 "proc_mean": float(y_grid.mean()),
                 "proc_std": float(y_grid.std()),
                 "proc_min": float(y_grid.min()),
-                "proc_max": float(y_grid.max())
+                "proc_max": float(y_grid.max()),
+                "normalization": normalization,
+                "trimmed": do_trim,
             })
-        
+
         except Exception as e:
             logger.error(f"Failed to preprocess {key}: {e}")
             raise PreprocessingError(f"Preprocessing failed for {key}: {e}")
-    
-    return processed, pd.DataFrame(stats)
+
+    logger.info(f"✓ Preprocessed {len(processed)} spectra")
+
+    return processed, pd.DataFrame(stats), proc_grid
 
 
+# =============================================================================
+# 7. Replicate Variance Analysis
+# =============================================================================
 def calculate_replicate_variance(
     processed_spectra: Dict,
     grid: np.ndarray,
@@ -108,12 +647,12 @@ def calculate_replicate_variance(
 ) -> pd.DataFrame:
     """
     Calculate variance statistics across replicates for each sample.
-    
+
     This function computes:
     - Coefficient of Variation (CV) across the spectrum
     - Pairwise correlations between replicates
     - Signal-to-noise metrics
-    
+
     Parameters
     ----------
     processed_spectra : dict
@@ -122,168 +661,161 @@ def calculate_replicate_variance(
         Common wavenumber grid
     peak_region : tuple of float
         (min, max) wavenumber range for focused CV calculation
-        
+
     Returns
     -------
     pd.DataFrame
-        Variance statistics for each sample with columns:
-        - group, sample_id, n_replicates
-        - mean_cv, median_cv, max_cv, cv_at_peak_regions
-        - mean_pairwise_correlation, min_pairwise_correlation
-        - replicate_snr
+        Variance statistics for each sample
     """
     # Group by (group, sample_id)
     samples = {}
     for key, y_proc in processed_spectra.items():
         group, sample_id, replicate = key
         sample_key = (group, sample_id)
-        
+
         if sample_key not in samples:
             samples[sample_key] = []
         samples[sample_key].append(y_proc)
-    
+
     stats = []
-    
+
     for (group, sample_id), spectra_list in samples.items():
         if len(spectra_list) < 2:
             logger.warning(
-                f"Sample {group}-{sample_id} has <2 replicates, skipping variance calculation"
+                f"Sample {group}-{sample_id} has <2 replicates, skipping variance"
             )
             continue
-        
-        # Stack replicates: shape (n_replicates, n_wavenumbers)
+
+        # Stack: shape (n_replicates, n_wavenumbers)
         spectra_matrix = np.vstack(spectra_list)
-        
-        # Calculate statistics
+
         mean_spectrum = spectra_matrix.mean(axis=0)
         std_spectrum = spectra_matrix.std(axis=0, ddof=1)
-        
-        # Coefficient of Variation (CV) at each wavenumber
-        # Avoid division by zero
+
+        # CV at each wavenumber (avoid division by zero)
         with np.errstate(divide='ignore', invalid='ignore'):
             cv_spectrum = np.where(
-                mean_spectrum != 0,
+                np.abs(mean_spectrum) > 1e-10,
                 (std_spectrum / np.abs(mean_spectrum)) * 100,
                 0
             )
-        
-        # Mean pairwise correlation between replicates
+
+        # Pairwise correlations
         n_reps = len(spectra_list)
         correlations = []
         for i in range(n_reps):
-            for j in range(i+1, n_reps):
+            for j in range(i + 1, n_reps):
                 corr = np.corrcoef(spectra_list[i], spectra_list[j])[0, 1]
-                correlations.append(corr)
-        
-        mean_correlation = np.mean(correlations)
-        min_correlation = np.min(correlations)
-        
+                if not np.isnan(corr):
+                    correlations.append(corr)
+
+        mean_correlation = np.mean(correlations) if correlations else np.nan
+        min_correlation = np.min(correlations) if correlations else np.nan
+
         # CV in peak region
         peak_mask = (grid >= peak_region[0]) & (grid <= peak_region[1])
-        cv_in_peak = cv_spectrum[peak_mask].mean()
-        
-        # Replicate SNR: signal (mean peak) / noise (std across replicates)
-        replicate_snr = mean_spectrum.max() / std_spectrum.mean() if std_spectrum.mean() > 0 else 0
-        
+        cv_in_peak = cv_spectrum[peak_mask].mean() if peak_mask.any() else cv_spectrum.mean()
+
+        # Replicate SNR
+        replicate_snr = (
+            mean_spectrum.max() / std_spectrum.mean()
+            if std_spectrum.mean() > 0 else 0
+        )
+
         stats.append({
             'group': group,
             'sample_id': sample_id,
             'n_replicates': len(spectra_list),
-            'mean_cv': cv_spectrum.mean(),
-            'median_cv': np.median(cv_spectrum),
-            'max_cv': cv_spectrum.max(),
-            'cv_at_peak_regions': cv_in_peak,
-            'mean_pairwise_correlation': mean_correlation,
-            'min_pairwise_correlation': min_correlation,
-            'replicate_snr': replicate_snr
+            'mean_cv': float(cv_spectrum.mean()),
+            'median_cv': float(np.median(cv_spectrum)),
+            'max_cv': float(cv_spectrum.max()),
+            'cv_at_peak_regions': float(cv_in_peak),
+            'mean_pairwise_correlation': float(mean_correlation),
+            'min_pairwise_correlation': float(min_correlation),
+            'replicate_snr': float(replicate_snr),
         })
-    
+
     return pd.DataFrame(stats)
 
 
+# =============================================================================
+# 8. Group-level Variance Analysis
+# =============================================================================
 def calculate_group_variance(
     medoid_spectra: Dict,
     grid: np.ndarray
 ) -> pd.DataFrame:
     """
     Calculate inter-sample variance within each group.
-    
-    This should be called AFTER medoid selection to analyze
-    biological variability (between samples) rather than
-    technical variability (between replicates).
-    
+
+    Call AFTER medoid selection to analyze biological variability
+    (between samples) rather than technical variability (between replicates).
+
     Parameters
     ----------
     medoid_spectra : dict
         Dict with keys (group, sample_id) -> y_medoid
     grid : np.ndarray
         Common wavenumber grid
-        
+
     Returns
     -------
     pd.DataFrame
-        Group-level variance statistics with columns:
-        - group, n_samples
-        - mean_intersample_cv, max_intersample_cv
-        - mean_intersample_correlation, std_intersample_correlation
-        - group_snr
+        Group-level variance statistics
     """
-    # Group medoid spectra by group
     groups = {}
     for key, y_medoid in medoid_spectra.items():
         group, sample_id = key
-        
         if group not in groups:
             groups[group] = []
         groups[group].append(y_medoid)
-    
+
     stats = []
-    
     for group, spectra_list in groups.items():
         if len(spectra_list) < 2:
-            logger.warning(
-                f"Group {group} has <2 samples, skipping group variance calculation"
-            )
+            logger.warning(f"Group {group} has <2 samples, skipping")
             continue
-        
+
         spectra_matrix = np.vstack(spectra_list)
-        
-        # Calculate group-level statistics
         group_mean = spectra_matrix.mean(axis=0)
         group_std = spectra_matrix.std(axis=0, ddof=1)
-        
-        # Between-sample CV
+
         with np.errstate(divide='ignore', invalid='ignore'):
             group_cv = np.where(
-                group_mean != 0,
+                np.abs(group_mean) > 1e-10,
                 (group_std / np.abs(group_mean)) * 100,
                 0
             )
-        
-        # Pairwise correlations between samples
+
         n_samples = len(spectra_list)
         correlations = []
         for i in range(n_samples):
-            for j in range(i+1, n_samples):
+            for j in range(i + 1, n_samples):
                 corr = np.corrcoef(spectra_list[i], spectra_list[j])[0, 1]
-                correlations.append(corr)
-        
-        # Group SNR
-        group_snr = group_mean.max() / group_std.mean() if group_std.mean() > 0 else 0
-        
+                if not np.isnan(corr):
+                    correlations.append(corr)
+
+        group_snr = (
+            group_mean.max() / group_std.mean()
+            if group_std.mean() > 0 else 0
+        )
+
         stats.append({
             'group': group,
             'n_samples': n_samples,
-            'mean_intersample_cv': group_cv.mean(),
-            'max_intersample_cv': group_cv.max(),
-            'mean_intersample_correlation': np.mean(correlations),
-            'std_intersample_correlation': np.std(correlations),
-            'group_snr': group_snr
+            'mean_intersample_cv': float(group_cv.mean()),
+            'max_intersample_cv': float(group_cv.max()),
+            'mean_intersample_correlation': float(np.mean(correlations)) if correlations else np.nan,
+            'std_intersample_correlation': float(np.std(correlations)) if correlations else np.nan,
+            'group_snr': float(group_snr),
         })
-    
+
     return pd.DataFrame(stats)
 
 
+# =============================================================================
+# 9. Problematic Sample Identification
+# =============================================================================
 def identify_problematic_samples(
     variance_df: pd.DataFrame,
     cv_threshold: float = 15.0,
@@ -291,7 +823,7 @@ def identify_problematic_samples(
 ) -> pd.DataFrame:
     """
     Identify samples with poor replicate reproducibility.
-    
+
     Parameters
     ----------
     variance_df : pd.DataFrame
@@ -300,7 +832,7 @@ def identify_problematic_samples(
         Maximum acceptable mean CV (%)
     correlation_threshold : float
         Minimum acceptable mean pairwise correlation
-        
+
     Returns
     -------
     pd.DataFrame
@@ -310,8 +842,7 @@ def identify_problematic_samples(
         (variance_df['mean_cv'] > cv_threshold) |
         (variance_df['mean_pairwise_correlation'] < correlation_threshold)
     ].copy()
-    
-    # Add failure reason
+
     def get_failure_reason(row):
         reasons = []
         if row['mean_cv'] > cv_threshold:
@@ -319,12 +850,16 @@ def identify_problematic_samples(
         if row['mean_pairwise_correlation'] < correlation_threshold:
             reasons.append(f"Low correlation ({row['mean_pairwise_correlation']:.3f})")
         return "; ".join(reasons)
-    
-    problematic['failure_reason'] = problematic.apply(get_failure_reason, axis=1)
-    
+
+    if len(problematic) > 0:
+        problematic['failure_reason'] = problematic.apply(get_failure_reason, axis=1)
+
     return problematic
 
 
+# =============================================================================
+# 10. Save Processed Data
+# =============================================================================
 def save_processed_spectra(
     processed_spectra: Dict,
     grid: np.ndarray,
@@ -332,7 +867,7 @@ def save_processed_spectra(
 ) -> None:
     """
     Save processed spectra to CSV file.
-    
+
     Parameters
     ----------
     processed_spectra : dict
@@ -348,13 +883,12 @@ def save_processed_spectra(
         row = {
             "group": group,
             "sample_id": sid,
-            "replicate": rep
+            "replicate": rep,
         }
-        # Add intensity values
         for i, x_val in enumerate(grid):
             row[f"x_{x_val:.2f}"] = y_proc[i]
         data.append(row)
-    
+
     df = pd.DataFrame(data)
     df.to_csv(output_path, index=False)
     logger.info(f"Processed spectra saved to {output_path}")

@@ -1,346 +1,828 @@
 """
 Quality control functions for SERS spectroscopy.
 
-This module contains QC functions for:
-- Signal-to-noise ratio (SNR) calculation
-- Replicate correlation analysis
-- Medoid selection for representative spectra
-- Outlier detection
+QC Pipeline (3 levels):
+    Level 0: Intensity Gate       → "Did SERS enhancement work?"
+    Level 1: Replicate RSD        → "Is intensity reproducible?"
+    Level 1: Replicate Correlation → "Is spectral shape consistent?"
+
+QC Philosophy:
+    SERS urine spectra are metabolite superpositions — not isolated peaks.
+    Traditional SNR/SBR metrics FAIL for biofluid SERS because:
+      - Higher-quality instruments resolve MORE substrate features
+      - This paradoxically DECREASES SNR/SBR metrics
+      - Replicate variance captures true measurement noise better
+
+    Our approach:
+      - Intensity Gate: adaptive threshold catches SERS enhancement failure
+      - Replicate RSD: measures intensity reproducibility (normalized by max)
+      - Replicate Correlation: measures spectral shape consistency
+
+QC Thresholds (from QCConfig):
+    - Intensity gate ratio: 0.1 (fp_mean < median × 0.1 → enhancement failure)
+    - Replicate RSD < 5%: Good measurement reproducibility
+    - Replicate Correlation > 0.95: Consistent spectral patterns
+
+Reference:
+    - KIMS (재료연) standard: Fingerprint region 400-2200 cm⁻¹
+
+Changelog:
+    v0.5.0 (2026-02) - Add intensity gate, remove SNR/SBR
+    v0.4.0 (2026-02) - Replicate-only QC (deprecated SNR)
+    v0.1.0 (2025-01) - Initial release with SNR
 """
 
-from typing import Dict, List, Tuple
-import numpy as np
-from scipy.spatial.distance import pdist, squareform
+from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
+from scipy.spatial.distance import pdist, squareform
+
+if TYPE_CHECKING:
+    from ..config import QCConfig
 
 logger = logging.getLogger(__name__)
 
 
-def calculate_snr(
+# =============================================================================
+# Default Thresholds (fallback when QCConfig not provided)
+# =============================================================================
+DEFAULT_RSD_THRESHOLD = 5.0
+DEFAULT_CORR_THRESHOLD = 0.95
+DEFAULT_INTENSITY_GATE_RATIO = 0.1
+FINGERPRINT_REGION = (400.0, 2200.0)
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+def interpolate_to_grid(
+    x: np.ndarray,
     y: np.ndarray,
-    signal_region: Tuple[int, int] = None,
-    noise_region: Tuple[int, int] = None
-) -> float:
-    """
-    Calculate Signal-to-Noise Ratio (SNR).
-    
-    SNR = max(signal) / std(noise)
-    
-    If regions not specified, uses:
-    - Signal: maximum value in spectrum
-    - Noise: std of entire spectrum
-    
+    common_grid: np.ndarray,
+) -> np.ndarray:
+    """Interpolate a single spectrum onto a common wavenumber grid.
+
     Parameters
     ----------
+    x : np.ndarray
+        Original wavenumber values.
     y : np.ndarray
-        Spectrum intensity
-    signal_region : tuple of int, optional
-        (start, end) indices for signal region
-    noise_region : tuple of int, optional
-        (start, end) indices for noise region
-        
+        Original intensity values.
+    common_grid : np.ndarray
+        Target wavenumber grid.
+
     Returns
     -------
-    float
-        Signal-to-noise ratio
+    np.ndarray
+        Interpolated intensity values on common_grid.
     """
-    if signal_region is not None:
-        signal = y[signal_region[0]:signal_region[1]].max()
-    else:
-        signal = y.max()
-    
-    if noise_region is not None:
-        noise = y[noise_region[0]:noise_region[1]].std()
-    else:
-        noise = y.std()
-    
-    if noise < 1e-10:
-        logger.warning("Noise is near zero, SNR undefined")
-        return np.inf
-    
-    return signal / noise
+    f = interp1d(x, y, kind="linear", bounds_error=False, fill_value="extrapolate")
+    return f(common_grid)
 
 
-def filter_by_snr(
-    spectra_dict: Dict,
-    min_snr: float = 10.0
-) -> Dict:
-    """
-    Filter spectra by minimum SNR threshold.
-    
+def group_spectra_by_sample(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    common_grid: np.ndarray,
+) -> Dict[Tuple[str, str], List[Tuple[str, np.ndarray]]]:
+    """Group spectra by (group, sample_id), interpolating to common grid.
+
     Parameters
     ----------
-    spectra_dict : dict
-        Dictionary with keys (group, sample_id, replicate) -> y_values
-    min_snr : float
-        Minimum acceptable SNR
-        
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    common_grid : np.ndarray
+        Common wavenumber grid.
+
     Returns
     -------
     dict
-        Filtered dictionary with only spectra passing SNR threshold
+        Keys (group, sample_id) → list of (replicate, y_interpolated)
     """
-    filtered = {}
-    rejected_count = 0
-    
-    for key, y in spectra_dict.items():
-        snr = calculate_snr(y)
-        
-        if snr >= min_snr:
-            filtered[key] = y
+    samples: Dict[Tuple[str, str], List[Tuple[str, np.ndarray]]] = {}
+    for (group, sid, rep), (x, y) in spectra.items():
+        key = (group, sid)
+        y_interp = interpolate_to_grid(x, y, common_grid)
+        samples.setdefault(key, []).append((rep, y_interp))
+    return samples
+
+
+# =============================================================================
+# Level 0: Intensity Gate
+# =============================================================================
+def calculate_intensity_gate(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    fingerprint_region: Tuple[float, float] = FINGERPRINT_REGION,
+    intensity_gate_ratio: float = DEFAULT_INTENSITY_GATE_RATIO,
+) -> pd.DataFrame:
+    """Calculate intensity gate for each spectrum.
+
+    The intensity gate is an adaptive threshold that catches catastrophic
+    SERS enhancement failures.  For each spectrum, the mean intensity in
+    the fingerprint region (``fp_mean``) is computed.  The global median
+    of all ``fp_mean`` values defines the reference.  Spectra with
+    ``fp_mean < median × intensity_gate_ratio`` are flagged.
+
+    Parameters
+    ----------
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    fingerprint_region : tuple of float
+        (min, max) wavenumber for analysis.
+    intensity_gate_ratio : float
+        Fraction of median below which spectra are flagged (default 0.1).
+
+    Returns
+    -------
+    pd.DataFrame
+        Per-spectrum gate results:
+        - group, sample_id, replicate
+        - fp_mean: mean intensity in fingerprint region
+        - gate_threshold: adaptive threshold (median × ratio)
+        - gate_pass: bool
+
+    Notes
+    -----
+    Why 0.1?
+        - Normal equipment variation: fp_mean / median ≈ 0.45–0.56
+        - Enhancement failure: fp_mean / median < 0.1
+        - ratio=0.1 catches catastrophic failures without flagging
+          normal measurement variation.
+    """
+    results = []
+    fp_means = []
+
+    for (group, sid, rep), (x, y) in spectra.items():
+        mask = (x >= fingerprint_region[0]) & (x <= fingerprint_region[1])
+        if mask.any():
+            fp_mean = float(np.mean(np.abs(y[mask])))
         else:
-            group, sample_id, replicate = key
+            fp_mean = float(np.mean(np.abs(y)))
             logger.warning(
-                f"Rejected {group}-{sample_id}-{replicate}: SNR={snr:.2f} < {min_snr}"
+                f"No data in fingerprint region for {group}-{sid}-{rep}, "
+                f"using full spectrum"
             )
-            rejected_count += 1
-    
+        fp_means.append(fp_mean)
+        results.append({
+            "group": group,
+            "sample_id": sid,
+            "replicate": rep,
+            "fp_mean": fp_mean,
+        })
+
+    # Adaptive threshold: median × ratio
+    median_fp = float(np.median(fp_means)) if fp_means else 0.0
+    threshold = median_fp * intensity_gate_ratio
+
+    for row in results:
+        row["gate_threshold"] = threshold
+        row["gate_pass"] = row["fp_mean"] >= threshold
+
+    df = pd.DataFrame(results)
+    n_fail = int((~df["gate_pass"]).sum())
     logger.info(
-        f"SNR filter: kept {len(filtered)}/{len(spectra_dict)} spectra "
-        f"({rejected_count} rejected)"
+        f"Intensity gate: {n_fail}/{len(df)} spectra failed "
+        f"(threshold={threshold:.2f}, median={median_fp:.2f}, "
+        f"ratio={intensity_gate_ratio})"
     )
-    
-    return filtered
+    return df
 
 
-def filter_by_correlation(
-    spectra_dict: Dict,
-    min_correlation: float = 0.90,
-    by_sample: bool = True
-) -> Dict:
-    """
-    Filter replicates by correlation with their median.
-    
-    For each sample, computes median spectrum and removes replicates
-    with correlation below threshold.
-    
+def filter_by_intensity_gate(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    gate_df: Optional[pd.DataFrame] = None,
+    fingerprint_region: Tuple[float, float] = FINGERPRINT_REGION,
+    intensity_gate_ratio: float = DEFAULT_INTENSITY_GATE_RATIO,
+) -> Tuple[Dict, List[Tuple]]:
+    """Remove spectra that fail the intensity gate.
+
     Parameters
     ----------
-    spectra_dict : dict
-        Dictionary with keys (group, sample_id, replicate) -> y_values
-    min_correlation : float
-        Minimum acceptable correlation
-    by_sample : bool
-        If True, filter within each sample's replicates
-        If False, filter globally
-        
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    gate_df : pd.DataFrame, optional
+        Pre-computed gate results from calculate_intensity_gate().
+        If None, computed internally.
+    fingerprint_region : tuple of float
+    intensity_gate_ratio : float
+
     Returns
     -------
-    dict
-        Filtered dictionary
+    filtered : dict
+        Spectra that passed the gate.
+    rejected : list of tuple
+        Keys of rejected spectra.
     """
-    if not by_sample:
-        # Global filtering not implemented yet
-        logger.warning("Global correlation filtering not implemented, using by_sample=True")
-    
-    # Group by (group, sample_id)
-    samples = {}
-    for key, y in spectra_dict.items():
-        group, sample_id, replicate = key
-        sample_key = (group, sample_id)
-        
-        if sample_key not in samples:
-            samples[sample_key] = []
-        samples[sample_key].append((key, y))
-    
+    if gate_df is None:
+        gate_df = calculate_intensity_gate(
+            spectra, fingerprint_region, intensity_gate_ratio
+        )
+
+    # Build set of passing keys
+    passing_keys = set()
+    for _, row in gate_df.iterrows():
+        if row["gate_pass"]:
+            passing_keys.add((row["group"], row["sample_id"], row["replicate"]))
+
     filtered = {}
-    rejected_count = 0
-    
+    rejected = []
+    for key, value in spectra.items():
+        if key in passing_keys:
+            filtered[key] = value
+        else:
+            rejected.append(key)
+
+    logger.info(
+        f"Intensity gate filter: kept {len(filtered)}/{len(spectra)} "
+        f"({len(rejected)} rejected)"
+    )
+    return filtered, rejected
+
+
+# =============================================================================
+# Level 1: Replicate Reproducibility
+# =============================================================================
+def calculate_replicate_qc(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    common_grid: np.ndarray,
+    fingerprint_region: Tuple[float, float] = FINGERPRINT_REGION,
+) -> pd.DataFrame:
+    """Calculate replicate reproducibility metrics for each sample.
+
+    Measures: "Are repeated measurements consistent?"
+
+    Parameters
+    ----------
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    common_grid : np.ndarray
+        Common wavenumber grid for interpolation.
+    fingerprint_region : tuple of float
+        Region for focused RSD analysis (default: 400–2200 cm⁻¹).
+
+    Returns
+    -------
+    pd.DataFrame
+        Per-sample QC statistics:
+        - group, sample_id, n_reps
+        - mean_rsd, median_rsd, max_rsd, rsd_fingerprint
+        - mean_corr, min_corr
+
+    Notes
+    -----
+    RSD (Relative Standard Deviation) = (std / max_intensity) × 100
+
+    Why RSD instead of CV?
+        Baseline-corrected spectra have regions near zero or negative.
+        Traditional CV (std/mean) explodes when mean ≈ 0.
+        RSD normalises by max intensity, staying stable across all regions.
+
+    Correlation = Pearson correlation between all replicate pairs.
+    """
+    samples = group_spectra_by_sample(spectra, common_grid)
+    fp_mask = (common_grid >= fingerprint_region[0]) & (
+        common_grid <= fingerprint_region[1]
+    )
+
+    stats = []
+    for (group, sid), replicate_list in samples.items():
+        n_reps = len(replicate_list)
+        if n_reps < 2:
+            logger.warning(f"Sample {group}-{sid}: {n_reps} replicate(s), skipping")
+            continue
+
+        spectra_arr = [y for _, y in replicate_list]
+        matrix = np.vstack(spectra_arr)
+
+        # RSD
+        mean_spec = matrix.mean(axis=0)
+        std_spec = matrix.std(axis=0, ddof=1)
+        max_intensity = mean_spec.max()
+
+        if max_intensity > 1e-10:
+            rsd = (std_spec / max_intensity) * 100
+        else:
+            rsd = np.zeros_like(std_spec)
+            logger.warning(f"Sample {group}-{sid}: near-zero max intensity")
+
+        rsd_fp = float(rsd[fp_mask].mean()) if fp_mask.any() else float(rsd.mean())
+
+        # Pairwise correlations
+        correlations = []
+        for i in range(n_reps):
+            for j in range(i + 1, n_reps):
+                corr = np.corrcoef(spectra_arr[i], spectra_arr[j])[0, 1]
+                if not np.isnan(corr):
+                    correlations.append(corr)
+
+        mean_corr = float(np.mean(correlations)) if correlations else np.nan
+        min_corr = float(np.min(correlations)) if correlations else np.nan
+
+        stats.append({
+            "group": group,
+            "sample_id": sid,
+            "n_reps": n_reps,
+            "mean_rsd": float(rsd.mean()),
+            "median_rsd": float(np.median(rsd)),
+            "max_rsd": float(rsd.max()),
+            "rsd_fingerprint": rsd_fp,
+            "mean_corr": mean_corr,
+            "min_corr": min_corr,
+        })
+
+    df = pd.DataFrame(stats)
+    if len(df) > 0:
+        logger.info(
+            f"Replicate QC: {len(df)} samples | "
+            f"RSD={df['mean_rsd'].mean():.2f}% | "
+            f"Corr={df['mean_corr'].mean():.4f}"
+        )
+    return df
+
+
+# =============================================================================
+# Failure Identification
+# =============================================================================
+def identify_qc_failures(
+    qc_stats: pd.DataFrame,
+    rsd_threshold: float = DEFAULT_RSD_THRESHOLD,
+    corr_threshold: float = DEFAULT_CORR_THRESHOLD,
+) -> pd.DataFrame:
+    """Identify samples that fail QC criteria.
+
+    Parameters
+    ----------
+    qc_stats : pd.DataFrame
+        Output from calculate_replicate_qc().
+    rsd_threshold : float
+        Maximum acceptable mean RSD (%), default 5.0.
+    corr_threshold : float
+        Minimum acceptable correlation, default 0.95.
+
+    Returns
+    -------
+    pd.DataFrame
+        Failed samples with ``failure_reason`` column.
+    """
+    if len(qc_stats) == 0:
+        return pd.DataFrame()
+
+    conditions = pd.Series(False, index=qc_stats.index)
+
+    if "mean_rsd" in qc_stats.columns:
+        conditions |= qc_stats["mean_rsd"] > rsd_threshold
+    if "mean_corr" in qc_stats.columns:
+        conditions |= qc_stats["mean_corr"] < corr_threshold
+
+    failed = qc_stats[conditions].copy()
+
+    if len(failed) > 0:
+        def _reason(row):
+            reasons = []
+            if "mean_rsd" in row and row["mean_rsd"] > rsd_threshold:
+                reasons.append(f"High RSD ({row['mean_rsd']:.1f}% > {rsd_threshold}%)")
+            if "mean_corr" in row and row["mean_corr"] < corr_threshold:
+                reasons.append(
+                    f"Low corr ({row['mean_corr']:.3f} < {corr_threshold})"
+                )
+            return "; ".join(reasons) if reasons else "Unknown"
+
+        failed["failure_reason"] = failed.apply(_reason, axis=1)
+
+    logger.info(
+        f"QC failures: {len(failed)}/{len(qc_stats)} samples "
+        f"({100 * len(failed) / max(len(qc_stats), 1):.1f}%)"
+    )
+    return failed
+
+
+def summarize_qc_by_group(qc_stats: pd.DataFrame) -> pd.DataFrame:
+    """Summarize QC statistics by group.
+
+    Parameters
+    ----------
+    qc_stats : pd.DataFrame
+        Output from calculate_replicate_qc().
+
+    Returns
+    -------
+    pd.DataFrame
+        Group-level summary with count, mean, std, min/max of key metrics.
+    """
+    if len(qc_stats) == 0:
+        return pd.DataFrame()
+
+    agg_dict = {"sample_id": "count"}
+    if "mean_rsd" in qc_stats.columns:
+        agg_dict["mean_rsd"] = ["mean", "std", "max"]
+    if "mean_corr" in qc_stats.columns:
+        agg_dict["mean_corr"] = ["mean", "std", "min"]
+
+    summary = qc_stats.groupby("group").agg(agg_dict).round(3)
+    summary.columns = [
+        "_".join(col).strip("_") if isinstance(col, tuple) else col
+        for col in summary.columns
+    ]
+    summary = summary.rename(columns={"sample_id_count": "n_samples"})
+    return summary
+
+
+# =============================================================================
+# Analysis: Variance Convergence
+# =============================================================================
+def calculate_variance_convergence(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    common_grid: np.ndarray,
+    max_reps: Optional[int] = None,
+) -> pd.DataFrame:
+    """Analyse how variance converges with increasing replicate count.
+
+    Answers: "How many replicates do we need?"
+
+    Parameters
+    ----------
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    common_grid : np.ndarray
+    max_reps : int, optional
+        Maximum replicates to analyse (default: all available).
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: n_reps, mean_rsd, std_rsd, mean_corr, n_samples
+    """
+    samples = group_spectra_by_sample(spectra, common_grid)
+    # Flatten to lists only
+    sample_spectra = {k: [y for _, y in v] for k, v in samples.items()}
+
+    max_available = max(len(v) for v in sample_spectra.values()) if sample_spectra else 0
+    if max_reps is None:
+        max_reps = max_available
+    else:
+        max_reps = min(max_reps, max_available)
+
+    results = []
+    for n in range(2, max_reps + 1):
+        rsds, corrs = [], []
+        for spec_list in sample_spectra.values():
+            if len(spec_list) < n:
+                continue
+            subset = spec_list[:n]
+            matrix = np.vstack(subset)
+            mean_spec = matrix.mean(axis=0)
+            std_spec = matrix.std(axis=0, ddof=1)
+            max_i = mean_spec.max()
+            if max_i > 1e-10:
+                rsds.append(float((std_spec / max_i * 100).mean()))
+            for i in range(n):
+                for j in range(i + 1, n):
+                    c = np.corrcoef(subset[i], subset[j])[0, 1]
+                    if not np.isnan(c):
+                        corrs.append(c)
+
+        results.append({
+            "n_reps": n,
+            "mean_rsd": np.mean(rsds) if rsds else np.nan,
+            "std_rsd": np.std(rsds) if rsds else np.nan,
+            "mean_corr": np.mean(corrs) if corrs else np.nan,
+            "n_samples": len(rsds),
+        })
+    return pd.DataFrame(results)
+
+
+# =============================================================================
+# Filtering: Correlation
+# =============================================================================
+def filter_by_correlation(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    common_grid: np.ndarray,
+    min_correlation: float = 0.90,
+    reference: str = "median",
+) -> Tuple[Dict, List[Tuple]]:
+    """Filter replicates by correlation with reference spectrum.
+
+    Parameters
+    ----------
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    common_grid : np.ndarray
+    min_correlation : float
+    reference : str
+        ``"median"`` or ``"mean"``
+
+    Returns
+    -------
+    filtered : dict   — spectra passing threshold (original x, y)
+    rejected : list    — keys of rejected spectra
+    """
+    # Group with originals preserved
+    samples: Dict[Tuple, List[Tuple]] = {}
+    for key, (x, y) in spectra.items():
+        group, sid, rep = key
+        sample_key = (group, sid)
+        y_interp = interpolate_to_grid(x, y, common_grid)
+        samples.setdefault(sample_key, []).append((key, y_interp, (x, y)))
+
+    filtered, rejected = {}, []
     for sample_key, replicate_list in samples.items():
         if len(replicate_list) < 2:
-            # Keep single replicates
-            filtered[replicate_list[0][0]] = replicate_list[0][1]
+            key, _, orig = replicate_list[0]
+            filtered[key] = orig
             continue
-        
-        # Compute median spectrum
-        spectra_matrix = np.vstack([y for _, y in replicate_list])
-        median_spectrum = np.median(spectra_matrix, axis=0)
-        
-        # Check correlation with median
-        for key, y in replicate_list:
-            corr = np.corrcoef(y, median_spectrum)[0, 1]
-            
+
+        y_matrix = np.vstack([yi for _, yi, _ in replicate_list])
+        ref = (
+            np.median(y_matrix, axis=0)
+            if reference == "median"
+            else np.mean(y_matrix, axis=0)
+        )
+
+        for key, y_interp, orig in replicate_list:
+            corr = np.corrcoef(y_interp, ref)[0, 1]
             if corr >= min_correlation:
-                filtered[key] = y
+                filtered[key] = orig
             else:
-                group, sample_id, replicate = key
-                logger.warning(
-                    f"Rejected {group}-{sample_id}-{replicate}: "
-                    f"correlation={corr:.3f} < {min_correlation}"
-                )
-                rejected_count += 1
-    
+                rejected.append(key)
+                logger.debug(f"Rejected {key}: corr={corr:.3f} < {min_correlation}")
+
     logger.info(
-        f"Correlation filter: kept {len(filtered)}/{len(spectra_dict)} spectra "
-        f"({rejected_count} rejected)"
+        f"Correlation filter: kept {len(filtered)}/{len(spectra)} "
+        f"({len(rejected)} rejected)"
     )
-    
-    return filtered
+    return filtered, rejected
 
 
+# =============================================================================
+# Aggregation: Medoid Selection
+# =============================================================================
 def find_medoid(
     spectra_list: List[np.ndarray],
-    metric: str = "correlation"
+    metric: str = "correlation",
 ) -> int:
-    """
-    Find medoid (most representative) spectrum from a list.
-    
-    The medoid is the spectrum with minimum total distance to all others.
-    
+    """Find medoid (most representative) spectrum.
+
+    The medoid minimises total distance to all other spectra.
+
     Parameters
     ----------
     spectra_list : list of np.ndarray
-        List of spectra (all same length)
+        Spectra of equal length.
     metric : str
-        Distance metric:
-        - "correlation": 1 - correlation
-        - "euclidean": Euclidean distance
-        - "cosine": Cosine distance
-        
+        ``"correlation"``, ``"euclidean"``, or ``"cosine"``
+
     Returns
     -------
     int
-        Index of medoid spectrum
+        Index of medoid spectrum.
     """
-    if len(spectra_list) == 1:
+    if len(spectra_list) <= 1:
         return 0
-    
-    # Stack spectra into matrix
-    spectra_matrix = np.vstack(spectra_list)
-    
-    # Compute pairwise distances
+
+    n = len(spectra_list)
     if metric == "correlation":
-        # Compute correlation distances
-        n = len(spectra_list)
-        dist_matrix = np.zeros((n, n))
-        
+        dist = np.zeros((n, n))
         for i in range(n):
             for j in range(i + 1, n):
-                corr = np.corrcoef(spectra_list[i], spectra_list[j])[0, 1]
-                dist = 1 - corr
-                dist_matrix[i, j] = dist
-                dist_matrix[j, i] = dist
+                c = np.corrcoef(spectra_list[i], spectra_list[j])[0, 1]
+                d = 1 - c if not np.isnan(c) else 1.0
+                dist[i, j] = d
+                dist[j, i] = d
     else:
-        # Use scipy's pdist
-        distances = pdist(spectra_matrix, metric=metric)
-        dist_matrix = squareform(distances)
-    
-    # Find spectrum with minimum total distance
-    total_distances = dist_matrix.sum(axis=1)
-    medoid_idx = np.argmin(total_distances)
-    
-    return medoid_idx
+        dist = squareform(pdist(np.vstack(spectra_list), metric=metric))
+
+    return int(np.argmin(dist.sum(axis=1)))
 
 
 def select_medoid_spectra(
-    spectra_dict: Dict
-) -> Dict:
-    """
-    Select medoid spectrum for each sample.
-    
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    common_grid: np.ndarray,
+    metric: str = "correlation",
+) -> Dict[Tuple[str, str], np.ndarray]:
+    """Select medoid spectrum for each sample.
+
     Parameters
     ----------
-    spectra_dict : dict
-        Dictionary with keys (group, sample_id, replicate) -> y_values
-        
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    common_grid : np.ndarray
+    metric : str
+
     Returns
     -------
     dict
-        Dictionary with keys (group, sample_id) -> y_medoid
+        Keys (group, sample_id) → y_medoid on common_grid
     """
-    # Group by (group, sample_id)
-    samples = {}
-    for key, y in spectra_dict.items():
-        group, sample_id, replicate = key
-        sample_key = (group, sample_id)
-        
-        if sample_key not in samples:
-            samples[sample_key] = []
-        samples[sample_key].append((key, y))
-    
-    medoid_spectra = {}
-    
+    samples = group_spectra_by_sample(spectra, common_grid)
+    medoids = {}
+
     for sample_key, replicate_list in samples.items():
         if len(replicate_list) == 1:
-            # Only one replicate, use it
-            medoid_spectra[sample_key] = replicate_list[0][1]
+            medoids[sample_key] = replicate_list[0][1]
         else:
-            # Find medoid
-            spectra_list = [y for _, y in replicate_list]
-            medoid_idx = find_medoid(spectra_list, metric="correlation")
-            medoid_spectra[sample_key] = spectra_list[medoid_idx]
-            
-            # Log which replicate was selected
-            selected_key = replicate_list[medoid_idx][0]
-            logger.debug(f"Medoid for {sample_key}: replicate {selected_key[2]}")
-    
-    logger.info(f"Selected {len(medoid_spectra)} medoid spectra")
-    
-    return medoid_spectra
+            spec_list = [y for _, y in replicate_list]
+            idx = find_medoid(spec_list, metric=metric)
+            medoids[sample_key] = spec_list[idx]
+            logger.debug(
+                f"Medoid for {sample_key}: replicate {replicate_list[idx][0]}"
+            )
+
+    logger.info(f"Selected {len(medoids)} medoid spectra")
+    return medoids
 
 
+# =============================================================================
+# Detection: Outliers
+# =============================================================================
 def detect_outliers(
-    spectra_dict: Dict,
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
     method: str = "zscore",
-    threshold: float = 3.0
+    threshold: float = 3.0,
+    feature: str = "mean_intensity",
 ) -> List[Tuple]:
-    """
-    Detect outlier spectra.
-    
+    """Detect outlier spectra based on intensity statistics.
+
     Parameters
     ----------
-    spectra_dict : dict
-        Dictionary with keys (group, sample_id, replicate) -> y_values
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
     method : str
-        Outlier detection method:
-        - "zscore": Z-score on mean intensity
-        - "iqr": Interquartile range
+        ``"zscore"`` or ``"iqr"``
     threshold : float
-        Threshold for outlier detection
-        
+        Z-score threshold (default 3.0) or IQR multiplier.
+    feature : str
+        ``"mean_intensity"`` or ``"max_intensity"``
+
     Returns
     -------
-    list of tuple
-        List of keys for outlier spectra
+    list
+        Keys of outlier spectra.
     """
-    # Calculate mean intensity for each spectrum
-    mean_intensities = {}
-    for key, y in spectra_dict.items():
-        mean_intensities[key] = y.mean()
-    
-    values = np.array(list(mean_intensities.values()))
-    
+    feature_values = {}
+    for key, (x, y) in spectra.items():
+        if feature == "mean_intensity":
+            feature_values[key] = float(y.mean())
+        elif feature == "max_intensity":
+            feature_values[key] = float(y.max())
+        else:
+            raise ValueError(f"Unknown feature: {feature}. Use 'mean_intensity' or 'max_intensity'.")
+
+    values = np.array(list(feature_values.values()))
+    outliers = []
+
     if method == "zscore":
-        # Z-score method
-        mean = values.mean()
-        std = values.std()
-        
-        outliers = []
-        for key, value in mean_intensities.items():
-            z_score = abs(value - mean) / std if std > 0 else 0
-            if z_score > threshold:
+        mean, std = values.mean(), values.std()
+        for key, val in feature_values.items():
+            z = abs(val - mean) / std if std > 0 else 0
+            if z > threshold:
                 outliers.append(key)
-                logger.warning(f"Outlier detected: {key}, z-score={z_score:.2f}")
-    
+                logger.debug(f"Outlier {key}: z={z:.2f}")
+
     elif method == "iqr":
-        # IQR method
-        q1 = np.percentile(values, 25)
-        q3 = np.percentile(values, 75)
+        q1, q3 = np.percentile(values, [25, 75])
         iqr = q3 - q1
-        
-        lower_bound = q1 - threshold * iqr
-        upper_bound = q3 + threshold * iqr
-        
-        outliers = []
-        for key, value in mean_intensities.items():
-            if value < lower_bound or value > upper_bound:
+        lo, hi = q1 - threshold * iqr, q3 + threshold * iqr
+        for key, val in feature_values.items():
+            if val < lo or val > hi:
                 outliers.append(key)
-                logger.warning(f"Outlier detected: {key}, value={value:.2e}")
-    
+                logger.debug(f"Outlier {key}: value={val:.2e}")
     else:
-        raise ValueError(f"Unknown outlier detection method: {method}")
-    
-    logger.info(f"Detected {len(outliers)} outliers")
-    
+        raise ValueError(f"Unknown method: {method}. Use 'zscore' or 'iqr'.")
+
+    logger.info(f"Detected {len(outliers)} outliers ({method} on {feature})")
     return outliers
+
+
+# =============================================================================
+# Full QC Pipeline
+# =============================================================================
+def run_qc_pipeline(
+    spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    common_grid: np.ndarray,
+    qc_config: Optional["QCConfig"] = None,
+    *,
+    rsd_threshold: Optional[float] = None,
+    corr_threshold: Optional[float] = None,
+    intensity_gate_ratio: Optional[float] = None,
+    fingerprint_region: Optional[Tuple[float, float]] = None,
+    save_report: Optional[str] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Run complete QC pipeline: Intensity Gate → Replicate QC → Failures.
+
+    Parameters
+    ----------
+    spectra : dict
+        Keys (group, sample_id, replicate) → (x, y)
+    common_grid : np.ndarray
+    qc_config : QCConfig, optional
+        Canonical source of thresholds.  Individual kwargs override.
+    rsd_threshold : float, optional
+    corr_threshold : float, optional
+    intensity_gate_ratio : float, optional
+    fingerprint_region : tuple of float, optional
+    save_report : str, optional
+        Path to save text report.
+
+    Returns
+    -------
+    gate_df : pd.DataFrame
+        Per-spectrum intensity gate results.
+    qc_stats : pd.DataFrame
+        Per-sample replicate QC statistics.
+    failures : pd.DataFrame
+        Samples that failed QC.
+    group_summary : pd.DataFrame
+        Group-level summary.
+    """
+    # Resolve thresholds: explicit kwargs → qc_config → defaults
+    _rsd = rsd_threshold
+    _corr = corr_threshold
+    _gate = intensity_gate_ratio
+    _fp = fingerprint_region
+
+    if qc_config is not None:
+        if _rsd is None:
+            _rsd = qc_config.rsd_threshold
+        if _corr is None:
+            _corr = qc_config.corr_threshold
+        if _gate is None:
+            _gate = qc_config.intensity_gate_ratio
+        if _fp is None:
+            _fp = qc_config.fingerprint_region
+
+    _rsd = _rsd if _rsd is not None else DEFAULT_RSD_THRESHOLD
+    _corr = _corr if _corr is not None else DEFAULT_CORR_THRESHOLD
+    _gate = _gate if _gate is not None else DEFAULT_INTENSITY_GATE_RATIO
+    _fp = _fp if _fp is not None else FINGERPRINT_REGION
+
+    logger.info("=" * 60)
+    logger.info("Running QC Pipeline")
+    logger.info("=" * 60)
+    logger.info(f"  Fingerprint region: {_fp} cm⁻¹")
+    logger.info(f"  Intensity gate ratio: {_gate}")
+    logger.info(f"  RSD threshold: < {_rsd}%")
+    logger.info(f"  Correlation threshold: > {_corr}")
+    logger.info(f"  Total spectra: {len(spectra)}")
+
+    # --- Level 0: Intensity Gate ---
+    gate_df = calculate_intensity_gate(spectra, _fp, _gate)
+    n_gate_fail = int((~gate_df["gate_pass"]).sum())
+
+    # --- Level 1: Replicate QC (on ALL spectra, gate info is metadata) ---
+    qc_stats = calculate_replicate_qc(spectra, common_grid, _fp)
+
+    # --- Failure identification ---
+    failures = identify_qc_failures(qc_stats, rsd_threshold=_rsd, corr_threshold=_corr)
+
+    # --- Group summary ---
+    group_summary = summarize_qc_by_group(qc_stats)
+
+    # --- Logging ---
+    n_total = len(qc_stats)
+    n_fail = len(failures)
+    logger.info("\n" + "=" * 40)
+    logger.info("QC Summary")
+    logger.info("=" * 40)
+    logger.info(f"  Intensity gate failures: {n_gate_fail}/{len(gate_df)} spectra")
+    logger.info(f"  Replicate QC: {n_total} samples")
+    logger.info(f"  Passed: {n_total - n_fail}")
+    logger.info(f"  Failed: {n_fail} ({100 * n_fail / max(n_total, 1):.1f}%)")
+    if "mean_rsd" in qc_stats.columns and len(qc_stats) > 0:
+        logger.info(
+            f"  Mean RSD: {qc_stats['mean_rsd'].mean():.2f} ± "
+            f"{qc_stats['mean_rsd'].std():.2f}%"
+        )
+    if "mean_corr" in qc_stats.columns and len(qc_stats) > 0:
+        logger.info(
+            f"  Mean Corr: {qc_stats['mean_corr'].mean():.4f} ± "
+            f"{qc_stats['mean_corr'].std():.4f}"
+        )
+
+    # --- Report ---
+    if save_report:
+        with open(save_report, "w", encoding="utf-8") as f:
+            f.write("SERS QC Report\n")
+            f.write("=" * 60 + "\n\n")
+            f.write(f"Fingerprint region: {_fp} cm⁻¹\n\n")
+            f.write("Thresholds:\n")
+            f.write(f"  - Intensity gate ratio: {_gate}\n")
+            f.write(f"  - RSD < {_rsd}%\n")
+            f.write(f"  - Correlation > {_corr}\n\n")
+            f.write("Results:\n")
+            f.write(f"  - Total spectra: {len(spectra)}\n")
+            f.write(f"  - Intensity gate failures: {n_gate_fail}\n")
+            f.write(f"  - Total samples: {n_total}\n")
+            f.write(f"  - Passed: {n_total - n_fail}\n")
+            f.write(f"  - Failed: {n_fail}\n\n")
+            f.write("Group Summary:\n")
+            f.write(group_summary.to_string() + "\n\n")
+            if len(failures) > 0:
+                f.write("Failed Samples:\n")
+                f.write(failures.to_string() + "\n")
+        logger.info(f"Report saved to {save_report}")
+
+    return gate_df, qc_stats, failures, group_summary
