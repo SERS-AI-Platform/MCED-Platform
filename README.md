@@ -26,11 +26,8 @@ pip install -e ".[all]"
 # Validate input files
 sers validate -i data/raw
 
-# Run full pipeline
-sers run -i data/raw -o results/ -c config.yaml
-
-# Quiet mode
-sers run -i data/raw -o results/ -q
+# Run pipeline
+sers run -i data/raw -o results/
 ```
 
 ### Python API
@@ -57,7 +54,7 @@ print(result.qc_report.head())
 
 ## Configuration
 
-Copy `config.yaml.example` to `config.yaml` and adjust:
+Update `config.yaml` as needed:
 
 ```yaml
 dataset:
@@ -101,17 +98,27 @@ docker run \
 
 ```
 sers-analysis/
-├── src/sers/           # Main package
-│   ├── config.py       # Configuration management
-│   ├── io.py           # File I/O
-│   ├── preprocessing.py # Signal processing
-│   ├── qc.py           # Quality control
-│   ├── analysis.py     # Pipeline orchestration
-│   └── cli.py          # Command-line interface
-├── tests/              # Unit tests
-├── config.yaml         # User configuration
-├── pyproject.toml      # Package metadata
-└── Dockerfile          # Container deployment
+├── src/sers/                         # Main package
+│   ├── __init__.py
+│   ├── analysis.py                   # Pipeline orchestration
+│   ├── cli.py                        # Command-line interface
+│   ├── config.py                     # Configuration management
+│   ├── io.py                         # File I/O
+│   ├── preprocessing.py              # Signal processing
+│   ├── signal.py
+│   ├── visualization.py
+│   ├── qc/
+│   │   ├── __init__.py
+│   │   └── qc.py                     # Quality control module
+│   └── validation/protocol/
+│       └── variance_convergence.py
+├── models/
+│   ├── model.py
+│   ├── test.py
+│   └── train.py
+├── config.yaml                       # User configuration
+├── pyproject.toml                    # Package metadata
+└── Dockerfile                        # Container deployment
 ```
 
 ## Development
@@ -120,11 +127,8 @@ sers-analysis/
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run tests
-pytest
-
-# Run tests with coverage
-pytest --cov=sers
+# Run available test asset
+python models/test.py
 
 # Lint
 ruff check src/
@@ -132,6 +136,8 @@ ruff check src/
 # Type check
 mypy src/
 ```
+
+Automated `tests/`-based pytest suite is not yet included in this repository (예정).
 
 ## License
 
