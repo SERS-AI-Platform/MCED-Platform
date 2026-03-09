@@ -32,11 +32,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 import torch
+import torch.nn.functional as F
 from sklearn.metrics import (
     accuracy_score, f1_score, precision_score, recall_score,
     roc_auc_score, roc_curve, auc,
     confusion_matrix,
 )
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import f_classif, mutual_info_classif
 from sklearn.manifold import TSNE
 
 import warnings
@@ -414,7 +417,111 @@ def plot_tsne(emb, groups, bl, path):
 
 
 # =============================================================================
-# 7. Summary Table
+# 7. Feature Selection & Grad-CAM
+# =============================================================================
+def run_feature_selection(X, y, out_dir, title, top_k=30):
+    mi = mutual_info_classif(X, y, random_state=42)
+    f_score, _ = f_classif(X, y)
+    rf = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
+    rf.fit(X, y)
+    rf_imp = rf.feature_importances_
+
+    df = pd.DataFrame({
+        "feature": [f"x_{i}" for i in range(X.shape[1])],
+        "mi": mi,
+        "f_score": f_score,
+        "rf_importance": rf_imp,
+    })
+
+    for col in ["mi", "f_score", "rf_importance"]:
+        df[f"rank_{col}"] = df[col].rank(ascending=False, method="min")
+    df["rank_mean"] = df[["rank_mi", "rank_f_score", "rank_rf_importance"]].mean(axis=1)
+    df = df.sort_values("rank_mean").reset_index(drop=True)
+    df.to_csv(out_dir / "feature_scores.csv", index=False)
+
+    top_df = df.head(min(top_k, len(df))).sort_values("rank_mean", ascending=False)
+    fig, ax = plt.subplots(figsize=(9, 8))
+    ax.barh(top_df["feature"], top_df["rank_mean"], color="#5dade2")
+    ax.set_title(f"{title} — Top Features (ensemble rank)")
+    ax.set_xlabel("Mean rank (lower is better)")
+    plt.tight_layout(); fig.savefig(out_dir / "top_features.png"); plt.close()
+    return df
+
+
+def run_one_vs_rest_feature_selection(X, y_multiclass, names, out_dir, top_k=20):
+    rows = []
+    for idx, name in enumerate(names):
+        y_bin = (y_multiclass == idx).astype(int)
+        if y_bin.sum() < 5:
+            continue
+        class_dir = out_dir / f"ovr_{name}"
+        class_dir.mkdir(parents=True, exist_ok=True)
+        df = run_feature_selection(X, y_bin, class_dir, f"{name} vs Rest", top_k=top_k)
+        best = df.iloc[0]
+        rows.append({"class": name, "best_feature": best["feature"], "best_rank_mean": best["rank_mean"]})
+    if rows:
+        pd.DataFrame(rows).to_csv(out_dir / "ovr_feature_summary.csv", index=False)
+
+
+def run_gradcam_1d(model, X, out_dir, stage="binary", class_idx=None, max_samples=128):
+    n_samples = min(max_samples, len(X))
+    if n_samples == 0:
+        return
+    X = X[:n_samples]
+    device = next(model.parameters()).device
+    layer = model.encoder.layer4
+
+    activations, gradients = [], []
+
+    def f_hook(_, __, output):
+        activations.append(output)
+
+    def b_hook(_, __, grad_output):
+        gradients.append(grad_output[0])
+
+    h1 = layer.register_forward_hook(f_hook)
+    h2 = layer.register_full_backward_hook(b_hook)
+
+    cams = []
+    model.eval()
+    for i in range(0, n_samples, 32):
+        xb = torch.FloatTensor(X[i:i+32]).to(device)
+        model.zero_grad(set_to_none=True)
+        out = model(xb)
+        if stage == "binary":
+            score = out["binary_logit"].squeeze(-1)
+            title = "Grad-CAM (Binary: Cancer vs Non-cancer)"
+            out_name = "gradcam_binary.png"
+        else:
+            score = out["cancer_logits"][:, class_idx]
+            title = f"Grad-CAM (Class: {class_idx})"
+            out_name = f"gradcam_class_{class_idx}.png"
+        score.sum().backward()
+
+        act = activations.pop()
+        grad = gradients.pop()
+        w = grad.mean(dim=2, keepdim=True)
+        cam = torch.relu((w * act).sum(dim=1))
+        cam = F.interpolate(cam.unsqueeze(1), size=X.shape[1], mode="linear", align_corners=False).squeeze(1)
+        cams.append(cam.detach().cpu().numpy())
+
+    h1.remove(); h2.remove()
+    cam_mean = np.concatenate(cams, axis=0).mean(axis=0)
+    if cam_mean.max() > 0:
+        cam_mean = cam_mean / cam_mean.max()
+    np.save(out_dir / out_name.replace(".png", ".npy"), cam_mean)
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(np.arange(len(cam_mean)), cam_mean, color="#e74c3c", lw=2)
+    ax.set_title(title)
+    ax.set_xlabel("Feature index (x_i)")
+    ax.set_ylabel("Normalized importance")
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout(); fig.savefig(out_dir / out_name); plt.close()
+
+
+# =============================================================================
+# 8. Summary Table
 # =============================================================================
 def summary_table(data, summary, opt_t, out_dir):
     ct = summary["cancer_types"]
@@ -454,13 +561,17 @@ def summary_table(data, summary, opt_t, out_dir):
 
 
 # =============================================================================
-# 8. Main
+# 9. Main
 # =============================================================================
 def parse_args():
     p = argparse.ArgumentParser(description="SERS ResNet18-1D Evaluation")
     p.add_argument("--input", "-i", default="results/training")
     p.add_argument("--device", default="auto")
     p.add_argument("--no-shap", action="store_true")
+    p.add_argument("--no-feature-selection", action="store_true")
+    p.add_argument("--no-gradcam", action="store_true")
+    p.add_argument("--top-k-features", type=int, default=30)
+    p.add_argument("--gradcam-samples", type=int, default=128)
     p.add_argument("--shap-samples", type=int, default=100)
     p.add_argument("--shap-explain", type=int, default=200)
     return p.parse_args()
@@ -561,6 +672,25 @@ def main():
         thresh_rows.append(m)
     pd.DataFrame(thresh_rows).to_csv(met_dir / "threshold_sweep.csv", index=False)
 
+    # ── Feature Selection ──
+    if not args.no_feature_selection:
+        logger.info("\n[Feature Selection] Running binary + multiclass analysis...")
+        fs_dir = eval_dir / "feature_selection"
+        fs_bin = fs_dir / "binary"
+        fs_multi = fs_dir / "multiclass"
+        fs_ovr = fs_dir / "one_vs_rest"
+        for d in [fs_bin, fs_multi, fs_ovr]:
+            d.mkdir(parents=True, exist_ok=True)
+
+        fs_binary = run_feature_selection(X[valid], bl[valid], fs_bin, "Binary", top_k=args.top_k_features)
+        fs_binary.head(args.top_k_features).to_csv(fs_bin / "top_features.csv", index=False)
+
+        if cm.sum() > 0:
+            run_feature_selection(X[valid][cm], vct[cm], fs_multi, "Multiclass", top_k=args.top_k_features)
+            run_one_vs_rest_feature_selection(X[valid][cm], vct[cm], cancer_types, fs_ovr, top_k=min(args.top_k_features, 20))
+    else:
+        logger.info("\n[Feature Selection] Skipped (--no-feature-selection)")
+
     # ── SHAP ──
     if not args.no_shap:
         logger.info("\n[SHAP] Computing...")
@@ -584,6 +714,20 @@ def main():
             cancer_exp = bl[exp_idx] == 1
             if cancer_exp.sum() > 10:
                 run_shap_s2(model, X_bg, X_exp[cancer_exp], cancer_types, device, s2_dir)
+
+            if not args.no_gradcam:
+                logger.info("\n[Grad-CAM] Computing saliency maps...")
+                run_gradcam_1d(model, X[valid], s1_dir, stage="binary", max_samples=args.gradcam_samples)
+                if cm.sum() > 0:
+                    for idx in sorted(set(vct[cm])):
+                        run_gradcam_1d(
+                            model,
+                            X[valid][cm][vct[cm] == idx],
+                            s2_dir,
+                            stage="multiclass",
+                            class_idx=int(idx),
+                            max_samples=args.gradcam_samples,
+                        )
         else:
             logger.warning("  No checkpoints found")
     else:
