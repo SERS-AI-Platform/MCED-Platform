@@ -279,6 +279,35 @@ class ResNet1DEncoder(nn.Module):
         return x.squeeze(-1)
 
 
+class ShallowCNN1DEncoder(nn.Module):
+    """Compact 1D CNN encoder for baseline comparison."""
+
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv1d(1, 32, kernel_size=7, padding=3, bias=False),
+            nn.BatchNorm1d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Conv1d(32, 64, kernel_size=5, padding=2, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Conv1d(64, 128, kernel_size=5, padding=2, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool1d(1),
+        )
+        self.projection = nn.Linear(128, config.encoder_output_dim)
+        self.output_dim = config.encoder_output_dim
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        x = self.features(x).squeeze(-1)
+        return self.projection(x)
+
+
 # =============================================================================
 # Classification Heads (wider for 512-dim input)
 # =============================================================================
@@ -434,6 +463,29 @@ class SERSCancerDetector(nn.Module):
         )
 
 
+class CNN1DCancerDetector(SERSCancerDetector):
+    """Two-stage shallow 1D CNN model for baseline comparison."""
+
+    def __init__(self, config: ModelConfig):
+        nn.Module.__init__(self)
+        self.config = config
+
+        self.encoder = ShallowCNN1DEncoder(config)
+        enc_dim = self.encoder.output_dim
+
+        self.binary_head = BinaryHead(
+            enc_dim, config.head_hidden_dim, config.dropout_rate
+        )
+        self.cancer_type_head = CancerTypeHead(
+            enc_dim, config.n_cancer_types, config.head_hidden_dim, config.dropout_rate
+        )
+
+        self.register_buffer(
+            "cancer_thresholds",
+            torch.full((config.n_cancer_types,), config.default_threshold),
+        )
+
+
 # =============================================================================
 # Loss Function
 # =============================================================================
@@ -533,7 +585,17 @@ class SERSDataset(torch.utils.data.Dataset):
 # =============================================================================
 # Utilities
 # =============================================================================
-def model_summary(model: SERSCancerDetector) -> str:
+def build_model(model_name: str, config: ModelConfig) -> nn.Module:
+    """Factory for torch-based SERS models."""
+    model_name = str(model_name).lower()
+    if model_name in {"resnet18", "resnet", "sers_resnet18"}:
+        return SERSCancerDetector(config)
+    if model_name in {"cnn1d", "cnn", "shallow_cnn"}:
+        return CNN1DCancerDetector(config)
+    raise ValueError(f"Unsupported torch model: {model_name}")
+
+
+def model_summary(model: nn.Module) -> str:
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     cfg = model.config

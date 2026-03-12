@@ -1,5 +1,5 @@
 """
-SERS Spectroscopy Analysis Package
+SERS Spectroscopy Analysis Package.
 
 A comprehensive package for SERS (Surface-Enhanced Raman Spectroscopy) data analysis,
 including preprocessing, quality control, and machine learning pipelines.
@@ -9,34 +9,36 @@ __version__ = "0.1.0"
 __author__ = "SOLUM Healthcare"
 
 # Configuration
-from .config import load_config, Config
+from .config import Config, load_config
 
 # I/O operations
-from .io import (
-    read_spectrum,
-    parse_filename,
-    find_spectra,
-    make_common_grid,
-    SpectrumID
-)
+from .io import SpectrumID, find_spectra, make_common_grid, parse_filename, read_spectrum
 
 # Signal processing
-from .signal import (
-    smooth,
-    baseline_correction,
-    snv
-)
+from .signal import baseline_correction, resample, smooth, snv
 
 # Quality control
-#from .qc import ()
+from .qc import (
+    calculate_intensity_gate,
+    calculate_replicate_qc,
+    calculate_variance_convergence,
+    detect_outliers,
+    filter_by_correlation,
+    filter_by_intensity_gate,
+    find_medoid,
+    identify_qc_failures,
+    run_qc_pipeline,
+    select_medoid_spectra,
+    summarize_qc_by_group,
+)
 
 # Preprocessing pipeline
 from .preprocessing import (
-    preprocess_spectra,
-    calculate_replicate_variance,
     calculate_group_variance,
+    calculate_replicate_variance,
     identify_problematic_samples,
-    save_processed_spectra
+    preprocess_spectra,
+    save_processed_spectra,
 )
 
 # Data analysis and exploration
@@ -44,63 +46,77 @@ from .analysis import (
     analyze_dataset_structure,
     check_data_completeness,
     generate_dataset_report,
-    get_group_statistics
+    get_group_statistics,
 )
-
-# Visualization
 from .visualization import (
-    visualize_raw_spectra,
-    visualize_preprocessed_spectra_by_replicate,
-    visualize_raw_spectra_by_sample,
-
-    plot_sample_distribution_pie,
-    plot_spectra_count_bar,
-    # heatmap
-    plot_variance_heatmap 
+    build_mean_spectrum_profile,
+    build_shap_spectrum_profile,
+    compute_gradient_shap_values,
+    plot_binary_shap_summary,
+    plot_class_shap_summary,
+    plot_cancer_peak_difference,
+    plot_group_peak_difference,
+    plot_mean_spectrum,
+    plot_mean_spectra_overlay,
+    plot_multiclass_shap_summary,
+    plot_shap_feature_importance_bar,
+    plot_shap_mean_magnitude_spectrum,
+    plot_shap_mean_signed_spectrum,
+    summarize_shap_feature_importance,
 )
+
 
 __all__ = [
     # Config
-    'load_config',
-    'Config',
-    
+    "load_config",
+    "Config",
     # I/O
-    'read_spectrum',
-    'parse_filename',
-    'find_spectra',
-    'make_common_grid',
-    'SpectrumID',
-    
+    "read_spectrum",
+    "parse_filename",
+    "find_spectra",
+    "make_common_grid",
+    "SpectrumID",
     # Signal processing
-    'smooth',
-    'baseline_correction',
-    'snv',
-    'normalize',
-    'resample',
-    
+    "smooth",
+    "baseline_correction",
+    "snv",
+    "resample",
     # QC
-    'filter_by_snr',
-    'filter_by_correlation',
-    'find_medoid',
-    'calculate_snr',
-    
+    "calculate_intensity_gate",
+    "filter_by_intensity_gate",
+    "calculate_replicate_qc",
+    "identify_qc_failures",
+    "summarize_qc_by_group",
+    "calculate_variance_convergence",
+    "filter_by_correlation",
+    "find_medoid",
+    "select_medoid_spectra",
+    "detect_outliers",
+    "run_qc_pipeline",
     # Preprocessing
-    'preprocess_spectra',
-    'calculate_replicate_variance',
-    'calculate_group_variance',
-    'identify_problematic_samples',
-    'save_processed_spectra',
-    
-    # Analysis
-    'analyze_dataset_structure',
-    'check_data_completeness',
-    'generate_dataset_report',
-    'get_group_statistics',
-    
+    "preprocess_spectra",
+    "calculate_replicate_variance",
+    "calculate_group_variance",
+    "identify_problematic_samples",
+    "save_processed_spectra",
     # Visualization
-    'visualize_preprocessing',
-    'plot_replicate_variance_by_group',
-    'plot_variance_heatmap',
-    'plot_cv_boxplot',
-    'plot_group_variance_summary',
+    "plot_cancer_peak_difference",
+    "plot_group_peak_difference",
+    "build_mean_spectrum_profile",
+    "build_shap_spectrum_profile",
+    "compute_gradient_shap_values",
+    "plot_binary_shap_summary",
+    "plot_class_shap_summary",
+    "plot_mean_spectrum",
+    "plot_mean_spectra_overlay",
+    "plot_multiclass_shap_summary",
+    "plot_shap_feature_importance_bar",
+    "plot_shap_mean_magnitude_spectrum",
+    "plot_shap_mean_signed_spectrum",
+    "summarize_shap_feature_importance",
+    # Analysis
+    "analyze_dataset_structure",
+    "check_data_completeness",
+    "generate_dataset_report",
+    "get_group_statistics",
 ]

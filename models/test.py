@@ -1,5 +1,5 @@
-"""
-SERS Cancer Detection — Evaluation & Visualization (ResNet18-1D)
+﻿"""
+SERS Cancer Detection ??Evaluation & Visualization (ResNet18-1D)
 
 Two-stage: Binary + Cancer Type (7: PRO, BRE, OVA, LUN, CRC, CPAN, SPAN)
 
@@ -8,10 +8,10 @@ Usage:
     python test.py -i results/training --no-shap
 
 Output (results/training/evaluation/):
-    metrics/   — summary, per-group, threshold sweep
-    stage1/    — ROC, confusion, distribution, train vs val, SHAP
-    stage2/    — per-type ROC, confusion, bar chart, train vs val, SHAP
-    embedding/ — t-SNE
+    metrics/   ??summary, per-group, threshold sweep
+    stage1/    ??ROC, confusion, distribution, train vs val, SHAP
+    stage2/    ??per-type ROC, confusion, bar chart, train vs val, SHAP
+    embedding/ ??t-SNE
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime
+import re
 
 import numpy as np
 import pandas as pd
@@ -45,7 +46,29 @@ from sklearn.manifold import TSNE
 import warnings
 warnings.filterwarnings("ignore")
 
-from model import ModelConfig, SERSCancerDetector
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from models.model import ModelConfig, build_model
+except ImportError:
+    from model import ModelConfig, build_model
+from src.sers.visualization import (
+    build_mean_spectrum_profile,
+    build_shap_spectrum_profile,
+    compute_gradient_shap_values,
+    plot_binary_shap_summary,
+    plot_class_shap_summary,
+    plot_mean_spectrum,
+    plot_mean_spectra_overlay,
+    plot_multiclass_shap_summary,
+    plot_group_peak_difference,
+    plot_shap_feature_importance_bar,
+    plot_shap_mean_magnitude_spectrum,
+    plot_shap_mean_signed_spectrum,
+    summarize_shap_feature_importance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -154,16 +177,44 @@ def plot_roc_s1(yt, yp, path):
     ax.plot(fpr, tpr, color="#c0392b", lw=2.5, label=f"ROC (AUC = {a:.4f})")
     ax.plot([0, 1], [0, 1], "k--", alpha=0.3)
     ax.scatter(fpr[oi], tpr[oi], s=120, c="gold", edgecolors="black",
-               zorder=5, label=f"Optimal (J={j:.3f}, τ={opt_t:.3f})")
-    ax.set(xlabel="1 − Specificity", ylabel="Sensitivity",
+               zorder=5, label=f"Optimal (J={j:.3f}, ?={opt_t:.3f})")
+    ax.set(xlabel="1 ??Specificity", ylabel="Sensitivity",
            title="Stage 1: Cancer vs Non-cancer (ResNet18-1D)")
     ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.02, 1.02)
     ax.legend(loc="lower right", fontsize=11); ax.grid(True, alpha=0.3)
-    ax.text(0.55, 0.12, f"τ={opt_t:.3f}\nSens={tpr[oi]:.3f}\nSpec={1-fpr[oi]:.3f}",
+    ax.text(0.55, 0.12, f"?={opt_t:.3f}\nSens={tpr[oi]:.3f}\nSpec={1-fpr[oi]:.3f}",
             transform=ax.transAxes, fontsize=10,
             bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.9))
     plt.tight_layout(); fig.savefig(path); plt.close()
     return opt_t
+
+
+def plot_tsne_3d(emb, groups, bl, path):
+    logger.info("  t-SNE (3D)...")
+    try:
+        tsne = TSNE(n_components=3, random_state=42, perplexity=min(30, len(emb) - 1))
+        co = tsne.fit_transform(emb)
+    except Exception as exc:
+        logger.warning(f"  t-SNE skipped: {exc}")
+        return
+
+    fig = plt.figure(figsize=(18, 8))
+    ax1 = fig.add_subplot(1, 2, 1, projection="3d")
+    ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+
+    for label, c, name in [(0, "#3498db", "Non-cancer"), (1, "#e74c3c", "Cancer")]:
+        m = bl == label
+        ax1.scatter(co[m, 0], co[m, 1], co[m, 2], c=c, s=12, alpha=0.5, label=f"{name} (n={m.sum()})")
+    ax1.set_title("t-SNE - Binary")
+    ax1.legend(fontsize=9)
+
+    for g in sorted(set(groups)):
+        m = groups == g
+        ax2.scatter(co[m, 0], co[m, 1], co[m, 2], c=GROUP_COLORS.get(g, "#999"),
+                    s=12, alpha=0.5, label=f"{g} (n={m.sum()})")
+    ax2.set_title("t-SNE - All Groups")
+    ax2.legend(fontsize=7, ncol=2)
+    plt.tight_layout(); fig.savefig(path); plt.close(fig)
 
 
 def plot_cm_s1(yt, yp, t, path):
@@ -174,11 +225,11 @@ def plot_cm_s1(yt, yp, t, path):
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.5))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=axes[0],
                 xticklabels=labels, yticklabels=labels, cbar=False, annot_kws={"size": 16})
-    axes[0].set(xlabel="Predicted", ylabel="True", title=f"Counts (τ={t:.3f})")
+    axes[0].set(xlabel="Predicted", ylabel="True", title=f"Counts (?={t:.3f})")
     sns.heatmap(cn, annot=True, fmt=".2%", cmap="Blues", ax=axes[1],
                 xticklabels=labels, yticklabels=labels, cbar=False, annot_kws={"size": 16}, vmin=0, vmax=1)
     axes[1].set(xlabel="Predicted", ylabel="True", title="Normalized")
-    plt.suptitle("Stage 1 — Confusion Matrix", fontsize=14, fontweight="bold")
+    plt.suptitle("Stage 1 ??Confusion Matrix", fontsize=14, fontweight="bold")
     plt.tight_layout(); fig.savefig(path); plt.close()
 
 
@@ -189,8 +240,8 @@ def plot_dist(yt, yp, t, path):
             label=f"Non-cancer (n={(yt==0).sum()})", density=True, edgecolor="white")
     ax.hist(yp[yt == 1], bins=bins, alpha=0.55, color="#e74c3c",
             label=f"Cancer (n={(yt==1).sum()})", density=True, edgecolor="white")
-    ax.axvline(t, color="black", ls="--", lw=1.5, label=f"τ={t:.3f}")
-    ax.set(xlabel="P(Cancer)", ylabel="Density", title="Stage 1 — Prediction Distribution")
+    ax.axvline(t, color="black", ls="--", lw=1.5, label=f"?={t:.3f}")
+    ax.set(xlabel="P(Cancer)", ylabel="Density", title="Stage 1 ??Prediction Distribution")
     ax.legend(); ax.grid(True, alpha=0.3)
     plt.tight_layout(); fig.savefig(path); plt.close()
 
@@ -224,7 +275,7 @@ def plot_roc_s2(yt, yl, names, path):
         ax.plot(fpr, tpr, lw=2, color=GROUP_COLORS.get(name),
                 label=f"{name} (n={bg.sum()}, AUC={a:.3f})")
     ax.plot([0, 1], [0, 1], "k--", alpha=0.3)
-    ax.set(xlabel="FPR", ylabel="TPR", title="Stage 2 — Per-Cancer ROC (OvR)")
+    ax.set(xlabel="FPR", ylabel="TPR", title="Stage 2 ??Per-Cancer ROC (OvR)")
     ax.legend(fontsize=9, loc="lower right"); ax.grid(True, alpha=0.3)
     ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.02, 1.02)
     plt.tight_layout(); fig.savefig(path); plt.close()
@@ -244,7 +295,7 @@ def plot_cm_s2(yt, yl, names, path):
     sns.heatmap(cn, annot=True, fmt=".1%", cmap="Oranges", ax=axes[1],
                 xticklabels=ns, yticklabels=ns, cbar=False, annot_kws={"size": 11}, vmin=0, vmax=1)
     axes[1].set(xlabel="Predicted", ylabel="True", title="Normalized")
-    plt.suptitle("Stage 2 — Cancer Type Confusion (7-class)", fontsize=14, fontweight="bold")
+    plt.suptitle("Stage 2 ??Cancer Type Confusion (7-class)", fontsize=14, fontweight="bold")
     plt.tight_layout(); fig.savefig(path); plt.close()
 
 
@@ -271,7 +322,7 @@ def plot_bars_s2(yt, yl, names, path):
     ax.bar(x + w, df["auc"], w, label="AUC (OvR)", color="#2ecc71", alpha=0.8)
     ax.set_xticks(x)
     ax.set_xticklabels([f"{r['type']}\n(n={r['n']})" for _, r in df.iterrows()])
-    ax.set(ylabel="Score", title="Stage 2 — Per-Type Metrics"); ax.legend()
+    ax.set(ylabel="Score", title="Stage 2 ??Per-Type Metrics"); ax.legend()
     ax.grid(True, axis="y", alpha=0.3); ax.set_ylim(0, 1.05)
     plt.tight_layout(); fig.savefig(path); plt.close()
     return df
@@ -298,19 +349,14 @@ def plot_train_val_s2(tct, tcl, vct, vcl, names, path):
         ax.set_title(name); ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
     for j in range(len(present), len(axes)):
         axes[j].set_visible(False)
-    fig.suptitle("Stage 2 — Train vs Val per Cancer Type", fontsize=14, fontweight="bold")
+    fig.suptitle("Stage 2 ??Train vs Val per Cancer Type", fontsize=14, fontweight="bold")
     plt.tight_layout(); fig.savefig(path); plt.close()
 
 
 # =============================================================================
 # 5. SHAP
 # =============================================================================
-def run_shap_s1(model, X_bg, X_exp, device, out_dir):
-    try:
-        import shap
-    except ImportError:
-        logger.warning("shap not installed"); return
-
+def run_shap_s1(model, X_bg, X_exp, device, out_dir, feature_names):
     logger.info("  SHAP Stage 1...")
     import torch.nn as nn
 
@@ -323,32 +369,205 @@ def run_shap_s1(model, X_bg, X_exp, device, out_dir):
 
     w = W(model).to(device)
     try:
-        e = shap.GradientExplainer(w, torch.FloatTensor(X_bg).to(device))
-        sv = e.shap_values(torch.FloatTensor(X_exp).to(device))
-        if isinstance(sv, list): sv = sv[0]
-        sv = np.array(sv)
-
-        mean_abs = np.abs(sv).mean(axis=0)
-        top_k = min(30, len(mean_abs))
-        top_idx = np.argsort(mean_abs)[-top_k:][::-1]
-        shap.summary_plot(sv[:, top_idx], X_exp[:, top_idx],
-                          feature_names=[f"x_{i}" for i in top_idx],
-                          show=False, max_display=top_k)
-        plt.title("Stage 1 — SHAP (Top 30 Wavenumbers)")
-        plt.tight_layout()
-        plt.savefig(out_dir / "shap_summary.png", dpi=150); plt.close()
+        sv = compute_gradient_shap_values(w, X_bg, X_exp, device)
+        sv = plot_binary_shap_summary(
+            sv,
+            X_exp,
+            out_dir / "shap_summary.png",
+            feature_names=feature_names,
+            top_k=30,
+            title="Stage 1 - SHAP (Top 30 Wavenumbers)",
+        )
         np.save(out_dir / "shap_values_s1.npy", sv)
-        logger.info(f"    Saved: {sv.shape}")
+        logger.info(f"    Saved: {np.asarray(sv).shape}")
     except Exception as e:
         logger.warning(f"    Failed: {e}")
 
 
-def run_shap_s2(model, X_bg, X_exp, cancer_types, device, out_dir):
-    try:
-        import shap
-    except ImportError:
-        return
+def build_feature_names(n_features):
+    return [f"x_{i}" for i in range(n_features)]
 
+
+def resolve_feature_names(processed_csv, n_features):
+    if not processed_csv:
+        return build_feature_names(n_features)
+
+    csv_path = Path(processed_csv)
+    if not csv_path.is_absolute():
+        csv_path = PROJECT_ROOT / csv_path
+
+    if not csv_path.exists():
+        logger.warning(f"  Processed spectra CSV not found: {csv_path}. Falling back to feature indices.")
+        return build_feature_names(n_features)
+
+    try:
+        columns = pd.read_csv(csv_path, nrows=0).columns.tolist()
+    except Exception as exc:
+        logger.warning(f"  Failed to read feature names from {csv_path}: {exc}")
+        return build_feature_names(n_features)
+
+    feature_names = [col for col in columns if str(col).startswith("x_")]
+    if len(feature_names) != n_features:
+        logger.warning(
+            f"  Feature count mismatch between SHAP input ({n_features}) and {csv_path} ({len(feature_names)}). "
+            "Falling back to feature indices."
+        )
+        return build_feature_names(n_features)
+    return feature_names
+
+
+def sanitize_output_name(name):
+    cleaned = "".join(ch.lower() if ch.isalnum() else "_" for ch in str(name))
+    return cleaned.strip("_") or "class"
+
+
+def sample_shap_inputs(X, valid_mask, shap_samples, shap_explain, seed=42):
+    rng = np.random.RandomState(seed)
+    n_bg = min(shap_samples, len(X))
+    X_bg = X[rng.choice(len(X), n_bg, replace=False)]
+
+    valid_idx = np.flatnonzero(valid_mask)
+    if len(valid_idx) == 0:
+        return X_bg, np.empty((0, X.shape[1]), dtype=X.dtype), np.array([], dtype=int)
+
+    n_exp = min(shap_explain, len(valid_idx))
+    exp_idx = rng.choice(valid_idx, n_exp, replace=False)
+    return X_bg, X[exp_idx], exp_idx
+
+
+def save_shap_outputs_by_diagnosis(sv_list, X_exp, y_exp, cancer_types, out_dir, feature_names, top_k=20):
+    diagnosis_dir = out_dir / "by_diagnosis"
+    diagnosis_dir.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    n_classes = min(len(sv_list), len(cancer_types))
+    for class_idx in range(n_classes):
+        class_mask = y_exp == class_idx
+        if not class_mask.any():
+            continue
+
+        class_name = cancer_types[class_idx]
+        class_dir = diagnosis_dir / sanitize_output_name(class_name)
+        class_dir.mkdir(parents=True, exist_ok=True)
+
+        class_sv = np.asarray(sv_list[class_idx])[class_mask]
+        class_x = X_exp[class_mask]
+        profile_df = build_shap_spectrum_profile(class_sv, feature_names=feature_names)
+        profile_df.insert(0, "diagnosis", class_name)
+        profile_df.insert(1, "n_samples", int(class_mask.sum()))
+        profile_df.to_csv(class_dir / "shap_spectrum_profile.csv", index=False)
+
+        plot_class_shap_summary(
+            class_sv,
+            class_x,
+            class_dir / "shap_summary.png",
+            feature_names=feature_names,
+            top_k=top_k,
+            title=f"{class_name} - SHAP Summary",
+        )
+
+        importance_df = summarize_shap_feature_importance(
+            class_sv,
+            feature_names=feature_names,
+            top_k=top_k,
+        )
+        importance_df.insert(0, "diagnosis", class_name)
+        importance_df.insert(1, "n_samples", int(class_mask.sum()))
+        importance_df.to_csv(class_dir / "feature_importance.csv", index=False)
+
+        plot_shap_feature_importance_bar(
+            importance_df,
+            class_dir / "feature_importance.png",
+            title=f"{class_name} - SHAP Feature Importance",
+            color=GROUP_COLORS.get(class_name, "#c0392b"),
+        )
+        plot_shap_mean_magnitude_spectrum(
+            class_sv,
+            class_dir / "mean_abs_shap_spectrum.png",
+            feature_names=feature_names,
+            title=f"{class_name} - Mean |SHAP| Spectrum",
+            color=GROUP_COLORS.get(class_name, "#c0392b"),
+        )
+        plot_shap_mean_signed_spectrum(
+            class_sv,
+            class_dir / "mean_shap_spectrum.png",
+            feature_names=feature_names,
+            title=f"{class_name} - Mean SHAP Spectrum",
+        )
+
+        np.save(class_dir / "shap_values.npy", class_sv)
+        rows.append(importance_df)
+
+    if rows:
+        pd.concat(rows, ignore_index=True).to_csv(
+            out_dir / "feature_importance_by_diagnosis.csv",
+            index=False,
+        )
+
+
+def save_mean_spectra_by_diagnosis(X_val, y_val, cancer_types, out_dir, feature_names):
+    diagnosis_dir = out_dir / "by_diagnosis"
+    diagnosis_dir.mkdir(parents=True, exist_ok=True)
+
+    feature_cols = list(feature_names)
+    spectra_df = pd.DataFrame(np.asarray(X_val), columns=feature_cols)
+    spectra_df["group"] = [cancer_types[idx] for idx in y_val]
+
+    spectra_by_class = []
+    class_names = []
+
+    for class_idx, class_name in enumerate(cancer_types):
+        class_mask = y_val == class_idx
+        if not class_mask.any():
+            continue
+
+        class_dir = diagnosis_dir / sanitize_output_name(class_name)
+        class_dir.mkdir(parents=True, exist_ok=True)
+        class_x = np.asarray(X_val[class_mask])
+
+        profile_df = build_mean_spectrum_profile(class_x, feature_names=feature_names)
+        profile_df.insert(0, "diagnosis", class_name)
+        profile_df.insert(1, "n_samples", int(class_mask.sum()))
+        profile_df.to_csv(class_dir / "mean_spectrum.csv", index=False)
+
+        plot_mean_spectrum(
+            class_x,
+            class_dir / "mean_spectrum.png",
+            feature_names=feature_names,
+            title=f"{class_name} - Mean Spectrum",
+            color=GROUP_COLORS.get(class_name, "#c0392b"),
+        )
+
+        reference_groups = [name for name in cancer_types if name != class_name and (y_val == cancer_types.index(name)).any()]
+        if reference_groups:
+            diff_df = plot_group_peak_difference(
+                spectra_df,
+                class_dir / "peak_difference_vs_rest.png",
+                target_group=class_name,
+                reference_groups=reference_groups,
+                group_col="group",
+                top_k=20,
+                title=f"{class_name} vs Other Diagnoses Peak Difference",
+                target_color=GROUP_COLORS.get(class_name, "#c0392b"),
+            )
+            diff_df.to_csv(class_dir / "peak_difference_vs_rest.csv", index=False)
+
+        spectra_by_class.append(class_x)
+        class_names.append(class_name)
+
+    if spectra_by_class:
+        overlay_df = plot_mean_spectra_overlay(
+            spectra_by_class,
+            class_names,
+            out_dir / "mean_spectra_overlay.png",
+            feature_names=feature_names,
+            colors=[GROUP_COLORS.get(name, "#999999") for name in class_names],
+            title="Stage 2 - Mean Spectra by Diagnosis",
+        )
+        overlay_df.to_csv(out_dir / "mean_spectra_overlay.csv", index=False)
+
+
+def run_shap_s2(model, X_bg, X_exp, y_exp, cancer_types, device, out_dir, feature_names):
     logger.info("  SHAP Stage 2...")
     import torch.nn as nn
 
@@ -361,34 +580,31 @@ def run_shap_s2(model, X_bg, X_exp, cancer_types, device, out_dir):
 
     w = W(model).to(device)
     try:
-        e = shap.GradientExplainer(w, torch.FloatTensor(X_bg).to(device))
-        sv = e.shap_values(torch.FloatTensor(X_exp).to(device))
-        if isinstance(sv, list):
-            nc = len(sv)
-        else:
-            nc = sv.shape[-1]; sv = [sv[:, :, c] for c in range(nc)]
-
-        nt = min(nc, len(cancer_types))
-        cols = min(4, nt); rows_n = (nt + cols - 1) // cols
-        fig, axes = plt.subplots(rows_n, cols, figsize=(5 * cols, 4.5 * rows_n))
-        axes = np.array(axes).flatten() if nt > 1 else np.array([axes])
-
-        for c in range(nt):
-            plt.sca(axes[c])
-            s = np.array(sv[c])
-            ma = np.abs(s).mean(axis=0)
-            tk = min(20, len(ma))
-            ti = np.argsort(ma)[-tk:][::-1]
-            shap.summary_plot(s[:, ti], X_exp[:, ti],
-                              feature_names=[f"x_{i}" for i in ti],
-                              show=False, max_display=tk, plot_size=None)
-            axes[c].set_title(cancer_types[c])
-        for j in range(nt, len(axes)):
-            axes[j].set_visible(False)
-        fig.suptitle("Stage 2 — SHAP per Cancer Type", fontsize=14, fontweight="bold")
-        plt.tight_layout()
-        fig.savefig(out_dir / "shap_summary.png", dpi=150); plt.close()
-        logger.info(f"    Saved: {nt} types")
+        sv = compute_gradient_shap_values(w, X_bg, X_exp, device)
+        sv_list = plot_multiclass_shap_summary(
+            sv,
+            X_exp,
+            cancer_types,
+            out_dir / "shap_summary.png",
+            feature_names=feature_names,
+            top_k=20,
+            title="Stage 2 - SHAP per Cancer Type",
+        )
+        save_shap_outputs_by_diagnosis(
+            sv_list,
+            X_exp,
+            y_exp,
+            cancer_types,
+            out_dir,
+            feature_names,
+            top_k=20,
+        )
+        np.save(
+            out_dir / "shap_values_s2.npy",
+            np.array(sv_list, dtype=object),
+            allow_pickle=True,
+        )
+        logger.info(f"    Saved: {len(sv_list)} types")
     except Exception as e:
         logger.warning(f"    Failed: {e}")
 
@@ -398,20 +614,24 @@ def run_shap_s2(model, X_bg, X_exp, cancer_types, device, out_dir):
 # =============================================================================
 def plot_tsne(emb, groups, bl, path):
     logger.info("  t-SNE...")
-    tsne = TSNE(n_components=2, random_state=42, perplexity=min(30, len(emb) - 1))
-    co = tsne.fit_transform(emb)
+    try:
+        tsne = TSNE(n_components=2, random_state=42, perplexity=min(30, len(emb) - 1))
+        co = tsne.fit_transform(emb)
+    except Exception as exc:
+        logger.warning(f"  t-SNE skipped: {exc}")
+        return
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 7))
     for label, c, name in [(0, "#3498db", "Non-cancer"), (1, "#e74c3c", "Cancer")]:
         m = bl == label
         axes[0].scatter(co[m, 0], co[m, 1], c=c, s=15, alpha=0.5, label=f"{name} (n={m.sum()})")
-    axes[0].set_title("t-SNE — Binary"); axes[0].legend(fontsize=9); axes[0].grid(True, alpha=0.2)
+    axes[0].set_title("t-SNE ??Binary"); axes[0].legend(fontsize=9); axes[0].grid(True, alpha=0.2)
 
     for g in sorted(set(groups)):
         m = groups == g
         axes[1].scatter(co[m, 0], co[m, 1], c=GROUP_COLORS.get(g, "#999"),
                         s=15, alpha=0.5, label=f"{g} (n={m.sum()})")
-    axes[1].set_title("t-SNE — All Groups (11)")
+    axes[1].set_title("t-SNE ??All Groups (11)")
     axes[1].legend(fontsize=7, ncol=2); axes[1].grid(True, alpha=0.2)
     plt.tight_layout(); fig.savefig(path); plt.close()
 
@@ -442,7 +662,7 @@ def run_feature_selection(X, y, out_dir, title, top_k=30):
     top_df = df.head(min(top_k, len(df))).sort_values("rank_mean", ascending=False)
     fig, ax = plt.subplots(figsize=(9, 8))
     ax.barh(top_df["feature"], top_df["rank_mean"], color="#5dade2")
-    ax.set_title(f"{title} — Top Features (ensemble rank)")
+    ax.set_title(f"{title} ??Top Features (ensemble rank)")
     ax.set_xlabel("Mean rank (lower is better)")
     plt.tight_layout(); fig.savefig(out_dir / "top_features.png"); plt.close()
     return df
@@ -563,10 +783,62 @@ def summary_table(data, summary, opt_t, out_dir):
 # =============================================================================
 # 9. Main
 # =============================================================================
+def _version_sort_key(path: Path):
+    match = re.fullmatch(r"v(\d+)", path.name.lower())
+    return int(match.group(1)) if match else -1
+
+
+def resolve_train_dir(input_path: str | Path) -> Path:
+    train_dir = Path(input_path)
+    latest_file = train_dir / "latest.txt"
+    if latest_file.exists():
+        version_name = latest_file.read_text(encoding="utf-8").strip()
+        candidate = train_dir / version_name
+        if (candidate / "fold_predictions.npz").exists():
+            logger.info(f"Resolved latest version: {candidate}")
+            return candidate
+
+    if (train_dir / "fold_predictions.npz").exists():
+        return train_dir
+
+    version_dirs = sorted(
+        [p for p in train_dir.glob("v*") if p.is_dir() and (p / "fold_predictions.npz").exists()],
+        key=_version_sort_key,
+    )
+    if version_dirs:
+        logger.info(f"Resolved latest version: {version_dirs[-1]}")
+        return version_dirs[-1]
+
+    model_runs = []
+    for child in train_dir.iterdir() if train_dir.exists() else []:
+        if not child.is_dir():
+            continue
+        latest_file = child / "latest.txt"
+        if latest_file.exists():
+            version_name = latest_file.read_text(encoding="utf-8").strip()
+            candidate = child / version_name
+            if (candidate / "fold_predictions.npz").exists():
+                model_runs.append(candidate)
+        elif (child / "fold_predictions.npz").exists():
+            model_runs.append(child)
+
+    if len(model_runs) == 1:
+        logger.info(f"Resolved single model run: {model_runs[0]}")
+        return model_runs[0]
+    if len(model_runs) > 1:
+        raise FileNotFoundError(
+            f"Multiple model runs found under {train_dir}. Please specify a model directory explicitly."
+        )
+
+    raise FileNotFoundError(f"No fold_predictions.npz found under {train_dir}")
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="SERS ResNet18-1D Evaluation")
-    p.add_argument("--input", "-i", default="results/training")
+    p.add_argument("--input", "-i", default="models/results/training")
+    p.add_argument("--processed-csv", default="results/processed_spectra.csv")
     p.add_argument("--device", default="auto")
+    p.add_argument("--tsne-dim", type=int, choices=[2, 3], default=3)
     p.add_argument("--no-shap", action="store_true")
     p.add_argument("--no-feature-selection", action="store_true")
     p.add_argument("--no-gradcam", action="store_true")
@@ -577,13 +849,151 @@ def parse_args():
     return p.parse_args()
 
 
+def create_output_dirs(eval_dir: Path):
+    s1_dir, s2_dir = eval_dir / "stage1", eval_dir / "stage2"
+    emb_dir, met_dir = eval_dir / "embedding", eval_dir / "metrics"
+    for d in [s1_dir, s2_dir, emb_dir, met_dir]:
+        os.makedirs(d, exist_ok=True)
+    return s1_dir, s2_dir, emb_dir, met_dir
+
+
+def resolve_device(device_arg: str) -> torch.device:
+    if device_arg != "auto":
+        return torch.device(device_arg)
+    return torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        else "cpu"
+    )
+
+
+def run_stage1(vbt, vbp, vgrp, s1_dir, met_dir, tbp=None, tbt=None):
+    logger.info("\n[Stage 1] Binary classification...")
+    opt_t = plot_roc_s1(vbt, vbp, s1_dir / "roc_curve.png")
+    logger.info(f"  Optimal threshold: {opt_t:.4f}")
+    plot_cm_s1(vbt, vbp, opt_t, s1_dir / "confusion_matrix.png")
+    plot_dist(vbt, vbp, opt_t, s1_dir / "prob_distribution.png")
+
+    if tbp is not None:
+        plot_train_val_roc(
+            tbt,
+            tbp,
+            vbt,
+            vbp,
+            "Stage 1 ??Train vs Val (Overfitting Check)",
+            s1_dir / "train_vs_val_roc.png",
+        )
+
+    pg = per_group_metrics(vbt, vbp, vgrp, opt_t)
+    pg.to_csv(met_dir / "per_group_metrics.csv", index=False)
+    logger.info(f"\n{pg.to_string(index=False)}")
+    return opt_t
+
+
+def run_stage2(vct, vcl, vX, tct, tcl, cancer_types, s2_dir, met_dir, feature_names):
+    logger.info("\n[Stage 2] Cancer type (7-class)...")
+    cm = vct >= 0
+    if cm.sum() == 0:
+        return cm
+
+    plot_roc_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "roc_curves_per_type.png")
+    plot_cm_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "confusion_matrix.png")
+    type_df = plot_bars_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "per_type_metrics.png")
+    type_df.to_csv(met_dir / "per_cancer_type_metrics.csv", index=False)
+    logger.info(f"\n{type_df.to_string(index=False)}")
+    save_mean_spectra_by_diagnosis(vX[cm], vct[cm], cancer_types, s2_dir, feature_names)
+
+    if tct is not None:
+        tcm_mask = tct >= 0
+        if tcm_mask.sum() > 0:
+            plot_train_val_s2(
+                tct[tcm_mask],
+                tcl[tcm_mask],
+                vct[cm],
+                vcl[cm],
+                cancer_types,
+                s2_dir / "train_vs_val_roc.png",
+            )
+    return cm
+
+
+def save_threshold_sweep(vbt, vbp, met_dir):
+    thresh_rows = []
+    for t in np.arange(0.3, 0.8, 0.05):
+        m = binary_metrics(vbt, vbp, t)
+        m["threshold"] = t
+        thresh_rows.append(m)
+    pd.DataFrame(thresh_rows).to_csv(met_dir / "threshold_sweep.csv", index=False)
+
+
+def load_trained_model(train_dir, device, summary):
+    model_name = str(summary.get("model_name", "resnet18")).lower()
+    if model_name == "xgboost":
+        logger.info("  SHAP model loading skipped for XGBoost checkpoints")
+        return None
+
+    ckpt_files = sorted((train_dir / "checkpoints").glob("fold_*.pt"))
+    if not ckpt_files:
+        return None
+
+    ckpt = torch.load(ckpt_files[-1], map_location=device, weights_only=False)
+    mc = ModelConfig(**ckpt["config"])
+    ckpt_model_name = str(ckpt.get("model_name", model_name)).lower()
+    model = build_model(ckpt_model_name, mc).to(device)
+    model.load_state_dict(ckpt["model_state_dict"])
+    model.eval()
+    return model
+
+
+def run_shap_analysis(args, train_dir, device, X, valid_mask, ctl, s1_dir, s2_dir, cancer_types, summary):
+    if args.no_shap:
+        logger.info("\n[SHAP] Skipped (--no-shap)")
+        return
+
+    logger.info("\n[SHAP] Computing...")
+    model = load_trained_model(train_dir, device, summary)
+    if model is None:
+        logger.warning("  No torch checkpoints available for SHAP")
+        return
+
+    X_bg, X_exp, exp_idx = sample_shap_inputs(
+        X,
+        valid_mask,
+        args.shap_samples,
+        args.shap_explain,
+    )
+    if len(exp_idx) == 0:
+        logger.warning("  No validation samples available for SHAP")
+        return
+
+    feature_names = resolve_feature_names(args.processed_csv, X.shape[1])
+
+    run_shap_s1(model, X_bg, X_exp, device, s1_dir, feature_names)
+
+    cancer_mask = ctl[exp_idx] >= 0
+    if cancer_mask.sum() <= 1:
+        logger.warning("  Not enough cancer samples for Stage 2 SHAP")
+        return
+
+    run_shap_s2(
+        model,
+        X_bg,
+        X_exp[cancer_mask],
+        ctl[exp_idx][cancer_mask],
+        cancer_types,
+        device,
+        s2_dir,
+        feature_names,
+    )
+
+
 def main():
     args = parse_args()
     t0 = datetime.now()
 
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s │ %(levelname)-7s │ %(message)s", datefmt="%H:%M:%S",
+        format="%(asctime)s ??%(levelname)-7s ??%(message)s", datefmt="%H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout),
                   logging.FileHandler("test.log", mode="w", encoding="utf-8")],
     )
@@ -592,21 +1002,10 @@ def main():
     logger.info("  SERS ResNet18-1D Evaluation")
     logger.info("=" * 64)
 
-    train_dir = Path(args.input)
+    train_dir = resolve_train_dir(args.input)
     eval_dir = train_dir / "evaluation"
-    s1_dir, s2_dir = eval_dir / "stage1", eval_dir / "stage2"
-    emb_dir, met_dir = eval_dir / "embedding", eval_dir / "metrics"
-    for d in [s1_dir, s2_dir, emb_dir, met_dir]:
-        os.makedirs(d, exist_ok=True)
-
-    if args.device == "auto":
-        device = torch.device(
-            "cuda" if torch.cuda.is_available()
-            else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-            else "cpu"
-        )
-    else:
-        device = torch.device(args.device)
+    s1_dir, s2_dir, emb_dir, met_dir = create_output_dirs(eval_dir)
+    device = resolve_device(args.device)
 
     data, summary = load_outputs(train_dir)
     cancer_types = summary["cancer_types"]
@@ -616,6 +1015,7 @@ def main():
     valid = ~np.isnan(data["val_binary_prob"])
     vbp, vbt = data["val_binary_prob"][valid], bl[valid]
     vcl, vct = data["val_cancer_logits"][valid], ctl[valid]
+    vX = X[valid]
     vemb = data["val_embedding"][valid]
     vgrp = groups[valid]
 
@@ -624,115 +1024,33 @@ def main():
     tcl = data.get("train_cancer_logits")
     tct = data.get("train_cancer_true")
 
-    # ── Stage 1 ──
-    logger.info("\n[Stage 1] Binary classification...")
-    opt_t = plot_roc_s1(vbt, vbp, s1_dir / "roc_curve.png")
-    logger.info(f"  Optimal threshold: {opt_t:.4f}")
-    plot_cm_s1(vbt, vbp, opt_t, s1_dir / "confusion_matrix.png")
-    plot_dist(vbt, vbp, opt_t, s1_dir / "prob_distribution.png")
-    if tbp is not None:
-        plot_train_val_roc(tbt, tbp, vbt, vbp,
-                            "Stage 1 — Train vs Val (Overfitting Check)", s1_dir / "train_vs_val_roc.png")
+    feature_names = resolve_feature_names(args.processed_csv, X.shape[1])
 
-    pg = per_group_metrics(vbt, vbp, vgrp, opt_t)
-    pg.to_csv(met_dir / "per_group_metrics.csv", index=False)
-    logger.info(f"\n{pg.to_string(index=False)}")
+    opt_t = run_stage1(vbt, vbp, vgrp, s1_dir, met_dir, tbp=tbp, tbt=tbt)
+    cm = run_stage2(vct, vcl, vX, tct, tcl, cancer_types, s2_dir, met_dir, feature_names)
 
-    # ── Stage 2 ──
-    logger.info("\n[Stage 2] Cancer type (7-class)...")
-    cm = vct >= 0
-    if cm.sum() > 0:
-        plot_roc_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "roc_curves_per_type.png")
-        plot_cm_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "confusion_matrix.png")
-        type_df = plot_bars_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "per_type_metrics.png")
-        type_df.to_csv(met_dir / "per_cancer_type_metrics.csv", index=False)
-        logger.info(f"\n{type_df.to_string(index=False)}")
+    # SHAP
+    run_shap_analysis(args, train_dir, device, X, valid, ctl, s1_dir, s2_dir, cancer_types, summary)
 
-        if tct is not None:
-            tcm_mask = tct >= 0
-            if tcm_mask.sum() > 0:
-                plot_train_val_s2(tct[tcm_mask], tcl[tcm_mask], vct[cm], vcl[cm],
-                                   cancer_types, s2_dir / "train_vs_val_roc.png")
-
-    # ── Embedding ──
-    logger.info("\n[Embedding] t-SNE...")
-    if vemb.shape[0] > 10:
-        plot_tsne(vemb, vgrp, vbt, emb_dir / "tsne_embedding.png")
-
-    # ── Summary ──
-    logger.info("\n[Summary] Metrics table...")
-    mdf = summary_table(data, summary, opt_t, met_dir)
-    logger.info(f"\n{mdf.to_string(index=False)}")
-
-    # Threshold sweep
-    thresh_rows = []
-    for t in np.arange(0.3, 0.8, 0.05):
-        m = binary_metrics(vbt, vbp, t)
-        m["threshold"] = t
-        thresh_rows.append(m)
-    pd.DataFrame(thresh_rows).to_csv(met_dir / "threshold_sweep.csv", index=False)
-
-    # ── Feature Selection ──
-    if not args.no_feature_selection:
-        logger.info("\n[Feature Selection] Running binary + multiclass analysis...")
-        fs_dir = eval_dir / "feature_selection"
-        fs_bin = fs_dir / "binary"
-        fs_multi = fs_dir / "multiclass"
-        fs_ovr = fs_dir / "one_vs_rest"
-        for d in [fs_bin, fs_multi, fs_ovr]:
-            d.mkdir(parents=True, exist_ok=True)
-
-        fs_binary = run_feature_selection(X[valid], bl[valid], fs_bin, "Binary", top_k=args.top_k_features)
-        fs_binary.head(args.top_k_features).to_csv(fs_bin / "top_features.csv", index=False)
-
-        if cm.sum() > 0:
-            run_feature_selection(X[valid][cm], vct[cm], fs_multi, "Multiclass", top_k=args.top_k_features)
-            run_one_vs_rest_feature_selection(X[valid][cm], vct[cm], cancer_types, fs_ovr, top_k=min(args.top_k_features, 20))
-    else:
-        logger.info("\n[Feature Selection] Skipped (--no-feature-selection)")
-
-    # ── SHAP ──
-    if not args.no_shap:
-        logger.info("\n[SHAP] Computing...")
-        ckpt_files = sorted((train_dir / "checkpoints").glob("fold_*.pt"))
-        if ckpt_files:
-            ckpt = torch.load(ckpt_files[-1], map_location=device, weights_only=False)
-            mc = ModelConfig(**ckpt["config"])
-            model = SERSCancerDetector(mc).to(device)
-            model.load_state_dict(ckpt["model_state_dict"])
-            model.eval()
-
-            rng = np.random.RandomState(42)
-            n_bg = min(args.shap_samples, len(X))
-            X_bg = X[rng.choice(len(X), n_bg, replace=False)]
-            n_exp = min(args.shap_explain, valid.sum())
-            exp_idx = rng.choice(np.where(valid)[0], n_exp, replace=False)
-            X_exp = X[exp_idx]
-
-            run_shap_s1(model, X_bg, X_exp, device, s1_dir)
-
-            cancer_exp = bl[exp_idx] == 1
-            if cancer_exp.sum() > 10:
-                run_shap_s2(model, X_bg, X_exp[cancer_exp], cancer_types, device, s2_dir)
-
-            if not args.no_gradcam:
-                logger.info("\n[Grad-CAM] Computing saliency maps...")
-                run_gradcam_1d(model, X[valid], s1_dir, stage="binary", max_samples=args.gradcam_samples)
-                if cm.sum() > 0:
-                    for idx in sorted(set(vct[cm])):
-                        run_gradcam_1d(
-                            model,
-                            X[valid][cm][vct[cm] == idx],
-                            s2_dir,
-                            stage="multiclass",
-                            class_idx=int(idx),
-                            max_samples=args.gradcam_samples,
-                        )
+    if not args.no_gradcam:
+        model = load_trained_model(train_dir, device, summary)
+        if model is None:
+            logger.info("\n[Grad-CAM] Skipped (no torch model/checkpoint)")
         else:
-            logger.warning("  No checkpoints found")
+            logger.info("\n[Grad-CAM] Computing saliency maps...")
+            run_gradcam_1d(model, X[valid], s1_dir, stage="binary", max_samples=args.gradcam_samples)
+            if cm.sum() > 0:
+                for idx in sorted(set(vct[cm])):
+                    run_gradcam_1d(
+                        model,
+                        X[valid][cm][vct[cm] == idx],
+                        s2_dir,
+                        stage="multiclass",
+                        class_idx=int(idx),
+                        max_samples=args.gradcam_samples,
+                    )
     else:
-        logger.info("\n[SHAP] Skipped (--no-shap)")
-
+        logger.info("\n[Grad-CAM] Skipped (--no-gradcam)")
     elapsed = datetime.now() - t0
     logger.info(f"\n{'=' * 64}")
     logger.info(f"  Evaluation complete! ({elapsed})")
@@ -743,3 +1061,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
