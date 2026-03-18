@@ -94,6 +94,9 @@ class ModelConfig:
     scheduler_patience: int = 10
     stage1_loss_weight: float = 1.0
     stage2_loss_weight: float = 1.0
+    use_focal_loss: bool = False
+    focal_gamma: float = 2.0
+    class_balance_beta: Optional[float] = None
 
     # --- Reproducibility ---
     random_state: int = 42
@@ -347,22 +350,15 @@ class CancerTypeHead(nn.Module):
 # =============================================================================
 # Full Model
 # =============================================================================
-class SERSCancerDetector(nn.Module):
-    """Two-stage ResNet18-1D cancer detection model.
-
-    Stage 1: Binary — Cancer or not?
-    Stage 2: Cancer type — Which of 7 types? (gated by Stage 1)
-
-    Cancer types: PRO, BRE, OVA, LUN, CRC, CPAN, SPAN
-    Non-cancer:   NOR, DIA, HBP, H.D. (binary label=0)
-    """
+class BaseCancerDetector(nn.Module):
+    """Shared two-stage detector with overridable encoder construction."""
 
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
 
-        self.encoder = ResNet1DEncoder(config)
-        enc_dim = self.encoder.output_dim  # 512
+        self.encoder = self._build_encoder(config)
+        enc_dim = self.encoder.output_dim
 
         self.binary_head = BinaryHead(
             enc_dim, config.head_hidden_dim, config.dropout_rate
@@ -376,17 +372,10 @@ class SERSCancerDetector(nn.Module):
             torch.full((config.n_cancer_types,), config.default_threshold),
         )
 
+    def _build_encoder(self, config: ModelConfig) -> nn.Module:
+        raise NotImplementedError
+
     def forward(self, spectra: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """
-        Returns
-        -------
-        dict:
-            binary_logit  (B, 1)
-            binary_prob   (B, 1)    P(cancer)
-            cancer_logits (B, 7)    raw logits
-            cancer_probs  (B, 7)    softmax probabilities
-            embedding     (B, 512)  encoder output
-        """
         emb = self.encoder(spectra)
         binary_logit = self.binary_head(emb)
         cancer_logits = self.cancer_type_head(emb)
@@ -405,7 +394,6 @@ class SERSCancerDetector(nn.Module):
         spectra: torch.Tensor,
         binary_threshold: float = 0.5,
     ) -> Dict[str, torch.Tensor]:
-        """Two-stage gated inference."""
         self.eval()
         out = self.forward(spectra)
 
@@ -463,27 +451,27 @@ class SERSCancerDetector(nn.Module):
         )
 
 
+class SERSCancerDetector(BaseCancerDetector):
+    """Two-stage ResNet18-1D cancer detection model.
+
+    Stage 1: Binary — Cancer or not?
+    Stage 2: Cancer type — Which of 7 types? (gated by Stage 1)
+
+    Cancer types: PRO, BRE, OVA, LUN, CRC, CPAN, SPAN
+    Non-cancer:   NOR, DIA, HBP, H.D. (binary label=0)
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+
+    def _build_encoder(self, config: ModelConfig) -> nn.Module:
+        return ResNet1DEncoder(config)
+
 class CNN1DCancerDetector(SERSCancerDetector):
     """Two-stage shallow 1D CNN model for baseline comparison."""
 
-    def __init__(self, config: ModelConfig):
-        nn.Module.__init__(self)
-        self.config = config
-
-        self.encoder = ShallowCNN1DEncoder(config)
-        enc_dim = self.encoder.output_dim
-
-        self.binary_head = BinaryHead(
-            enc_dim, config.head_hidden_dim, config.dropout_rate
-        )
-        self.cancer_type_head = CancerTypeHead(
-            enc_dim, config.n_cancer_types, config.head_hidden_dim, config.dropout_rate
-        )
-
-        self.register_buffer(
-            "cancer_thresholds",
-            torch.full((config.n_cancer_types,), config.default_threshold),
-        )
+    def _build_encoder(self, config: ModelConfig) -> nn.Module:
+        return ShallowCNN1DEncoder(config)
 
 
 # =============================================================================
@@ -499,14 +487,38 @@ class TwoStageLoss(nn.Module):
         pos_weight_stage1: Optional[torch.Tensor] = None,
         class_weights_stage2: Optional[torch.Tensor] = None,
         label_smoothing: float = 0.0,
+        use_focal_loss: bool = False,
+        focal_gamma: float = 2.0,
     ):
         super().__init__()
         self.w1 = stage1_weight
         self.w2 = stage2_weight
-        self.bce = nn.BCEWithLogitsLoss(pos_weight=pos_weight_stage1)
+        self.use_focal_loss = use_focal_loss
+        self.focal_gamma = focal_gamma
+        self.bce = nn.BCEWithLogitsLoss(pos_weight=pos_weight_stage1, reduction="none")
         self.ce = nn.CrossEntropyLoss(
-            weight=class_weights_stage2, label_smoothing=label_smoothing,
+            weight=class_weights_stage2,
+            label_smoothing=label_smoothing,
+            reduction="none",
         )
+
+    def _binary_loss(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        loss = self.bce(logits, targets.float())
+        if not self.use_focal_loss:
+            return loss.mean()
+        probs = torch.sigmoid(logits)
+        pt = torch.where(targets > 0.5, probs, 1.0 - probs)
+        focal = (1.0 - pt).pow(self.focal_gamma)
+        return (focal * loss).mean()
+
+    def _multiclass_loss(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        loss = self.ce(logits, targets.long())
+        if not self.use_focal_loss:
+            return loss.mean()
+        probs = torch.softmax(logits, dim=-1)
+        pt = probs.gather(1, targets.long().unsqueeze(1)).squeeze(1).clamp_min(1e-8)
+        focal = (1.0 - pt).pow(self.focal_gamma)
+        return (focal * loss).mean()
 
     def forward(
         self,
@@ -514,12 +526,12 @@ class TwoStageLoss(nn.Module):
         binary_target: torch.Tensor,
         cancer_type_target: torch.Tensor,
     ) -> Dict[str, torch.Tensor]:
-        loss1 = self.bce(output["binary_logit"], binary_target.float())
+        loss1 = self._binary_loss(output["binary_logit"], binary_target.float())
 
         loss2 = torch.tensor(0.0, device=loss1.device)
         cancer_mask = binary_target.squeeze(-1) > 0.5
         if cancer_mask.any():
-            loss2 = self.ce(
+            loss2 = self._multiclass_loss(
                 output["cancer_logits"][cancer_mask],
                 cancer_type_target[cancer_mask].long(),
             )
@@ -662,7 +674,7 @@ if __name__ == "__main__":
     # Config.yaml test
     try:
         import yaml
-        with open("config.yaml") as f:
+        with open("config/config.yaml") as f:
             raw = yaml.safe_load(f)
         mc = ModelConfig.from_pipeline_config(raw, n_spectral_features=1800)
         print(f"\nFrom config.yaml:")

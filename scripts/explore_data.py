@@ -42,7 +42,7 @@ def main():
     logger.info("="*60)
     
     # Load config
-    config = load_config("config.yaml")
+    config = load_config("config/config.yaml")
     
     # Find files
     data_dir = Path(RAW_DATA_DIR)

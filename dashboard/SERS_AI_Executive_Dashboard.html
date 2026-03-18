@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOLUM Healthcare &mdash; AECD Platform Executive Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-alt: #fafbfd;
+    --border: #e4e8f0;
+    --border-light: #eef1f6;
+    --text-primary: #1a1a2e;
+    --text-secondary: #4a5568;
+    --text-tertiary: #8896ab;
+    --text-muted: #b8c4d4;
+    --solum-purple: #3b1f8e;
+    --solum-purple-light: #5a3db8;
+    --solum-purple-bg: rgba(59,31,142,0.04);
+    --solum-purple-border: rgba(59,31,142,0.12);
+    --accent-green: #059669;
+    --accent-green-bg: rgba(5,150,105,0.06);
+    --accent-blue: #2563eb;
+    --accent-red: #dc2626;
+    --accent-amber: #d97706;
+    --accent-purple: #7c3aed;
+    --accent-slate: #64748b;
+    --accent-teal: #0d9488;
+    --accent-pink: #db2777;
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
+    --shadow-lg: 0 12px 48px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.03);
+    --radius: 16px;
+    --radius-sm: 12px;
+    --radius-xs: 8px;
+    --nav-width: 252px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ═══════ SIDE NAVIGATION ═══════ */
+  .side-nav {
+    position: fixed; top: 0; left: 0;
+    width: var(--nav-width); height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    z-index: 200;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.03);
+  }
+  .nav-brand {
+    padding: 28px 24px 24px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .nav-brand img {
+    height: 48px;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .nav-brand .brand-product {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    color: var(--solum-purple);
+  }
+  .nav-group-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    padding: 20px 24px 8px;
+    font-weight: 700;
+  }
+  .nav-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 24px;
+    font-size: 0.82rem; font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-link:hover {
+    color: var(--solum-purple);
+    background: var(--solum-purple-bg);
+    border-left-color: rgba(59,31,142,0.2);
+  }
+  .nav-link.active {
+    color: var(--solum-purple);
+    background: var(--solum-purple-bg);
+    border-left-color: var(--solum-purple);
+    font-weight: 600;
+  }
+  .nav-link .ni { width: 16px; text-align: center; font-size: 0.75rem; opacity: 0.6; }
+  .nav-spacer { flex: 1; }
+
+  .nav-toggle-box {
+    padding: 20px 24px;
+    border-top: 1px solid var(--border-light);
+  }
+  .nav-toggle-title {
+    font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--text-muted); font-weight: 700; margin-bottom: 10px;
+  }
+  .toggle-row {
+    display: flex; background: var(--bg); border-radius: 8px; padding: 3px;
+  }
+  .toggle-btn {
+    flex: 1; padding: 8px 0; text-align: center;
+    font-size: 0.72rem; font-weight: 600;
+    color: var(--text-tertiary); cursor: pointer;
+    border-radius: 6px; transition: all 0.2s;
+    user-select: none;
+  }
+  .toggle-btn.active {
+    color: var(--solum-purple);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ═══════ MAIN ═══════ */
+  .main { margin-left: var(--nav-width); }
+
+  /* ═══════ HERO ═══════ */
+  .hero {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at 10% 40%, rgba(59,31,142,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 60%, rgba(5,150,105,0.03) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .hero-inner {
+    position: relative; z-index: 1;
+    display: flex; align-items: stretch;
+    min-height: 260px;
+  }
+  .hero-text {
+    flex: 1;
+    padding: 48px 56px 36px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .hero-badge-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+  }
+  .hero-badge-row .product-name {
+    font-size: 0.72rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 2px;
+    color: var(--solum-purple);
+  }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 20px;
+    font-size: 0.7rem; font-weight: 700;
+    background: var(--accent-green-bg);
+    color: var(--accent-green);
+    border: 1px solid rgba(5,150,105,0.15);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  .hero h1 {
+    font-size: 2.8rem; font-weight: 900;
+    color: var(--text-primary);
+    letter-spacing: -1.5px; line-height: 1.08;
+  }
+  .hero h1 span { color: var(--solum-purple); }
+  .hero .subtitle {
+    font-size: 1.1rem; color: var(--text-secondary);
+    font-weight: 400; margin-top: 12px; line-height: 1.55;
+    max-width: 540px;
+  }
+  .hero-img {
+    width: 420px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px 48px 20px 0;
+  }
+  .hero-img img {
+    max-width: 100%; max-height: 260px;
+    filter: drop-shadow(0 12px 36px rgba(0,0,0,0.12));
+    border-radius: 14px;
+    border: 1px solid var(--border-light);
+  }
+
+  /* KPI Strip */
+  .kpi-strip {
+    display: grid; grid-template-columns: repeat(4,1fr);
+    background: var(--surface);
+    border-top: 1px solid var(--border-light);
+    position: relative; z-index: 1;
+  }
+  .kpi-item {
+    padding: 28px 32px 32px;
+    position: relative;
+  }
+  .kpi-item:not(:last-child)::after {
+    content: ''; position: absolute; right: 0;
+    top: 24px; bottom: 24px; width: 1px;
+    background: var(--border-light);
+  }
+  .kpi-label {
+    font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--text-muted);
+    font-weight: 700; margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 2.8rem; font-weight: 900;
+    letter-spacing: -1.5px; line-height: 1;
+  }
+  .kpi-metric {
+    font-size: 0.78rem; color: var(--text-secondary);
+    margin-top: 6px; font-weight: 500;
+  }
+  .kpi-trend {
+    font-size: 0.7rem; color: var(--accent-green);
+    margin-top: 3px; font-weight: 600;
+  }
+
+  /* ═══════ DASHBOARD ═══════ */
+  .dashboard { padding: 48px 56px; max-width: 1400px; }
+
+  .section { margin-bottom: 64px; scroll-margin-top: 24px; }
+  .section-header { margin-bottom: 28px; }
+  .section-header h2 {
+    font-size: 1.55rem; font-weight: 800;
+    color: var(--text-primary); letter-spacing: -0.5px;
+  }
+  .section-header p {
+    font-size: 0.88rem; color: var(--text-secondary);
+    margin-top: 6px; line-height: 1.6;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow 0.3s;
+  }
+  .card:hover { box-shadow: var(--shadow-md); }
+  .card.full { grid-column: 1 / -1; }
+  .card h3 {
+    font-size: 1.02rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 20px;
+  }
+  .chart-caption {
+    font-size: 0.82rem; color: var(--text-secondary);
+    line-height: 1.65; margin-top: 16px;
+    padding-top: 14px; border-top: 1px solid var(--border-light);
+  }
+  .chart-caption.technical {
+    display: none; color: var(--text-tertiary);
+    font-size: 0.76rem; line-height: 1.7;
+    border-top: 1px dashed var(--border);
+    margin-top: 10px; padding-top: 10px;
+  }
+  body.mode-technical .chart-caption.technical { display: block; }
+  .tech-only { display: none; }
+  body.mode-technical .tech-only { display: block; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  /* ═══════ PIPELINE ═══════ */
+  .pipe-flow {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+  }
+  .pipe-card {
+    text-align: center;
+    padding: 28px 12px 24px;
+    position: relative;
+    border-right: 1px solid var(--border-light);
+  }
+  .pipe-card:last-child { border-right: none; }
+  .pipe-card .pipe-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    font-size: 0.62rem; font-weight: 800;
+    color: #fff; margin-bottom: 16px;
+  }
+  .pipe-card:nth-child(1) .pipe-num { background: var(--solum-purple); }
+  .pipe-card:nth-child(2) .pipe-num { background: var(--accent-purple); }
+  .pipe-card:nth-child(3) .pipe-num { background: var(--accent-amber); }
+  .pipe-card:nth-child(4) .pipe-num { background: var(--accent-green); }
+  .pipe-card:nth-child(5) .pipe-num { background: var(--accent-red); }
+  .pipe-card:nth-child(6) .pipe-num { background: var(--accent-blue); }
+  .pipe-card .pipe-img-box {
+    width: 100%; aspect-ratio: 4/3;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+  }
+  .pipe-card .pipe-img-box img {
+    max-width: 92%; max-height: 92%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.06));
+  }
+  .pipe-card .pipe-arrow {
+    position: absolute;
+    right: -10px; top: 50%;
+    transform: translateY(-50%);
+    width: 20px; height: 20px;
+    z-index: 2;
+    color: var(--text-muted);
+  }
+  .pipe-card:last-child .pipe-arrow { display: none; }
+  .pipe-card .pipe-title {
+    font-size: 0.84rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 4px;
+    letter-spacing: -0.2px;
+  }
+  .pipe-card .pipe-detail {
+    font-size: 0.74rem; color: var(--text-tertiary); line-height: 1.5;
+  }
+  .pipe-card .pipe-tech {
+    display: none; font-size: 0.68rem;
+    color: var(--solum-purple); margin-top: 8px;
+    line-height: 1.45; font-weight: 500;
+    text-align: left;
+  }
+  body.mode-technical .pipe-tech { display: block; }
+
+  /* Full-width pipeline diagram (technical) */
+  .pipeline-diagram {
+    display: none;
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+  }
+  body.mode-technical .pipeline-diagram { display: block; }
+  .pipeline-diagram h4 {
+    font-size: 0.88rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 16px;
+  }
+  .pipeline-diagram img {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+  }
+  .pipeline-diagram .diagram-caption {
+    font-size: 0.76rem; color: var(--text-tertiary);
+    margin-top: 12px; font-style: italic;
+    text-align: center;
+  }
+
+  /* Spectrum showcase in classification */
+  .spectrum-showcase {
+    margin-top: 24px;
+    border-top: 1px solid var(--border-light);
+    padding-top: 20px;
+  }
+  .spectrum-showcase-inner {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .spectrum-showcase img {
+    flex-shrink: 0;
+    height: 220px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    background: #fff;
+  }
+  .spectrum-showcase .spectrum-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  .spectrum-showcase .spectrum-text strong {
+    color: var(--text-primary);
+  }
+
+  /* ═══════ STAGES ═══════ */
+  .stage-layout {
+    display: flex; align-items: stretch; gap: 20px; padding: 4px 0;
+  }
+  .stage-card {
+    flex: 1; border-radius: var(--radius); padding: 36px 32px;
+    position: relative; overflow: hidden;
+  }
+  .stage-card::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 4px; height: 100%;
+  }
+  .stage-card.s1 {
+    background: rgba(59,31,142,0.025);
+    border: 1px solid var(--solum-purple-border);
+  }
+  .stage-card.s1::before { background: var(--solum-purple); }
+  .stage-card.s2 {
+    background: var(--accent-green-bg);
+    border: 1px solid rgba(5,150,105,0.12);
+  }
+  .stage-card.s2::before { background: var(--accent-green); }
+  .s-overline {
+    font-size: 0.66rem; text-transform: uppercase;
+    letter-spacing: 1.8px; font-weight: 700; margin-bottom: 4px;
+  }
+  .stage-card.s1 .s-overline { color: var(--solum-purple); }
+  .stage-card.s2 .s-overline { color: var(--accent-green); }
+  .s-title { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
+  .s-metric { font-size: 3.6rem; font-weight: 900; letter-spacing: -2px; margin: 14px 0 4px; line-height: 1; }
+  .stage-card.s1 .s-metric { color: var(--solum-purple); }
+  .stage-card.s2 .s-metric { color: var(--accent-green); }
+  .s-metric-label { font-size: 0.82rem; color: var(--text-tertiary); font-weight: 500; }
+  .s-classes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+  .s-tag {
+    font-size: 0.68rem; padding: 5px 12px;
+    border-radius: 20px; font-weight: 600;
+  }
+  .stage-card.s1 .s-tag { background: rgba(59,31,142,0.07); color: var(--solum-purple); }
+  .stage-card.s2 .s-tag { background: rgba(5,150,105,0.07); color: var(--accent-green); }
+  .s-tech-note {
+    display: none; font-size: 0.74rem; color: var(--text-tertiary);
+    margin-top: 16px; padding-top: 12px;
+    border-top: 1px dashed var(--border); line-height: 1.55;
+  }
+  body.mode-technical .s-tech-note { display: block; }
+
+  .stage-arrow {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .stage-arrow svg { width: 28px; height: 28px; color: var(--text-muted); }
+
+  /* Spectrum image in stages */
+  .spectrum-img-row {
+    display: none; margin-top: 16px;
+    padding-top: 14px; border-top: 1px dashed var(--border);
+    text-align: center;
+  }
+  body.mode-technical .spectrum-img-row { display: block; }
+  .spectrum-img-row img {
+    max-height: 120px; border-radius: 8px;
+  }
+  .spectrum-img-row .img-caption {
+    font-size: 0.7rem; color: var(--text-tertiary);
+    margin-top: 6px; font-style: italic;
+  }
+
+  /* ═══════ INSIGHTS ═══════ */
+  .insight-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 20px;
+  }
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 26px; box-shadow: var(--shadow-xs);
+    border-left: 4px solid;
+    transition: box-shadow 0.3s, transform 0.2s;
+  }
+  .insight-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .insight-card h4 {
+    font-size: 0.92rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 8px;
+  }
+  .insight-card p {
+    font-size: 0.8rem; color: var(--text-secondary); line-height: 1.7;
+  }
+
+  /* ═══════ EXPERIMENT DETAIL (TECHNICAL) ═══════ */
+  .exp-detail-section { display: none; }
+  body.mode-technical .exp-detail-section { display: block; }
+
+  .exp-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-xs);
+  }
+  .exp-block h4 {
+    font-size: 1rem; font-weight: 700;
+    color: var(--solum-purple); margin-bottom: 4px;
+  }
+  .exp-block .exp-meta {
+    font-size: 0.74rem; color: var(--text-tertiary);
+    margin-bottom: 12px; font-weight: 500;
+  }
+  .exp-block .exp-desc {
+    font-size: 0.84rem; color: var(--text-secondary);
+    line-height: 1.6; margin-bottom: 14px;
+  }
+  .exp-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.78rem; margin-bottom: 12px;
+  }
+  .exp-table th {
+    text-align: left; padding: 8px 12px;
+    background: var(--bg); color: var(--text-secondary);
+    font-weight: 600; border-bottom: 2px solid var(--border);
+    font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .exp-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--border-light);
+    color: var(--text-primary);
+  }
+  .exp-table td.val { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .exp-table td.note { font-size: 0.72rem; color: var(--text-tertiary); }
+  .exp-conclusion {
+    font-size: 0.82rem; color: var(--solum-purple);
+    font-weight: 600; line-height: 1.6;
+    padding: 12px 16px; background: var(--solum-purple-bg);
+    border-radius: var(--radius-xs);
+    border-left: 3px solid var(--solum-purple);
+  }
+
+  /* ═══════ NEXT STEPS ═══════ */
+  .ns-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .ns-col h3 {
+    font-size: 1rem; font-weight: 700; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ns-col h3 .ns-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; flex-shrink: 0;
+  }
+  .ns-milestones .ns-icon { background: rgba(59,31,142,0.07); color: var(--solum-purple); }
+  .ns-risks .ns-icon { background: rgba(220,38,38,0.07); color: var(--accent-red); }
+  .ns-resources .ns-icon { background: rgba(124,58,237,0.07); color: var(--accent-purple); }
+
+  .ns-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 20px;
+    margin-bottom: 12px; box-shadow: var(--shadow-xs);
+    transition: box-shadow 0.3s;
+  }
+  .ns-item:hover { box-shadow: var(--shadow-md); }
+  .ns-item-title {
+    font-size: 0.88rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 6px;
+  }
+  .ns-item-desc {
+    font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;
+  }
+  .ns-badge {
+    display: inline-block; font-size: 0.63rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    padding: 3px 10px; border-radius: 4px; margin-bottom: 10px;
+  }
+  .ns-badge.target { background: rgba(59,31,142,0.07); color: var(--solum-purple); }
+  .ns-badge.severity-high { background: rgba(220,38,38,0.07); color: var(--accent-red); }
+  .ns-badge.severity-medium { background: rgba(217,119,6,0.07); color: var(--accent-amber); }
+  .ns-badge.priority-critical { background: rgba(220,38,38,0.07); color: var(--accent-red); }
+  .ns-badge.priority-high { background: rgba(217,119,6,0.07); color: var(--accent-amber); }
+  .ns-badge.priority-medium { background: rgba(59,31,142,0.07); color: var(--solum-purple); }
+  .ns-mitigation {
+    display: none; font-size: 0.74rem; color: var(--accent-green);
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed var(--border); line-height: 1.5;
+  }
+  body.mode-technical .ns-mitigation { display: block; }
+
+  /* ═══════ PEAK DISCRIMINATION ═══════ */
+  .s1-peak-highlight {
+    display: flex; align-items: center; gap: 24px;
+    padding: 20px 28px; border-radius: var(--radius-sm);
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, rgba(59,31,142,0.03), rgba(124,77,255,0.05));
+    border: 1px solid var(--solum-purple-border);
+    transition: box-shadow 0.3s;
+  }
+  .s1-peak-highlight:hover { box-shadow: var(--shadow-md); }
+  .s1-peak-wn {
+    font-size: 2rem; font-weight: 900;
+    color: var(--solum-purple); letter-spacing: -1px;
+    white-space: nowrap;
+  }
+  .s1-peak-wn span { font-size: 0.82rem; font-weight: 500; color: var(--text-tertiary); }
+  .s1-peak-info { flex: 1; }
+  .s1-peak-info h4 { font-size: 0.84rem; font-weight: 700; margin-bottom: 2px; }
+  .s1-peak-info p { font-size: 0.78rem; color: var(--text-tertiary); line-height: 1.55; }
+  .s1-delta {
+    font-size: 1.6rem; font-weight: 900;
+    color: var(--accent-green); white-space: nowrap;
+  }
+
+  .peak-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+  .peak-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 22px 24px;
+    box-shadow: var(--shadow-xs); transition: box-shadow 0.3s, transform 0.2s;
+  }
+  .peak-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .peak-card .cancer-label {
+    font-size: 0.84rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .peak-card .cancer-sub {
+    font-size: 0.72rem; color: var(--text-tertiary); margin-bottom: 14px;
+  }
+  .peak-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 0; border-bottom: 1px solid var(--border-light);
+  }
+  .peak-item:last-child { border-bottom: none; }
+  .peak-wn { font-size: 0.82rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 56px; }
+  .peak-assign { font-size: 0.72rem; color: var(--text-tertiary); flex: 1; margin-left: 10px; }
+  .peak-delta {
+    font-size: 0.76rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .delta-up { color: #b91c1c; background: #fef2f2; }
+  .delta-down { color: #1d4ed8; background: #eff6ff; }
+
+  .color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .per-cancer-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .per-cancer-table th {
+    text-align: left; padding: 9px 12px; font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary);
+    border-bottom: 2px solid var(--border); white-space: nowrap;
+  }
+  .per-cancer-table td { padding: 9px 12px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); }
+  .per-cancer-table tr:last-child td { border-bottom: none; }
+  .bar-cell { display: flex; align-items: center; gap: 8px; }
+  .bar-track { flex: 1; height: 6px; background: var(--border-light); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .bar-fill { height: 100%; border-radius: 3px; }
+  .bar-val { font-size: 0.82rem; font-weight: 700; min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  .best-badge {
+    display: inline-block; font-size: 0.58rem; font-weight: 700;
+    background: var(--accent-green); color: white;
+    padding: 2px 7px; border-radius: 10px; margin-left: 6px;
+    text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle;
+  }
+
+  /* ═══════ FOOTER ═══════ */
+  .footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 32px 56px;
+    border-top: 1px solid var(--border-light);
+    color: var(--text-muted); font-size: 0.76rem;
+  }
+  .footer img { height: 28px; opacity: 0.5; }
+
+  /* ═══════ RESPONSIVE ═══════ */
+  @media (max-width: 1200px) {
+    .side-nav { display: none; }
+    .main { margin-left: 0; }
+    .hero-inner { flex-direction: column; }
+    .hero-text { padding: 36px 28px 20px; }
+    .hero-img { width: 100%; padding: 0 28px 20px; justify-content: flex-start; }
+    .dashboard { padding: 32px 28px; }
+    .kpi-strip { grid-template-columns: repeat(2,1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .insight-grid { grid-template-columns: 1fr; }
+    .ns-grid { grid-template-columns: 1fr; }
+    .stage-layout { flex-direction: column; }
+    .stage-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body class="mode-executive">
+
+<!-- ═══════ SIDE NAVIGATION ═══════ -->
+<nav class="side-nav">
+  <div class="nav-brand">
+    <img src="img/SOLUM_Healthcare_CI_Vertical Logo.png" alt="SOLUM Healthcare">
+    <div class="brand-product">AECD Platform</div>
+  </div>
+
+  <div class="nav-group-label">Overview</div>
+  <a href="#hero" class="nav-link active"><span class="ni">&#9670;</span> Executive Summary</a>
+  <a href="#pipeline" class="nav-link"><span class="ni">&#9654;</span> Pipeline</a>
+  <a href="#classification" class="nav-link"><span class="ni">&#9673;</span> Classification</a>
+
+  <div class="nav-group-label">Performance</div>
+  <a href="#benchmark" class="nav-link"><span class="ni">&#9632;</span> Model Benchmark</a>
+  <a href="#per-cancer" class="nav-link"><span class="ni">&#9673;</span> Per-Cancer Metrics</a>
+  <a href="#peak-discrimination" class="nav-link"><span class="ni">&#9650;</span> Peak Discrimination</a>
+  <a href="#timeline" class="nav-link"><span class="ni">&#8599;</span> Progress Timeline</a>
+  <a href="#cohort" class="nav-link"><span class="ni">&#9711;</span> Cohort Data</a>
+
+  <div class="nav-group-label">Analysis</div>
+  <a href="#normalization" class="nav-link"><span class="ni">&#9881;</span> Normalization</a>
+  <a href="#confounding" class="nav-link"><span class="ni">&#9878;</span> Confounding</a>
+  <a href="#insights" class="nav-link"><span class="ni">&#9733;</span> Key Insights</a>
+  <a href="#experiments" class="nav-link"><span class="ni">&#9881;</span> Experiment Log</a>
+  <a href="#next-steps" class="nav-link"><span class="ni">&#10148;</span> Next Steps</a>
+
+  <div class="nav-group-label">Product</div>
+  <a href="#clinical-report" class="nav-link"><span class="ni">&#9998;</span> Clinical Report</a>
+
+  <div class="nav-spacer"></div>
+
+  <div class="nav-toggle-box">
+    <div class="nav-toggle-title">View Mode</div>
+    <div class="toggle-row">
+      <div class="toggle-btn active" data-mode="executive" onclick="setMode('executive')">Executive</div>
+      <div class="toggle-btn" data-mode="technical" onclick="setMode('technical')">Technical</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════ MAIN ═══════ -->
+<div class="main">
+
+  <!-- ── HERO ── -->
+  <section class="hero" id="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-badge-row">
+          <span class="product-name">AECD Platform</span>
+          <span class="status-badge"><span class="status-dot"></span>On Track &mdash; 12 Phases Complete</span>
+        </div>
+        <h1><span>Multi-Cancer</span> Screening<br>from Urine SERS</h1>
+        <div class="subtitle">Non-invasive urine-based spectroscopy platform for early detection and subtype classification of multiple cancers. Powered by SOLUM Healthcare.</div>
+      </div>
+      <div class="hero-img">
+        <img src="img/MetaTest-U AI.png" alt="AECD Platform">
+      </div>
+    </div>
+    <div class="kpi-strip" id="kpiStrip"></div>
+  </section>
+
+  <div class="dashboard">
+
+    <!-- ── PIPELINE ── -->
+    <section class="section" id="pipeline">
+      <div class="section-header">
+        <h2>End-to-End Pipeline</h2>
+        <p>From urine sample collection to cancer subtype classification in six automated steps.</p>
+      </div>
+      <div class="card full" style="padding:24px 24px 28px;">
+        <div class="pipe-flow" id="pipeFlow"></div>
+        <div class="pipeline-diagram">
+          <h4>Detailed Preprocessing Pipeline</h4>
+          <img src="img/sers_preprocessing_pipeline.png" alt="Spectral Preprocessing Pipeline">
+          <div class="diagram-caption">Fig. 2 &mdash; Spectral Preprocessing Pipeline for Multi-site Urine SERS Data (Savitzky-Golay &rarr; Rolling Minimum Baseline &rarr; Min-Max / SNV Scaling)</div>
+        </div>
+        <div class="pipeline-diagram">
+          <h4>Complete QC + Preprocessing Pipeline (8 Steps)</h4>
+          <img src="img/pipeline_overview.png" alt="Full Pipeline Overview">
+          <div class="diagram-caption">Full 8-step pipeline: QC (raw data) &rarr; Preprocessing (normalization) &mdash; generated from real patient data</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CLASSIFICATION ── -->
+    <section class="section" id="classification">
+      <div class="section-header">
+        <h2>Two-Stage Classification Architecture</h2>
+        <p>First detect cancer presence, then identify the specific cancer type from spectral signatures.</p>
+      </div>
+      <div class="card full" style="padding:24px 32px;">
+        <div class="stage-layout" id="stageLayout"></div>
+        <div class="spectrum-showcase">
+          <div class="spectrum-showcase-inner">
+            <img src="img/step4_snv_comparison.png" alt="SNV Normalization Effect">
+            <div class="spectrum-text">
+              <strong>SNV Normalization Effect</strong><br>
+              Before/after normalization comparison showing cancer (red) vs normal (blue) spectra. SNV removes SERS hot-spot intensity variation while preserving peak ratios, making spectra linearly separable. The difference spectrum (bottom-right) highlights discriminative peaks: Phenylalanine (1003 cm&#8315;&#185;), Adenine (725 cm&#8315;&#185;), C-S stretch (630 cm&#8315;&#185;).
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── BENCHMARK ── -->
+    <section class="section" id="benchmark">
+      <div class="section-header">
+        <h2>Model Performance Benchmark</h2>
+        <p id="benchSub"></p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Stage 1 &mdash; Cancer Detection AUC</h3>
+          <div><canvas id="chartS1"></canvas></div>
+          <div class="chart-caption" id="capS1"></div>
+          <div class="chart-caption technical" id="capS1T"></div>
+        </div>
+        <div class="card">
+          <h3>Stage 2 &mdash; Subtype Macro F1</h3>
+          <div><canvas id="chartS2F1"></canvas></div>
+          <div class="chart-caption" id="capS2F1"></div>
+          <div class="chart-caption technical" id="capS2F1T"></div>
+        </div>
+        <div class="card">
+          <h3>Stage 2 &mdash; Subtype Accuracy</h3>
+          <div><canvas id="chartS2Acc"></canvas></div>
+          <div class="chart-caption" id="capS2Acc"></div>
+          <div class="chart-caption technical" id="capS2AccT"></div>
+        </div>
+        <div class="card">
+          <h3>Stage 2 &mdash; Subtype AUC</h3>
+          <div><canvas id="chartS2AUC"></canvas></div>
+          <div class="chart-caption" id="capS2AUC"></div>
+          <div class="chart-caption technical" id="capS2AUCT"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PER-CANCER METRICS ── -->
+    <section class="section" id="per-cancer">
+      <div class="section-header">
+        <h2>Per-Cancer Type Performance</h2>
+        <p>Individual cancer subtype detection metrics and confusion analysis from the best model (Logistic Regression v004).</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Sensitivity &amp; Precision by Cancer Type</h3>
+          <table class="per-cancer-table">
+            <thead><tr><th>Cancer</th><th>N</th><th>Sensitivity</th><th>Precision</th><th>AUC</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="color-dot" style="background:#ef4444"></span> Colorectal (CRC)</td>
+                <td>1,500</td>
+                <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:92.3%;background:#ef4444"></div></div><div class="bar-val">92.3%</div></div></td>
+                <td>93.9%</td><td>0.988</td>
+              </tr>
+              <tr>
+                <td><span class="color-dot" style="background:#3b82f6"></span> Lung (LUN)</td>
+                <td>1,500</td>
+                <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:91.1%;background:#3b82f6"></div></div><div class="bar-val">91.1%</div></div></td>
+                <td>95.3%</td><td>0.984</td>
+              </tr>
+              <tr>
+                <td><span class="color-dot" style="background:#8b5cf6"></span> Prostate (PRO)</td>
+                <td>500</td>
+                <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:90.2%;background:#8b5cf6"></div></div><div class="bar-val">90.2%</div></div></td>
+                <td>83.4%</td><td>0.990</td>
+              </tr>
+              <tr>
+                <td><span class="color-dot" style="background:#f59e0b"></span> Pancreatic (CPAN)</td>
+                <td>350</td>
+                <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:84.0%;background:#f59e0b"></div></div><div class="bar-val">84.0%</div></div></td>
+                <td>80.3%</td><td>0.983</td>
+              </tr>
+              <tr>
+                <td><span class="color-dot" style="background:#10b981"></span> Ovarian (OVA)</td>
+                <td>350</td>
+                <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:83.7%;background:#10b981"></div></div><div class="bar-val">83.7%</div></div></td>
+                <td>76.3%</td><td>0.981</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="chart-caption">CRC and LUN benefit from larger cohorts (n=1,500). CPAN is the weakest due to spectral overlap with CRC. All 5 types exceed 98% AUC.</div>
+        </div>
+        <div class="card">
+          <h3>Top Misclassification Pairs</h3>
+          <div style="height:320px"><canvas id="chartConfusion"></canvas></div>
+          <div class="chart-caption">CPAN&rarr;CRC (11.1%) is the dominant confusion pair. OVA&harr;PRO bidirectional confusion suggests spectral similarity in gynecological/urological cancers.</div>
+          <div class="chart-caption technical">Confusion rates from 5-fold CV aggregated predictions. CPAN→CRC overlap is biochemically plausible (shared GI metabolite pathways). PRO↔OVA overlap may reflect similar hormonal metabolites in urine.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PEAK DISCRIMINATION ── -->
+    <section class="section" id="peak-discrimination">
+      <div class="section-header">
+        <h2>Peak Discrimination Analysis</h2>
+        <p>Key Raman spectral peaks that enable cancer detection and subtype classification. Intensity differences (&#916;) are between cancer vs non-cancer (Stage 1) or target cancer vs other cancers (Stage 2).</p>
+      </div>
+
+      <!-- Stage 1 highlights -->
+      <div class="card full" style="margin-bottom:24px">
+        <h3>Stage 1: Cancer vs Non-Cancer &mdash; Top 3 Discriminative Regions</h3>
+
+        <div class="s1-peak-highlight">
+          <div>
+            <div class="s1-peak-wn">~990 <span>cm&#8315;&#185;</span></div>
+            <div style="font-size:0.72rem;color:var(--text-tertiary)">Phenylalanine ring breathing</div>
+          </div>
+          <div class="s1-peak-info">
+            <h4>Strongest cancer biomarker &mdash; elevated in all cancer types</h4>
+            <p>Cancer mean intensity 4.63 vs non-cancer 2.64. The ~988&ndash;996 cm&#8315;&#185; region dominates the top 8 features for binary cancer detection.</p>
+          </div>
+          <div style="text-align:center">
+            <div class="s1-delta">+1.99</div>
+            <div style="font-size:0.7rem;color:var(--text-tertiary)">&#916; intensity</div>
+          </div>
+        </div>
+
+        <div class="s1-peak-highlight" style="border-color:rgba(37,99,235,0.15);background:linear-gradient(135deg,rgba(37,99,235,0.02),rgba(59,130,246,0.05))">
+          <div>
+            <div class="s1-peak-wn" style="color:var(--accent-blue)">~724 <span>cm&#8315;&#185;</span></div>
+            <div style="font-size:0.72rem;color:var(--text-tertiary)">C-S stretching / Adenine</div>
+          </div>
+          <div class="s1-peak-info">
+            <h4>Strongest non-cancer marker &mdash; depleted in cancer</h4>
+            <p>Non-cancer mean intensity 2.80 vs cancer 0.92. Indicates altered nucleotide metabolism. The ~718&ndash;730 cm&#8315;&#185; region accounts for 5 of the top 20 features.</p>
+          </div>
+          <div style="text-align:center">
+            <div class="s1-delta" style="color:var(--accent-blue)">&minus;1.88</div>
+            <div style="font-size:0.7rem;color:var(--text-tertiary)">&#916; intensity</div>
+          </div>
+        </div>
+
+        <div class="s1-peak-highlight" style="border-color:rgba(217,119,6,0.15);background:linear-gradient(135deg,rgba(217,119,6,0.02),rgba(245,158,11,0.05))">
+          <div>
+            <div class="s1-peak-wn" style="color:var(--accent-amber)">~1350 <span>cm&#8315;&#185;</span></div>
+            <div style="font-size:0.72rem;color:var(--text-tertiary)">CH&#8322;/CH&#8323; deformation / Tryptophan</div>
+          </div>
+          <div class="s1-peak-info">
+            <h4>Third key discriminator &mdash; elevated in cancer</h4>
+            <p>Cancer mean 1.64 vs non-cancer 0.05. Sharp contrast indicates altered amino acid/protein profiles in cancer urine.</p>
+          </div>
+          <div style="text-align:center">
+            <div class="s1-delta" style="color:var(--accent-amber)">+1.59</div>
+            <div style="font-size:0.7rem;color:var(--text-tertiary)">&#916; intensity</div>
+          </div>
+        </div>
+
+        <div style="height:380px;margin-top:24px"><canvas id="chartS1Peaks"></canvas></div>
+        <div class="chart-caption">Top 20 wavenumbers ranked by absolute intensity difference between cancer and non-cancer groups. Red = elevated in cancer, blue = elevated in non-cancer (depleted in cancer).</div>
+        <div class="chart-caption technical">Three biochemical regions dominate: Phenylalanine ring mode (~982&ndash;996 cm&#8315;&#185;, 8 of top 20), Adenine/C-S (~718&ndash;730 cm&#8315;&#185;, 5 of top 20), and Tryptophan/CH&#8322; deformation (~1346&ndash;1354 cm&#8315;&#185;, 5 of top 20). These peaks likely reflect elevated amino acid catabolism and altered nucleotide turnover in cancer urine.</div>
+      </div>
+
+      <!-- Stage 2 per-cancer signatures -->
+      <div class="card full" style="margin-bottom:24px">
+        <h3>Stage 2: Unique Spectral Signatures per Cancer Subtype</h3>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:20px">Each cancer type shows a distinct spectral fingerprint. Top discriminative peaks vs all other cancers, ranked by absolute intensity difference (&#916;).</p>
+
+        <div class="peak-grid" id="peakGrid">
+          <!-- CRC -->
+          <div class="peak-card">
+            <div class="cancer-label"><span class="color-dot" style="background:#ef4444"></span> Colorectal (CRC)</div>
+            <div class="cancer-sub">n=1,500 | Sens 92.3% | Highest ~990 &amp; ~1350 cm&#8315;&#185;</div>
+            <div class="peak-item"><div class="peak-wn">991.8</div><div class="peak-assign">Phenylalanine ring</div><div class="peak-delta delta-up">+1.31</div></div>
+            <div class="peak-item"><div class="peak-wn">1350.4</div><div class="peak-assign">Tryptophan/CH&#8322;</div><div class="peak-delta delta-up">+1.19</div></div>
+            <div class="peak-item"><div class="peak-wn">989.8</div><div class="peak-assign">Phe (shoulder)</div><div class="peak-delta delta-up">+1.28</div></div>
+            <div class="peak-item"><div class="peak-wn">995.6</div><div class="peak-assign">Phe (wing)</div><div class="peak-delta delta-up">+1.06</div></div>
+            <div class="peak-item"><div class="peak-wn">1348.4</div><div class="peak-assign">CH deformation</div><div class="peak-delta delta-up">+1.15</div></div>
+          </div>
+          <!-- LUN -->
+          <div class="peak-card">
+            <div class="cancer-label"><span class="color-dot" style="background:#3b82f6"></span> Lung (LUN)</div>
+            <div class="cancer-sub">n=1,500 | Sens 91.1% | Uniquely elevated ~1547 cm&#8315;&#185; (Amide II)</div>
+            <div class="peak-item"><div class="peak-wn">1547.0</div><div class="peak-assign">Amide II / N-H bend</div><div class="peak-delta delta-up">+0.67</div></div>
+            <div class="peak-item"><div class="peak-wn">1545.1</div><div class="peak-assign">Amide II (shoulder)</div><div class="peak-delta delta-up">+0.66</div></div>
+            <div class="peak-item"><div class="peak-wn">1548.9</div><div class="peak-assign">Amide II (wing)</div><div class="peak-delta delta-up">+0.64</div></div>
+            <div class="peak-item"><div class="peak-wn">1350.4</div><div class="peak-assign">CH&#8322; deformation</div><div class="peak-delta delta-down">&minus;0.48</div></div>
+            <div class="peak-item"><div class="peak-wn">1352.3</div><div class="peak-assign">Tryptophan</div><div class="peak-delta delta-down">&minus;0.47</div></div>
+          </div>
+          <!-- PRO -->
+          <div class="peak-card">
+            <div class="cancer-label"><span class="color-dot" style="background:#8b5cf6"></span> Prostate (PRO)</div>
+            <div class="cancer-sub">n=500 | Sens 90.2% | Depleted ~990 cm&#8315;&#185; vs other cancers</div>
+            <div class="peak-item"><div class="peak-wn">989.8</div><div class="peak-assign">Phenylalanine</div><div class="peak-delta delta-down">&minus;1.71</div></div>
+            <div class="peak-item"><div class="peak-wn">991.8</div><div class="peak-assign">Phe ring</div><div class="peak-delta delta-down">&minus;1.70</div></div>
+            <div class="peak-item"><div class="peak-wn">987.9</div><div class="peak-assign">Phe (shoulder)</div><div class="peak-delta delta-down">&minus;1.63</div></div>
+            <div class="peak-item"><div class="peak-wn">1350.4</div><div class="peak-assign">CH&#8322;/Trp</div><div class="peak-delta delta-down">&minus;1.13</div></div>
+            <div class="peak-item"><div class="peak-wn">995.6</div><div class="peak-assign">Phe (wing)</div><div class="peak-delta delta-down">&minus;1.41</div></div>
+          </div>
+          <!-- OVA -->
+          <div class="peak-card">
+            <div class="cancer-label"><span class="color-dot" style="background:#10b981"></span> Ovarian (OVA)</div>
+            <div class="cancer-sub">n=350 | Sens 83.7% | Low ~990 + uniquely low ~2085 cm&#8315;&#185;</div>
+            <div class="peak-item"><div class="peak-wn">989.8</div><div class="peak-assign">Phenylalanine</div><div class="peak-delta delta-down">&minus;1.33</div></div>
+            <div class="peak-item"><div class="peak-wn">987.9</div><div class="peak-assign">Phe (shoulder)</div><div class="peak-delta delta-down">&minus;1.31</div></div>
+            <div class="peak-item"><div class="peak-wn">2088.8</div><div class="peak-assign">C&equiv;N / Thiocyanate</div><div class="peak-delta delta-down">&minus;1.06</div></div>
+            <div class="peak-item"><div class="peak-wn">2086.8</div><div class="peak-assign">C&equiv;N stretch</div><div class="peak-delta delta-down">&minus;1.05</div></div>
+            <div class="peak-item"><div class="peak-wn">985.9</div><div class="peak-assign">Phe (low wing)</div><div class="peak-delta delta-down">&minus;1.25</div></div>
+          </div>
+          <!-- CPAN -->
+          <div class="peak-card">
+            <div class="cancer-label"><span class="color-dot" style="background:#f59e0b"></span> Pancreatic (CPAN)</div>
+            <div class="cancer-sub">n=350 | Sens 84.0% | Depleted ~1001 cm&#8315;&#185; (shifted Phe)</div>
+            <div class="peak-item"><div class="peak-wn">1001.4</div><div class="peak-assign">Phe symmetric stretch</div><div class="peak-delta delta-down">&minus;1.12</div></div>
+            <div class="peak-item"><div class="peak-wn">999.5</div><div class="peak-assign">Phe (shoulder)</div><div class="peak-delta delta-down">&minus;1.11</div></div>
+            <div class="peak-item"><div class="peak-wn">1003.3</div><div class="peak-assign">Phe (wing)</div><div class="peak-delta delta-down">&minus;1.09</div></div>
+            <div class="peak-item"><div class="peak-wn">997.6</div><div class="peak-assign">Phe ring</div><div class="peak-delta delta-down">&minus;1.07</div></div>
+            <div class="peak-item"><div class="peak-wn">995.6</div><div class="peak-assign">Phe (low wing)</div><div class="peak-delta delta-down">&minus;1.01</div></div>
+          </div>
+          <!-- Insight card -->
+          <div class="peak-card" style="background:linear-gradient(135deg,#fafbfd,#f0f4ff);border-color:rgba(37,99,235,0.15)">
+            <div class="cancer-label" style="color:var(--accent-blue)">&#9670; Key Discrimination Insight</div>
+            <div class="cancer-sub">What separates the cancer types spectroscopically</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.7">
+              <p style="margin-bottom:6px"><strong>~990 cm&#8315;&#185; (Phe):</strong> CRC highest, PRO/OVA lowest among cancers. Primary subtype separator.</p>
+              <p style="margin-bottom:6px"><strong>~1350 cm&#8315;&#185; (Trp/CH&#8322;):</strong> CRC peaks here; LUN depleted. Separates the two largest cohorts.</p>
+              <p style="margin-bottom:6px"><strong>~1547 cm&#8315;&#185; (Amide II):</strong> Uniquely elevated in LUN &mdash; only subtype with positive shift.</p>
+              <p style="margin-bottom:6px"><strong>~2085 cm&#8315;&#185; (C&equiv;N):</strong> OVA uniquely low, distinguishing it from PRO.</p>
+              <p><strong>~1001 cm&#8315;&#185; (shifted Phe):</strong> CPAN depleted slightly up-shifted from 990 peak.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Peak fingerprint comparison chart -->
+      <div class="grid-2">
+        <div class="card">
+          <h3>Per-Cancer Peak Intensities &mdash; Spectral Fingerprint</h3>
+          <div style="height:340px"><canvas id="chartPeakFingerprint"></canvas></div>
+          <div class="chart-caption">Comparison of mean peak intensities at key wavenumbers across all 5 cancer types. Shows distinct spectral patterns enabling subtype classification.</div>
+        </div>
+        <div class="card">
+          <h3>Complete Peak Reference Table</h3>
+          <table class="per-cancer-table" style="font-size:0.76rem">
+            <thead><tr><th>Cancer</th><th>#</th><th>cm&#8315;&#185;</th><th>Intensity</th><th>Prominence</th><th>Assignment</th></tr></thead>
+            <tbody>
+              <tr><td rowspan="3"><strong style="color:#8b5cf6">PRO</strong></td><td>1</td><td>1001.4</td><td>4.70</td><td>5.53</td><td>Phe sym. stretch</td></tr>
+              <tr><td>2</td><td>2100.3</td><td>2.91</td><td>3.70</td><td>C&equiv;N / Thiocyanate</td></tr>
+              <tr><td>3</td><td>723.8</td><td>2.21</td><td>2.93</td><td>Adenine / C-S</td></tr>
+              <tr style="border-top:2px solid var(--border)"><td rowspan="3"><strong style="color:#3b82f6">LUN</strong></td><td>1</td><td>997.6</td><td>5.55</td><td>6.26</td><td>Phe ring</td></tr>
+              <tr><td>2</td><td>2098.4</td><td>2.44</td><td>3.18</td><td>C&equiv;N / Thiocyanate</td></tr>
+              <tr><td>3</td><td>1446.8</td><td>1.48</td><td>2.21</td><td>CH&#8322; scissoring</td></tr>
+              <tr style="border-top:2px solid var(--border)"><td rowspan="3"><strong style="color:#ef4444">CRC</strong></td><td>1</td><td>995.6</td><td>5.95</td><td>6.61</td><td>Phe ring</td></tr>
+              <tr><td>2</td><td>2094.6</td><td>2.78</td><td>3.41</td><td>C&equiv;N / Thiocyanate</td></tr>
+              <tr><td>3</td><td>1350.4</td><td>1.75</td><td>2.40</td><td>Tryptophan / CH&#8322;</td></tr>
+              <tr style="border-top:2px solid var(--border)"><td rowspan="3"><strong style="color:#f59e0b">CPAN</strong></td><td>1</td><td>997.6</td><td>4.40</td><td>5.18</td><td>Phe ring</td></tr>
+              <tr><td>2</td><td>2096.5</td><td>1.97</td><td>2.71</td><td>C&equiv;N / Thiocyanate</td></tr>
+              <tr><td>3</td><td>1446.8</td><td>1.33</td><td>1.92</td><td>CH&#8322; scissoring</td></tr>
+              <tr style="border-top:2px solid var(--border)"><td rowspan="3"><strong style="color:#10b981">OVA</strong></td><td>1</td><td>1001.4</td><td>5.08</td><td>5.88</td><td>Phe sym. stretch</td></tr>
+              <tr><td>2</td><td>723.8</td><td>2.14</td><td>2.68</td><td>Adenine / C-S</td></tr>
+              <tr><td>3</td><td>1448.7</td><td>1.81</td><td>2.64</td><td>CH&#8322; scissoring</td></tr>
+            </tbody>
+          </table>
+          <div class="chart-caption">Top 3 peaks per cancer type by prominence score. All types share the ~995&ndash;1001 cm&#8315;&#185; Phenylalanine peak but at different intensities.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TIMELINE ── -->
+    <section class="section" id="timeline">
+      <div class="section-header">
+        <h2>Performance Evolution</h2>
+        <p>Stage 2 Macro F1 progression across experiment phases (Feb 26 &ndash; Mar 18, 2026).</p>
+      </div>
+      <div class="card full">
+        <div style="height:380px"><canvas id="chartTL"></canvas></div>
+        <div class="chart-caption" id="capTL"></div>
+        <div class="chart-caption technical" id="capTLT"></div>
+      </div>
+    </section>
+
+    <!-- ── COHORT ── -->
+    <section class="section" id="cohort">
+      <div class="section-header">
+        <h2>Cohort Composition</h2>
+        <p>Subject and spectra distribution across cancer and control groups.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Subjects by Group</h3>
+          <div><canvas id="chartCohort"></canvas></div>
+          <div class="chart-caption" id="capCo"></div>
+          <div class="chart-caption technical" id="capCoT"></div>
+        </div>
+        <div class="card">
+          <h3>Cancer vs Non-Cancer</h3>
+          <div><canvas id="chartSplit"></canvas></div>
+          <div class="chart-caption" id="capSp"></div>
+          <div class="chart-caption technical" id="capSpT"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── KEY INSIGHTS ── -->
+    <section class="section" id="insights">
+      <div class="section-header">
+        <h2>Key Insights</h2>
+        <p>Critical findings from 12 experiment phases and 3 weeks of systematic benchmarking.</p>
+      </div>
+      <div class="insight-grid" id="insightGrid"></div>
+    </section>
+
+    <!-- ── NORMALIZATION ABLATION (PHASE L) ── -->
+    <section class="section" id="normalization">
+      <div class="section-header">
+        <h2>Normalization Ablation Study</h2>
+        <p>Phase L (Mar 18): Does the choice of normalization method explain LR's dominance over deep learning?</p>
+      </div>
+      <div class="card full">
+        <div style="text-align:center">
+          <img src="img/normalization_comparison.png" alt="Normalization Ablation" style="width:100%;max-width:1100px;border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow-md)">
+        </div>
+        <div class="chart-caption" id="capNorm"></div>
+        <div class="chart-caption technical" id="capNormT"></div>
+      </div>
+    </section>
+
+    <!-- ── CONFOUNDING ANALYSIS (PHASE M) ── -->
+    <section class="section" id="confounding">
+      <div class="section-header">
+        <h2>Confounding Analysis</h2>
+        <p>Phase M (Mar 18): Is SERS detecting cancer metabolites or patient demographics (age, sex, BMI)?</p>
+      </div>
+      <div class="card full">
+        <div style="text-align:center">
+          <img src="img/confounding_analysis.png" alt="Confounding Analysis" style="width:100%;max-width:1100px;border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow-md)">
+        </div>
+        <div class="chart-caption" id="capConf"></div>
+        <div class="chart-caption technical" id="capConfT"></div>
+      </div>
+    </section>
+
+    <!-- ── EXPERIMENT LOG (TECHNICAL ONLY) ── -->
+    <section class="section exp-detail-section" id="experiments">
+      <div class="section-header">
+        <h2>Detailed Experiment Log</h2>
+        <p>Full results from experiment phases G, H, I, E, J with per-model breakdowns. Phase L and M visualizations shown in dedicated sections above.</p>
+      </div>
+      <div id="expBlocks"></div>
+    </section>
+
+    <!-- ── NEXT STEPS ── -->
+    <section class="section" id="next-steps">
+      <div class="section-header">
+        <h2>Strategic Next Steps</h2>
+        <p>Recommended milestones, identified risks, and resource requirements for the next development phase.</p>
+      </div>
+      <div class="ns-grid" id="nsGrid"></div>
+    </section>
+
+    <!-- ── CLINICAL REPORT PREVIEW ── -->
+    <section class="section" id="clinical-report">
+      <div class="section-header">
+        <h2>Clinical Report Design</h2>
+        <p>Patient-facing screening report for physicians. A4 print-ready format with spectral evidence and actionable follow-up recommendations.</p>
+      </div>
+      <a href="clinical_report_mockup.html" target="_blank" style="text-decoration:none;display:block;">
+        <div class="card full" style="padding:0;overflow:hidden;cursor:pointer;transition:box-shadow 0.3s,transform 0.2s;" onmouseover="this.style.boxShadow='0 12px 48px rgba(59,31,142,0.12)';this.style.transform='translateY(-3px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="display:flex;align-items:stretch;">
+            <!-- Left: Preview description -->
+            <div style="flex:1;padding:36px 36px;">
+              <div style="display:inline-block;font-size:0.62rem;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;color:var(--solum-purple);background:var(--solum-purple-bg);border:1px solid var(--solum-purple-border);padding:4px 12px;border-radius:4px;margin-bottom:16px;">Product Preview</div>
+              <h3 style="font-size:1.3rem;font-weight:800;color:var(--text-primary);letter-spacing:-0.5px;margin-bottom:12px;">AECD Clinical Screening Report</h3>
+              <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:20px;">
+                Doctor-facing report generated per patient sample. Includes two-stage screening result, cancer subtype probabilities with confidence scores, real SERS spectral charts with annotated biomarker peaks, and evidence-based follow-up recommendations.
+              </p>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
+                <span style="font-size:0.7rem;font-weight:600;padding:5px 12px;border-radius:6px;background:rgba(220,38,38,0.06);color:var(--accent-red);border:1px solid rgba(220,38,38,0.12);">Stage 1: Cancer Detection</span>
+                <span style="font-size:0.7rem;font-weight:600;padding:5px 12px;border-radius:6px;background:rgba(59,31,142,0.06);color:var(--solum-purple);border:1px solid var(--solum-purple-border);">Stage 2: Subtype Probability</span>
+                <span style="font-size:0.7rem;font-weight:600;padding:5px 12px;border-radius:6px;background:rgba(5,150,105,0.06);color:var(--accent-green);border:1px solid rgba(5,150,105,0.12);">Spectral Evidence Charts</span>
+                <span style="font-size:0.7rem;font-weight:600;padding:5px 12px;border-radius:6px;background:rgba(217,119,6,0.06);color:var(--accent-amber);border:1px solid rgba(217,119,6,0.12);">QC + Recommendations</span>
+              </div>
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:var(--solum-purple);color:#fff;font-size:0.82rem;font-weight:700;">
+                View Full Report <span style="font-size:1rem;">&#8599;</span>
+              </div>
+            </div>
+            <!-- Right: Visual preview -->
+            <div style="width:320px;flex-shrink:0;background:linear-gradient(145deg,rgba(59,31,142,0.03),rgba(59,31,142,0.08));border-left:1px solid var(--border-light);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;gap:14px;">
+              <!-- Mini report preview card -->
+              <div style="width:200px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.08);padding:0;overflow:hidden;font-size:0.55rem;line-height:1.4;border:1px solid var(--border);">
+                <div style="background:var(--solum-purple);color:#fff;padding:6px 10px;font-weight:700;font-size:0.55rem;display:flex;justify-content:space-between;">
+                  <span>AECD Platform</span><span style="opacity:0.7">Report</span>
+                </div>
+                <div style="background:rgba(220,38,38,0.06);padding:5px 10px;border-bottom:1px solid var(--border-light);">
+                  <span style="color:var(--accent-red);font-weight:800;font-size:0.6rem;">CANCER SIGNAL DETECTED</span>
+                  <span style="float:right;color:var(--accent-red);font-weight:800;">96.3%</span>
+                </div>
+                <div style="padding:6px 10px;">
+                  <div style="color:var(--text3);font-weight:600;margin-bottom:3px;">Subtype Probability</div>
+                  <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+                    <span style="color:var(--accent-red);font-weight:700;width:32px;">CRC</span>
+                    <div style="flex:1;height:4px;background:var(--border-light);border-radius:2px;overflow:hidden"><div style="width:78%;height:100%;background:var(--accent-red);border-radius:2px"></div></div>
+                    <span style="font-weight:700;width:26px;text-align:right;">78%</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+                    <span style="color:var(--accent-amber);font-weight:600;width:32px;">CPAN</span>
+                    <div style="flex:1;height:4px;background:var(--border-light);border-radius:2px;overflow:hidden"><div style="width:12%;height:100%;background:var(--accent-amber);border-radius:2px"></div></div>
+                    <span style="font-weight:600;width:26px;text-align:right;">12%</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span style="color:var(--text3);font-weight:600;width:32px;">LUN</span>
+                    <div style="flex:1;height:4px;background:var(--border-light);border-radius:2px;overflow:hidden"><div style="width:5%;height:100%;background:var(--text3);border-radius:2px"></div></div>
+                    <span style="font-weight:600;width:26px;text-align:right;">5%</span>
+                  </div>
+                </div>
+                <div style="padding:4px 10px 6px;border-top:1px solid var(--border-light);">
+                  <div style="color:var(--text3);font-weight:600;margin-bottom:2px;">Spectral Evidence</div>
+                  <div style="height:18px;background:linear-gradient(90deg,rgba(37,99,235,0.1),rgba(220,38,38,0.15),rgba(37,99,235,0.08),rgba(220,38,38,0.2),rgba(37,99,235,0.05));border-radius:3px;"></div>
+                </div>
+                <div style="padding:4px 10px 6px;border-top:1px solid var(--border-light);display:flex;gap:4px;">
+                  <span style="font-size:0.48rem;padding:2px 5px;border-radius:3px;background:rgba(5,150,105,0.08);color:var(--accent-green);font-weight:700;">QC PASS</span>
+                  <span style="font-size:0.48rem;padding:2px 5px;border-radius:3px;background:rgba(220,38,38,0.06);color:var(--accent-red);font-weight:700;">COLONOSCOPY REC</span>
+                </div>
+              </div>
+              <div style="font-size:0.68rem;color:var(--text3);font-weight:500;">A4 Print-Ready Format</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <img src="img/SOLUM_Healthcare_CI_Vertical Logo.png" alt="SOLUM Healthcare">
+    <span>AECD Platform v4.0 &mdash; Confidential &mdash; March 18, 2026 &mdash; SOLUM Healthcare</span>
+  </div>
+</div>
+
+<!-- ═══════ SCRIPT ═══════ -->
+<script>
+/* ── Data is embedded inline for file:// compatibility ── */
+/* To update content, edit dashboard_data.json and paste below, or serve via HTTP */
+let D = {"meta":{"title":"AECD Platform","subtitle":"SERS-Based Urine Multi-Cancer Screening Platform","tagline":"Non-invasive. High-accuracy. Clinically actionable.","reportDate":"March 18, 2026","version":"4.0","status":"On Track","statusDetail":"12 phases | 73+ runs completed","confidentiality":"Confidential - SOLUM Healthcare Internal"},"kpis":[{"label":"Cancer Detection","value":"98.4%","metric":"Stage 1 AUC","detail":"Binary: Cancer vs Non-Cancer","color":"#3b1f8e","trend":"+19.1pp from baseline"},{"label":"Subtype Classification","value":"87.5%","metric":"Stage 2 Macro F1","detail":"5 cancer types identified","color":"#059669","trend":"+51.9pp from baseline (ensemble best)"},{"label":"Spectra Analyzed","value":"6,710","metric":"Total spectra","detail":"From 1,342 subjects","color":"#7c3aed","trend":"5 replicates per subject"},{"label":"Cancer Types","value":"7","metric":"Cohort groups","detail":"PRO, BRE, OVA, LUN, CRC, CPAN, SPAN","color":"#dc2626","trend":"+ 4 non-cancer controls"}],"pipeline":[{"icon":"sample","title":"Urine Collection","detail":"Patient urine sample","technicalDetail":"Mid-stream urine collected per clinical protocol. Stored at -80°C until measurement. No special patient preparation required."},{"icon":"measurement","title":"SERS Measurement","detail":"Raman spectral acquisition","technicalDetail":"5 replicate spectra per subject using SERS-active substrate. Fingerprint region: 400–2200 cm⁻¹. Laser wavelength: 785 nm. Integration time optimized per substrate batch."},{"icon":"preprocess","title":"Preprocessing","detail":"Signal cleaning & normalization","technicalDetail":"3-stage pipeline: (1) Savitzky-Golay smoothing (window=11, poly=3) preserves peak positions while removing high-frequency noise. (2) Rolling minimum baseline correction (window=101) removes fluorescence background. (3) SNV normalization [(x-μ)/σ] for scatter correction. Phase J also tested Min-Max, L2, and no-normalization — SNV remains best for LR, but no-norm LR achieves 0.879 F1."},{"icon":"qc","title":"Quality Control","detail":"Automated data validation","technicalDetail":"Multi-gate QC: intensity gate ratio ≥ 0.1, RSD < 5.0 across replicates, inter-replicate correlation > 0.95. Expected 5 replicates per subject. Currently passing ~100% of spectra (characterization mode). YPAN/UNK edge cases flagged for manual review."},{"icon":"stage1","title":"Stage 1 Classifier","detail":"Cancer vs Non-Cancer","technicalDetail":"L2-regularized Logistic Regression. Binary output: cancer (PRO/LUN/CRC/CPAN/OVA) vs non-cancer (NOR/DIA/HBP/H.D.). 5-fold stratified CV with subject-level splitting. Ensemble (80% LR + 20% ResNet18) achieves AUC = 0.984, Sensitivity 94.2%, Specificity 92.4%."},{"icon":"stage2","title":"Stage 2 Classifier","detail":"Cancer subtype identification","technicalDetail":"L2-regularized Logistic Regression. 5-class output: PRO, LUN, CRC, CPAN, OVA. Ensemble best: Macro F1 = 0.875, Accuracy = 0.904, AUC = 0.983. Single LR: F1 = 0.872, Accuracy = 0.902, AUC = 0.985."}],"stages":{"stage1":{"title":"Cancer Detection","subtitle":"Binary Classification","metric":"0.984","metricLabel":"AUC Score (Ensemble)","description":"Cancer vs Non-Cancer","classes":["Cancer","Non-Cancer"],"controlGroups":["NOR","DIA","HBP","H.D."],"technicalNote":"Ensemble: 80% Logistic Regression + 20% ResNet18. Sensitivity: 94.2%, Specificity: 92.4%. Single LR achieves AUC 0.981. Subject-level 5-fold stratified CV with strict replicate leakage prevention."},"stage2":{"title":"Subtype Identification","subtitle":"Multi-class Classification","metric":"0.875","metricLabel":"Macro F1 (Ensemble)","description":"5 Cancer Types","classes":["Prostate","Lung","Colorectal","C-Pancreatic","Ovarian"],"technicalNote":"Ensemble (80/20 LR+ResNet18): F1=0.875, Acc=0.904, AUC=0.983. Single LR: F1=0.872, Acc=0.902, AUC=0.985. Per-class F1 (LR): LUN ~0.92, CRC ~0.90, PRO ~0.85, OVA ~0.82, CPAN ~0.76. CPAN hardest due to spectral overlap with CRC."}},"modelBenchmark":{"setting":"6,200 spectra | 5 cancers (PRO, LUN, CRC, CPAN, OVA) | 4 controls (NOR, DIA, HBP, H.D.) | All-spectra mode","date":"2026-03-17 (updated with Phase J ensemble)","models":["LR+ResNet Ensemble","Logistic Regression","XGBoost","ResNet18","Random Forest","CNN1D"],"stage1AUC":{"values":[0.984,0.981,0.969,0.961,0.931,0.89],"insight":"The new LR+ResNet18 ensemble achieves the highest detection AUC at 98.4%. All models exceed 89% AUC, but the ensemble and standalone Logistic Regression lead by a wide margin.","technicalInsight":"Ensemble (alpha=0.8 LR + 0.2 ResNet18) adds +0.3pp AUC over single LR. The marginal gain comes from ResNet18 capturing non-linear spectral patterns that complement LR's linear boundaries. CNN1D (0.890) still suffers from limited receptive field. Random Forest (0.931) shows decorrelated tree weakness on high-dimensional spectral input."},"stage2F1":{"values":[0.875,0.872,0.77,0.71,0.642,0.424],"insight":"The ensemble achieves 87.5% macro F1, edging out standalone Logistic Regression (87.2%). The gap to third place (XGBoost at 77.0%) remains dramatic, confirming classical models dominate.","technicalInsight":"Ensemble gain is marginal (+0.3pp F1). Phase J tested 3 ResNet18 hypotheses (larger encoder, stronger regularization, class reweighting) — all failed to improve over baseline. Multi-channel input (SNV + derivatives) also failed. The ensemble sweet spot at 80/20 blend confirms ResNet18's limited but non-zero complementary value. Phase H tuning confirmed XGBoost ceiling at ~0.775 F1."},"stage2Acc":{"values":[0.904,0.902,0.837,0.77,0.753,0.46],"insight":"The ensemble correctly classifies 90.4% of cancer subtypes. Logistic Regression alone achieves 90.2%. CNN1D at 46% is near random chance for 5-class classification.","technicalInsight":"High accuracy + high F1 for both LR (90.2%/87.2%) and ensemble (90.4%/87.5%) confirms balanced performance across all classes including minority CPAN (n=70). XGBoost accuracy (83.7%) vs F1 (77.0%) gap reveals minority-class struggles. CNN1D at 46.0% indicates systematic prediction collapse."},"stage2AUC":{"values":[0.983,0.985,0.963,0.933,0.928,0.813],"insight":"Single Logistic Regression achieves the highest Stage 2 AUC at 98.5%, slightly above the ensemble (98.3%). Both demonstrate near-perfect subtype discrimination capability.","technicalInsight":"Interesting: single LR has higher one-vs-rest AUC (0.985) than the ensemble (0.983). This suggests the ensemble's calibration is slightly less optimal for ranking, even though its hard-classification F1 is higher. For clinical scoring use-cases, pure LR may be preferred."}},"timeline":{"phases":[{"label":"Phase A","date":"Feb 26","desc":"Initial Baseline","f1":0.356,"detail":"Medoid aggregation; merged PAN; 1,272 subjects; 6 cancer classes"},{"label":"Phase A+","date":"Feb 27","desc":"Cohort Separation","f1":0.548,"detail":"Separated CPAN/SPAN; 1,342 subjects; +19.2pp F1"},{"label":"Phase B","date":"Feb 27","desc":"All-Spectra Training","f1":0.613,"detail":"All 5 replicates; 6,710 spectra; 5x data expansion; +6.5pp"},{"label":"Phase C","date":"Mar 12","desc":"Subset Validation","f1":0.729,"detail":"CRC+CPAN vs controls; 3,850 spectra; Stage 1 AUC 0.981"},{"label":"Phase D","date":"Mar 12-13","desc":"Multi-Model Benchmark","f1":0.776,"detail":"XGBoost v005 best; 6,200 spectra; ResNet18 0.724"},{"label":"Phase F","date":"Mar 13","desc":"Full Benchmark","f1":0.872,"detail":"LR wins 5-model comparison; XGBoost 0.770; ResNet18 0.710"},{"label":"Phase J","date":"Mar 17","desc":"Ensemble + Normalization","f1":0.875,"detail":"80/20 LR+ResNet18 ensemble; normalization comparison; GPU optimization"},{"label":"Phase L","date":"Mar 18","desc":"Normalization Ablation","f1":0.879,"detail":"SNV/None/MinMax/L2 comparison. No-norm LR=0.879 (best single). Gap NOT narrowed by removing SNV."},{"label":"Phase M","date":"Mar 18","desc":"Confounding Analysis","f1":0.875,"detail":"SERS detects metabolites, not demographics. Age-matched AUC maintained. Demographics S2 F1 only 0.27."}],"insight":"Performance improved 2.46x from 35.6% to 87.5% over three weeks across 12 phases. Phase L confirmed linear separability is intrinsic to the data. Phase M validated that classification is genuinely metabolite-driven, not demographic confounding.","technicalInsight":"Phase A→A+ (+19.2pp): cohort separation. A+→B (+6.5pp): aggregation mode. B→F (+25.9pp): model selection and benchmark design. F→J (+0.3pp): ensemble blending. Phase J also tested: 3 ResNet18 hypotheses (all failed), multi-channel input (no improvement), 4 normalization strategies (SNV best, no-norm LR competitive at 0.879). Total 73 experiment runs logged. Phase L: normalization ablation disproved SNV-causes-separability hypothesis. LR robust across 4 norms (Δ1.1pp). ResNet18 fragile (0.584-0.720). Phase M: confounding analysis confirms metabolite detection. Demographics-only AUC drops from 0.766 to 0.693 on age-matched data; SERS maintains 0.987→0.989."},"cohort":{"groups":{"labels":["LUN","CRC","PRO","NOR","DIA","HBP","H.D.","SPAN","OVA","CPAN","BRE"],"subjects":[300,300,100,100,100,100,100,72,70,70,30],"spectra":[1500,1500,500,500,500,500,500,360,350,350,150],"type":["cancer","cancer","cancer","control","control","control","control","cancer","cancer","cancer","cancer"]},"cancerTotal":942,"controlTotal":400,"spectraTotal":6710,"insight":"Lung and colorectal cancers dominate the dataset at 300 subjects each (64% of cancer subjects). Breast cancer has the smallest cohort at only 30 subjects, limiting classification reliability.","technicalInsight":"Class imbalance 2.36:1 (cancer:control). LUN/CRC are 4-10x larger than BRE/CPAN/OVA. Macro F1 mitigates majority-class inflation. BRE and SPAN excluded from main 5-cancer benchmark due to small sample size and limited discriminability."},"experiments":{"phaseG":{"title":"Phase G: Medoid Benchmark Reruns","date":"2026-03-16","setting":"Medoid aggregation | 1,342 subjects | 7 cancers | 4 controls","description":"Revalidated all models on subject-level medoid-aggregated data to compare with all-spectra results.","runs":[{"name":"experiment_002","results":{"LogReg":0.697,"RandomForest":0.447,"CNN1D":0.15,"ResNet18":0.527,"XGBoost":"failed (missing dependency)"},"note":"XGBoost failed due to missing xgboost package in the conda environment."},{"name":"experiment_003","results":{"LogReg":0.697,"XGBoost":0.568,"ResNet18":0.474,"CNN1D":0.13},"note":"Complete rerun after fixing XGBoost environment. CNN1D at 13.0% F1 = catastrophic underfitting."}],"conclusion":"Medoid aggregation (1,342 samples) produces dramatically worse results than all-spectra (6,710 samples) across every model. Data volume from all replicates is the single most impactful design decision."},"phaseH":{"title":"Phase H: Hyperparameter Tuning Campaign","date":"2026-03-16","description":"Systematic hyperparameter search across XGBoost, ResNet18, and CNN1D. 15 total tuning runs.","tracks":[{"name":"5-cancer track (retune_20260316)","setting":"PRO, LUN, CRC, CPAN, OVA | 4 controls | 6,200 spectra","results":{"XGBoost_best":{"config":"tune_03_shallower_faster","f1":0.775,"note":"Shallow trees (max_depth=3). Matched prior best (0.776). No improvement."},"ResNet18_best":{"config":"tune_02_wider_slower","f1":0.658,"note":"WORSE than benchmark (0.710). Overfitting."},"CNN1D_best":{"config":"tune_04_deeper","f1":0.508,"note":"Modest improvement from 0.424 but still non-competitive."}}},{"name":"6-cancer no-SPAN track","setting":"PRO, BRE, OVA, LUN, CRC, CPAN | 4 controls | 6,350 spectra","results":{"XGBoost_best":{"f1":0.679,"note":"Adding BRE (n=30) hurt. Small class = noise."},"ResNet18_best":{"f1":0.603,"note":"BRE too small for neural network training."},"CNN1D_best":{"f1":0.353,"note":"CNN1D not viable at any configuration."}}}],"conclusion":"Tuning did NOT overturn rankings. XGBoost ceiling ~0.775. ResNet18 tuning degraded performance. Class composition matters more than hyperparameters."},"phaseI":{"title":"Phase I: Learning Curve Analysis","date":"2026-03-16","description":"Performance vs training set fraction. Does more data help neural nets overtake LR?","results":{"quickcheck":[{"fraction":0.2,"LogReg":0.534,"ResNet18":0.42},{"fraction":0.5,"LogReg":0.587,"ResNet18":0.51},{"fraction":1.0,"LogReg":0.676,"ResNet18":0.62}],"smoke":[{"fraction":0.2,"LogReg":0.706,"CNN1D":0.447}]},"conclusion":"No neural network overtook LR at any data fraction. LR-ResNet18 gap constant (~5-6pp). More data alone will not produce a crossover."},"phaseE":{"title":"Phase E: Reduced-Class Benchmark","date":"2026-03-13","setting":"PRO, LUN, CRC, OVA | 4 controls | 5,850 spectra (CPAN excluded)","description":"Removing hardest class (CPAN) to test ceiling.","results":{"XGBoost":{"acc":0.869,"f1":0.822,"note":"Best XGBoost in entire project."},"ResNet18":{"acc":0.832,"f1":0.788,"note":"Best ResNet18. Still below full-benchmark LR."},"CNN1D":{"acc":0.65,"f1":0.613,"note":"Best CNN1D. Still far from competitive."}},"conclusion":"Removing CPAN improved all models 5-20pp F1. CPAN spectra overlap with CRC/OVA. NOT comparable to main benchmark."},"phaseJ":{"title":"Phase J: GPU ResNet18 Optimization + Ensemble","date":"2026-03-17","setting":"6,200 spectra | 5 cancers | 4 controls | GPU-accelerated","description":"Systematic attempt to improve ResNet18 and explore ensembling. 10+ experiment runs covering architecture changes, regularization, multi-channel input, normalization comparison, and LR+ResNet18 blending.","steps":[{"name":"Step 2: Three ResNet18 Hypotheses","results":{"Hypothesis A (larger encoder)":{"f1":0.677,"note":"-3.3pp vs baseline. Overfitting."},"Hypothesis B (strong regularization)":{"f1":0.707,"note":"-0.3pp vs baseline. No help."},"Hypothesis C (stage2 class reweight)":{"f1":0.668,"note":"-4.2pp vs baseline. Worse."}},"conclusion":"All three ResNet18 improvement hypotheses failed."},{"name":"Step 3: Multi-channel Input (SNV + 1st/2nd derivative)","results":{"ResNet18 3-channel":{"f1":0.706,"note":"No improvement over 1-channel baseline (0.710)."}},"conclusion":"Multi-channel input redundant. 1D convolutions implicitly learn derivative features."},{"name":"Step 4: Normalization Comparison","results":{"LR (no normalization)":{"f1":0.879,"s1auc":0.977,"note":"Surprisingly strong. Best single-model F1."},"LR (MinMax)":{"f1":0.868,"s1auc":0.979,"note":"Slightly below SNV."},"LR (L2)":{"f1":0.877,"s1auc":0.981,"note":"Competitive with SNV."},"LR (SNV - default)":{"f1":0.872,"s1auc":0.981,"note":"Current default."},"ResNet18 (no norm)":{"f1":0.72,"note":"Best ResNet18 result across all norms."},"ResNet18 (MinMax)":{"f1":0.64,"note":"Significantly degraded."},"ResNet18 (L2)":{"f1":0.584,"note":"Worst ResNet18 variant."}},"conclusion":"LR is robust across normalizations (0.868-0.879 F1). No-norm LR achieved highest single-model F1 (0.879). ResNet18 is fragile and normalization-sensitive."},{"name":"Step 5: LR + ResNet18 Ensemble","results":{"Ensemble (80% LR + 20% ResNet18)":{"f1":0.875,"acc":0.904,"s1auc":0.984,"s2auc":0.983,"note":"NEW BEST overall result. Sweep tested alpha 0.0-1.0."}},"conclusion":"Optimal blend at 80/20. Marginal +0.3pp over single LR. ResNet18 contributes small complementary signal."}],"overallConclusion":"Phase J confirmed that no single architecture beats Logistic Regression. Ensemble provides marginal improvement (+0.3pp). Normalization matters: no-norm LR surprisingly achieves 0.879 F1. Multi-channel input and architecture changes do not help. The representation bottleneck is confirmed."},"phaseL":{"title":"Phase L: Normalization Ablation","date":"2026-03-18","setting":"6,200 spectra | 5 cancers | 4 controls | 4 normalization methods","description":"Tested whether SNV normalization causes LR's advantage over DL. Re-preprocessed all spectra with SNV, None, MinMax, L2 and trained LR + ResNet18 on each.","results":{"SNV":{"lr_s1":0.981,"lr_f1":0.872,"res_s1":0.958,"res_f1":0.71,"gap":0.162},"None":{"lr_s1":0.977,"lr_f1":0.879,"res_s1":0.966,"res_f1":0.72,"gap":0.158},"MinMax":{"lr_s1":0.979,"lr_f1":0.868,"res_s1":0.952,"res_f1":0.64,"gap":0.228},"L2":{"lr_s1":0.981,"lr_f1":0.877,"res_s1":0.939,"res_f1":0.584,"gap":0.293}},"conclusion":"Hypothesis DISPROVED. Removing SNV does NOT narrow the LR-ResNet gap. LR is robust across normalizations (F1: 0.868-0.879). ResNet18 is fragile (0.584-0.720). MinMax and L2 make the gap WIDER. Linear separability is intrinsic to the data, not caused by normalization."},"phaseM":{"title":"Phase M: Confounding Analysis (Age/Sex/BMI)","date":"2026-03-18","setting":"6,200 spectra | Demographics vs SERS comparison | Age-matched subgroup test","description":"Tested whether SERS detects cancer metabolites or demographic confounders. Normal subjects are younger (mean 45) vs cancer (mean 65-73). PRO is 100% male, OVA 100% female.","results":{"Age only":{"s1_auc":0.756,"s2_f1":0.206},"Age + Sex":{"s1_auc":0.766,"s2_f1":0.271},"Age + Sex + BMI":{"s1_auc":0.774,"s2_f1":0.309},"SERS only":{"s1_auc":0.987,"s2_f1":0.861},"SERS + Age + Sex":{"s1_auc":0.989,"s2_f1":0.882}},"ageMatched":{"demographics_full":0.766,"demographics_matched":0.693,"sers_full":0.987,"sers_matched":0.989},"spectralAgeCorrelation":{"mean_abs_r":0.076,"max_abs_r":0.297},"conclusion":"SERS genuinely detects cancer metabolites, not demographics. SERS AUC maintained on age-matched subgroup (0.987→0.989) while demographics-only drops (0.766→0.693). Adding age+sex to SERS adds only 0.1% AUC. Cancer subtype classification (S2 F1 0.86) is entirely spectral — demographics achieve only 0.27."}},"insights":{"executive":[{"title":"Simple Models Still Win","body":"After 73 experiments, Logistic Regression remains dominant. The best result (87.5% F1) comes from a simple 80/20 blend with ResNet18 — adding minimal complexity for +0.3pp gain.","color":"#3b1f8e"},{"title":"Data Strategy > Model Complexity","body":"Using all replicate spectra and proper cohort design delivered a 2.46x performance gain (35.6% → 87.5%). Every deep learning optimization attempted on March 17 failed to move the needle.","color":"#059669"},{"title":"Near-Perfect Cancer Detection","body":"98.4% AUC for cancer vs non-cancer from a simple urine test. This technology can reliably flag at-risk patients with minimal patient burden.","color":"#7c3aed"},{"title":"Pipeline Production-Ready","body":"73 experiments across 10 phases confirm pipeline stability. The bottleneck is now clinical validation and regulatory, not engineering.","color":"#dc2626"},{"title":"Cohort Design is the Key Lever","body":"Reducing from 7 to 5 cancer types improved F1 by +17.3pp. Cohort composition had more impact than all hyperparameter tuning combined.","color":"#d97706"},{"title":"Deep Learning Investment Exhausted","body":"Phase J systematically tested architecture changes, multi-channel input, regularization, and normalization variants. None improved over LR baseline. DL requires fundamentally new data, not more tuning.","color":"#64748b"},{"title":"Not a Normalization Artifact","body":"Phase L tested 4 normalization methods. The model's accuracy is intrinsic to the spectral data itself, not dependent on any specific preprocessing choice. LR performs consistently regardless of normalization.","color":"#059669"},{"title":"Genuine Cancer Detection Validated","body":"Phase M proved SERS detects cancer metabolites, not patient age or sex. When tested on age-matched patients, SERS maintained 98.9% AUC while demographics-only dropped to 69.3%.","color":"#3b1f8e"}],"technical":[{"title":"Ensemble: Marginal but Real","body":"80% LR + 20% ResNet18 achieves S2 F1 0.875 vs 0.872 for pure LR (+0.3pp). Alpha sweep 0.0-1.0 in 0.1 increments shows monotonic degradation beyond 20% ResNet18 weight. The ensemble adds S1 AUC +0.3pp (0.984 vs 0.981). For production: recommend pure LR unless clinical requirements demand absolute maximum.","color":"#3b1f8e"},{"title":"Normalization Robustness Confirmed","body":"Phase J Step 4 tested 4 normalization strategies on LR: SNV (0.872), no-norm (0.879), L2 (0.877), MinMax (0.868). LR is highly robust — Δ = 1.1pp across all norms. No-norm LR achieved the highest single-model F1 (0.879), suggesting raw spectral features are already informative. ResNet18 is fragile: 0.584-0.720 F1 across norms.","color":"#059669"},{"title":"ResNet18 Optimization Exhausted","body":"Phase J tested 3 hypotheses: larger encoder (-3.3pp), stronger regularization (-0.3pp), class reweighting (-4.2pp). Multi-channel input (SNV + 1st/2nd derivative) also failed (0.706 vs 0.710 baseline). The 1D convolutions already implicitly learn derivative features, making explicit multi-channel redundant.","color":"#7c3aed"},{"title":"QC Gates in Characterization Mode","body":"QC thresholds (intensity gate ≥0.1, RSD<5.0, correlation>0.95) pass ~100% of spectra. For clinical deployment: tighten gates, add Mahalanobis outlier detection, implement batch-level QC.","color":"#dc2626"},{"title":"CPAN Spectral Overlap Confirmed","body":"Phase E: removing CPAN raised XGBoost F1 from 0.776 to 0.822 (+4.6pp), ResNet18 from 0.710 to 0.788 (+7.8pp). Phase H no-SPAN track with added BRE made things worse. Small/ambiguous classes dilute discriminability more than they add clinical coverage.","color":"#d97706"},{"title":"73 Experiments: Performance Ceiling Reached","body":"Across 10 phases and 73 logged runs: hyperparameter tuning (<1pp), architecture changes (all negative), multi-channel input (no gain), normalization variants (Δ1.1pp). The representation bottleneck is confirmed. Further progress requires new data modalities (metabolomics, proteomics), significantly larger cohorts (3-5x), or multi-site spectral data.","color":"#64748b"},{"title":"Normalization Ablation: Gap Persists","body":"Phase L: SNV gap=0.162, None=0.158, MinMax=0.228, L2=0.293. Removing SNV does NOT narrow the LR-ResNet gap. LR's StandardScaler compensates for any normalization. ResNet18 is highly sensitive (F1 range: 0.584-0.720). Linear separability comes from trim+smooth+baseline, not normalization.","color":"#059669"},{"title":"Confounding: Metabolite-Driven Classification","body":"Phase M: Demographics alone achieve S1 AUC 0.77 (age/sex confounding exists) but S2 F1 only 0.27 (cannot distinguish cancer subtypes). SERS S1 AUC maintained on age-matched subgroup (0.987→0.989). Spectral-age correlation: mean |r|=0.076, max |r|=0.297. Adding demographics to SERS adds <0.5% — spectral features already encode demographic metabolic info.","color":"#3b1f8e"}]},"nextSteps":{"milestones":[{"title":"External Validation Study","target":"Q3 2026","description":"Validate the 5-cancer LR model (or ensemble) on an independent hospital cohort, supported by confounding analysis showing genuine metabolite detection. Target: Stage 1 AUC > 0.95, Stage 2 F1 > 0.80 on external data.","status":"planned"},{"title":"Regulatory Pre-Submission (MFDS)","target":"Q4 2026","description":"Submit pre-submission package to MFDS. Logistic Regression simplicity is a regulatory advantage for explainability and audit trail requirements.","status":"planned"},{"title":"Expanded Cohort Collection","target":"Q1 2027","description":"Increase BRE (30→150+) and OVA (70→150+) cohorts. Collect multi-site samples from 2-3 partner hospitals. Target: 2,000+ total subjects.","status":"planned"}],"risks":[{"title":"External Generalization Gap","severity":"high","description":"All 73 experiments used single-site data from one instrument. Performance may degrade on different Raman spectrometers, preparation protocols, or patient demographics.","mitigation":"Multi-site validation with standardized SOPs. Domain adaptation (spectral transfer learning). Instrument-specific calibration curves. Prospective collection from 2-3 independent sites."},{"title":"Class Imbalance in Rare Cancers","severity":"medium","description":"BRE (n=30) and CPAN (n=70) are critically small. CPAN is already the weakest class (est. F1 ~0.76). Subtype reliability may be insufficient for clinical use.","mitigation":"Priority cohort expansion for underrepresented cancers. Evaluate SMOTE / spectral augmentation. Consider phased launch: LUN, CRC, PRO first; add others as data permits."},{"title":"Regulatory Pathway Uncertainty","severity":"medium","description":"Multi-cancer urine SERS screening is a novel IVD category. No predicate device for 510(k). May require De Novo classification or PMA.","mitigation":"Early MFDS pre-submission meeting. Frame as screening aid. Build clinical evidence base. Hire regulatory affairs specialist with IVD/CDx experience."}],"resourceAsks":[{"title":"Clinical Partnership (2-3 Hospitals)","type":"Partnership","description":"Multi-site hospital partnerships for external validation. Need 500+ new subjects with biopsy-confirmed outcomes.","priority":"critical"},{"title":"Regulatory Affairs Lead","type":"Headcount","description":"IVD/CDx regulatory specialist covering MFDS and FDA. Essential for Q4 2026 pre-submission.","priority":"high"},{"title":"Cohort Expansion Budget","type":"Budget","description":"500+ new urine samples with SERS measurement. Priority: BRE (120+), OVA (80+), multi-site controls (200+).","priority":"high"},{"title":"Biostatistician","type":"Headcount","description":"Trial design, power analysis, regulatory-grade statistical analysis plan (SAP) for MFDS submission.","priority":"medium"}]}};
+
+/* Try loading latest from JSON file (HTTP-served); fallback uses inline data above */
+fetch('./dashboard_data.json').then(r=>r.json()).then(d=>{D=d;render();}).catch(()=>{/* use inline */});
+
+/* Render immediately with inline data (covers file:// protocol) */
+document.addEventListener('DOMContentLoaded', () => { if(D) render(); });
+
+function setMode(m) {
+  document.body.className = 'mode-' + m;
+  document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  if(D) renderInsights();
+}
+
+function render() {
+  renderKPIs();
+  renderPipeline();
+  renderStages();
+  renderBenchSub();
+  renderCharts();
+  renderPeakCharts();
+  renderInsights();
+  renderExpBlocks();
+  renderNewSections();
+  renderNextSteps();
+  setupNav();
+}
+
+/* ── KPIs ── */
+function renderKPIs() {
+  document.getElementById('kpiStrip').innerHTML = D.kpis.map(k=>`
+    <div class="kpi-item">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="color:${k.color}">${k.value}</div>
+      <div class="kpi-metric">${k.metric} &mdash; ${k.detail}</div>
+      <div class="kpi-trend">${k.trend}</div>
+    </div>`).join('');
+}
+
+/* ── Pipeline ── */
+function renderPipeline() {
+  const imgMap = {
+    sample: 'img/urine sample.png',
+    measurement: 'img/Raman.png',
+    preprocess: 'img/sers_preprocessing_pipeline.png',
+    qc: 'img/qc_replicate.png',
+    stage1: 'img/cancer_peak_difference.png',
+    stage2: 'img/benchmark_comparison.png'
+  };
+  const arrow = '<svg class="pipe-arrow" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  document.getElementById('pipeFlow').innerHTML = D.pipeline.map((p,i)=>`
+    <div class="pipe-card">
+      <div class="pipe-num">${i+1}</div>
+      <div class="pipe-img-box"><img src="${imgMap[p.icon]||''}" alt="${p.title}"></div>
+      <div class="pipe-title">${p.title}</div>
+      <div class="pipe-detail">${p.detail}</div>
+      <div class="pipe-tech">${p.technicalDetail}</div>
+      ${arrow}
+    </div>`).join('');
+}
+
+/* ── Stages ── */
+function renderStages() {
+  const s1=D.stages.stage1, s2=D.stages.stage2;
+  document.getElementById('stageLayout').innerHTML = `
+    <div class="stage-card s1">
+      <div class="s-overline">${s1.subtitle}</div>
+      <div class="s-title">${s1.title}</div>
+      <div class="s-metric">${s1.metric}</div>
+      <div class="s-metric-label">${s1.metricLabel}</div>
+      <div class="s-classes">${s1.classes.map(c=>'<span class="s-tag">'+c+'</span>').join('')}</div>
+      <div class="s-tech-note">${s1.technicalNote}</div>
+    </div>
+    <div class="stage-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    <div class="stage-card s2">
+      <div class="s-overline">${s2.subtitle}</div>
+      <div class="s-title">${s2.title}</div>
+      <div class="s-metric">${s2.metric}</div>
+      <div class="s-metric-label">${s2.metricLabel}</div>
+      <div class="s-classes">${s2.classes.map(c=>'<span class="s-tag">'+c+'</span>').join('')}</div>
+      <div class="s-tech-note">${s2.technicalNote}</div>
+    </div>`;
+}
+
+function renderBenchSub() {
+  document.getElementById('benchSub').textContent = D.modelBenchmark.setting + ' | ' + D.modelBenchmark.date;
+}
+
+/* ── Charts ── */
+function renderCharts() {
+  const M = D.modelBenchmark;
+  const tc='#94a3b8', gc='rgba(148,163,184,0.1)';
+  const bc=['#3b1f8e','#5a3db8','#7c3aed','#f59e0b','#059669','#ef4444'];
+
+  function bar(id,vals,mn,mx,pf) {
+    new Chart(document.getElementById(id),{type:'bar',data:{labels:M.models,datasets:[{data:vals,backgroundColor:bc,borderRadius:8,barPercentage:0.52}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>pf+(c.raw*100).toFixed(1)+'%'}}},scales:{x:{ticks:{color:tc,font:{size:9.5,family:'Inter'}},grid:{display:false}},y:{min:mn,max:mx,ticks:{color:tc,font:{size:10,family:'Inter'},callback:v=>(v*100).toFixed(0)+'%'},grid:{color:gc}}}}});
+  }
+
+  bar('chartS1',M.stage1AUC.values,0.85,1.0,'AUC: ');
+  bar('chartS2F1',M.stage2F1.values,0.3,1.0,'F1: ');
+  bar('chartS2Acc',M.stage2Acc.values,0.3,1.0,'Acc: ');
+  bar('chartS2AUC',M.stage2AUC.values,0.75,1.0,'AUC: ');
+
+  document.getElementById('capS1').textContent = M.stage1AUC.insight;
+  document.getElementById('capS1T').textContent = M.stage1AUC.technicalInsight;
+  document.getElementById('capS2F1').textContent = M.stage2F1.insight;
+  document.getElementById('capS2F1T').textContent = M.stage2F1.technicalInsight;
+  document.getElementById('capS2Acc').textContent = M.stage2Acc.insight;
+  document.getElementById('capS2AccT').textContent = M.stage2Acc.technicalInsight;
+  document.getElementById('capS2AUC').textContent = M.stage2AUC.insight;
+  document.getElementById('capS2AUCT').textContent = M.stage2AUC.technicalInsight;
+
+  // Timeline
+  const T = D.timeline;
+  new Chart(document.getElementById('chartTL'),{type:'line',data:{labels:T.phases.map(p=>p.label+'\n'+p.date),datasets:[{label:'Best Stage 2 Macro F1',data:T.phases.map(p=>p.f1),borderColor:'#3b1f8e',backgroundColor:'rgba(59,31,142,0.05)',fill:true,tension:0.4,pointRadius:7,pointBackgroundColor:'#3b1f8e',pointBorderColor:'#fff',pointBorderWidth:3,borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#64748b',font:{family:'Inter',size:11},boxWidth:10,padding:16}},tooltip:{callbacks:{title:i=>{const p=T.phases[i[0].dataIndex];return p.label+' \u2014 '+p.desc;},label:c=>'Macro F1: '+(c.raw*100).toFixed(1)+'%',afterLabel:c=>T.phases[c.dataIndex].detail}}},scales:{x:{ticks:{color:tc,font:{size:9.5,family:'Inter'},maxRotation:0},grid:{color:gc}},y:{min:0.2,max:1.0,ticks:{color:tc,font:{size:10,family:'Inter'},callback:v=>(v*100).toFixed(0)+'%'},grid:{color:gc}}}}});
+  document.getElementById('capTL').textContent = T.insight;
+  document.getElementById('capTLT').textContent = T.technicalInsight;
+
+  // Cohort
+  const C = D.cohort.groups;
+  const cc = C.type.map(t=>t==='cancer'?'#ef4444':'#3b1f8e');
+  new Chart(document.getElementById('chartCohort'),{type:'bar',data:{labels:C.labels,datasets:[{data:C.subjects,backgroundColor:cc,borderRadius:6,barPercentage:0.6}]},options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc,font:{size:10,family:'Inter'}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:10,family:'Inter'}},grid:{display:false}}}}});
+  document.getElementById('capCo').textContent = D.cohort.insight;
+  document.getElementById('capCoT').textContent = D.cohort.technicalInsight;
+
+  new Chart(document.getElementById('chartSplit'),{type:'doughnut',data:{labels:['Cancer ('+D.cohort.cancerTotal+')','Control ('+D.cohort.controlTotal+')'],datasets:[{data:[D.cohort.cancerTotal,D.cohort.controlTotal],backgroundColor:['#ef4444','#3b1f8e'],borderColor:'#fff',borderWidth:4}]},options:{responsive:true,maintainAspectRatio:true,cutout:'68%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#64748b',font:{family:'Inter',size:11},padding:20,boxWidth:12}}}}});
+  document.getElementById('capSp').textContent = 'Cancer subjects outnumber controls 2.4:1. This imbalance is accounted for using macro-averaged metrics that weight all classes equally.';
+  document.getElementById('capSpT').textContent = 'Stratified splitting ensures proportional representation in each CV fold. Subject-level splitting prevents replicate leakage. Within cancer, LUN and CRC are 4\u201310x larger than BRE/CPAN/OVA.';
+}
+
+/* ── Peak Discrimination Charts ── */
+function renderPeakCharts() {
+  const tc='#94a3b8', gc='rgba(148,163,184,0.1)';
+
+  // Confusion chart
+  new Chart(document.getElementById('chartConfusion'),{type:'bar',data:{
+    labels:['CPAN→CRC','OVA→PRO','PRO→OVA','OVA→LUN','CRC→CPAN','LUN→PRO','LUN→OVA','LUN→CRC'],
+    datasets:[{label:'Confusion Rate (%)',data:[11.1,7.7,5.2,4.6,3.6,3.1,2.7,2.3],
+      backgroundColor:['rgba(220,38,38,0.7)','rgba(220,38,38,0.6)','rgba(217,119,6,0.6)','rgba(217,119,6,0.5)','rgba(217,119,6,0.45)','rgba(100,116,139,0.5)','rgba(100,116,139,0.4)','rgba(100,116,139,0.35)'],
+      borderRadius:4,barPercentage:0.7}]
+  },options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'%'}}},
+    scales:{x:{beginAtZero:true,max:14,grid:{color:gc},ticks:{color:tc,font:{size:10,family:'Inter'},callback:v=>v+'%'}},
+      y:{grid:{display:false},ticks:{color:tc,font:{size:10,family:'Inter'}}}}}});
+
+  // Stage 1 top 20 peaks chart
+  const s1Peaks = [
+    {wn:'989.8',d:1.99},{wn:'987.9',d:1.94},{wn:'991.8',d:1.94},
+    {wn:'723.8',d:-1.88},{wn:'721.9',d:-1.82},{wn:'986.0',d:1.81},
+    {wn:'725.7',d:-1.81},{wn:'993.7',d:1.75},{wn:'719.9',d:-1.65},
+    {wn:'727.6',d:-1.64},{wn:'984.1',d:1.64},{wn:'1350.4',d:1.59},
+    {wn:'1348.4',d:1.55},{wn:'1352.3',d:1.52},{wn:'995.6',d:1.47},
+    {wn:'982.1',d:1.44},{wn:'1346.5',d:1.43},{wn:'718.0',d:-1.41},
+    {wn:'729.6',d:-1.41},{wn:'1354.2',d:1.38}
+  ];
+  new Chart(document.getElementById('chartS1Peaks'),{type:'bar',data:{
+    labels:s1Peaks.map(p=>p.wn+' cm⁻¹'),
+    datasets:[{label:'Δ Intensity (Cancer − Non-Cancer)',data:s1Peaks.map(p=>p.d),
+      backgroundColor:s1Peaks.map(p=>p.d>0?'rgba(220,38,38,0.6)':'rgba(37,99,235,0.6)'),
+      borderColor:s1Peaks.map(p=>p.d>0?'#dc2626':'#2563eb'),borderWidth:1,borderRadius:3}]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{
+      const dir=c.raw>0?'Cancer > Non-Cancer':'Non-Cancer > Cancer';
+      return 'Δ = '+(c.raw>0?'+':'')+c.raw.toFixed(2)+' ('+dir+')';}}}},
+    scales:{y:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'Inter'}},
+      title:{display:true,text:'Δ Intensity',font:{size:11,weight:600,family:'Inter'},color:tc}},
+      x:{grid:{display:false},ticks:{color:tc,font:{size:9,family:'Inter'},maxRotation:65,minRotation:45}}}}});
+
+  // Peak fingerprint comparison chart
+  new Chart(document.getElementById('chartPeakFingerprint'),{type:'bar',data:{
+    labels:['~724\nAdenine','~934','~990\nPhe','~1001\nPhe sym','~1350\nTrp/CH₂','~1447\nCH₂','~1547\nAmide II','~1601','~1651\nAmide I','~2095\nC≡N'],
+    datasets:[
+      {label:'PRO',data:[2.21,0.33,null,4.70,-0.01,1.76,null,1.22,1.50,2.91],backgroundColor:'rgba(139,92,246,0.6)',borderColor:'#8b5cf6',borderWidth:1,borderRadius:3,barPercentage:0.75},
+      {label:'LUN',data:[1.29,0.49,null,5.55,0.68,1.48,0.32,null,0.81,2.44],backgroundColor:'rgba(59,130,246,0.6)',borderColor:'#3b82f6',borderWidth:1,borderRadius:3,barPercentage:0.75},
+      {label:'CRC',data:[0.91,null,null,5.95,1.75,1.13,null,0.44,null,2.78],backgroundColor:'rgba(239,68,68,0.6)',borderColor:'#ef4444',borderWidth:1,borderRadius:3,barPercentage:0.75},
+      {label:'CPAN',data:[1.01,null,null,4.40,1.18,1.33,null,0.88,0.88,1.97],backgroundColor:'rgba(245,158,11,0.6)',borderColor:'#f59e0b',borderWidth:1,borderRadius:3,barPercentage:0.75},
+      {label:'OVA',data:[2.14,null,null,5.08,null,1.81,null,1.29,1.50,1.63],backgroundColor:'rgba(16,185,129,0.6)',borderColor:'#10b981',borderWidth:1,borderRadius:3,barPercentage:0.75}
+    ]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{color:'#64748b',font:{family:'Inter',size:10},usePointStyle:true,pointStyle:'rectRounded',padding:14}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.raw!==null?c.raw.toFixed(2):'N/A')}}},
+    scales:{y:{beginAtZero:true,grid:{color:gc},ticks:{color:tc,font:{size:10,family:'Inter'}},
+      title:{display:true,text:'Mean Peak Intensity (SNV)',font:{size:11,weight:600,family:'Inter'},color:tc}},
+      x:{grid:{display:false},ticks:{color:tc,font:{size:9,family:'Inter'}}}}}});
+}
+
+/* ── Insights ── */
+function renderInsights() {
+  const mode = document.body.classList.contains('mode-technical') ? 'technical' : 'executive';
+  document.getElementById('insightGrid').innerHTML = D.insights[mode].map(i=>`
+    <div class="insight-card" style="border-left-color:${i.color}">
+      <h4>${i.title}</h4><p>${i.body}</p>
+    </div>`).join('');
+}
+
+/* ── Experiment Detail Blocks ── */
+function renderExpBlocks() {
+  const E = D.experiments;
+  let html = '';
+
+  // Phase G
+  const g = E.phaseG;
+  html += `<div class="exp-block"><h4>${g.title}</h4><div class="exp-meta">${g.date} &mdash; ${g.setting}</div><div class="exp-desc">${g.description}</div>`;
+  g.runs.forEach(r => {
+    html += `<div style="margin-bottom:12px"><strong style="font-size:0.82rem;color:var(--text-primary)">${r.name}</strong>`;
+    html += `<table class="exp-table"><tr><th>Model</th><th>Stage 2 F1</th><th>Note</th></tr>`;
+    for (const [model, val] of Object.entries(r.results)) {
+      html += `<tr><td>${model}</td><td class="val">${typeof val==='number'?(val*100).toFixed(1)+'%':'\u2014'}</td><td class="note">${typeof val==='string'?val:''}</td></tr>`;
+    }
+    html += `</table><div class="exp-meta">${r.note}</div></div>`;
+  });
+  html += `<div class="exp-conclusion">${g.conclusion}</div></div>`;
+
+  // Phase H
+  const h = E.phaseH;
+  html += `<div class="exp-block"><h4>${h.title}</h4><div class="exp-meta">${h.date}</div><div class="exp-desc">${h.description}</div>`;
+  h.tracks.forEach(t => {
+    html += `<div style="margin-bottom:14px"><strong style="font-size:0.82rem;color:var(--text-primary)">${t.name}</strong><div class="exp-meta" style="margin-bottom:8px">${t.setting}</div>`;
+    html += `<table class="exp-table"><tr><th>Model</th><th>Config / F1</th><th>Note</th></tr>`;
+    for (const [key, val] of Object.entries(t.results)) {
+      html += `<tr><td>${key.replace('_best','')}</td><td class="val">${(val.f1*100).toFixed(1)}%${val.config?' ('+val.config+')':''}</td><td class="note">${val.note}</td></tr>`;
+    }
+    html += `</table></div>`;
+  });
+  html += `<div class="exp-conclusion">${h.conclusion}</div></div>`;
+
+  // Phase I
+  const pi = E.phaseI;
+  html += `<div class="exp-block"><h4>${pi.title}</h4><div class="exp-meta">${pi.date}</div><div class="exp-desc">${pi.description}</div>`;
+  html += `<table class="exp-table"><tr><th>Data Fraction</th><th>LogReg F1</th><th>ResNet18 F1</th><th>CNN1D F1</th></tr>`;
+  pi.results.quickcheck.forEach(r => {
+    html += `<tr><td>${(r.fraction*100).toFixed(0)}%</td><td class="val">${(r.LogReg*100).toFixed(1)}%</td><td class="val">${r.ResNet18?(r.ResNet18*100).toFixed(1)+'%':'\u2014'}</td><td class="val">\u2014</td></tr>`;
+  });
+  pi.results.smoke.forEach(r => {
+    html += `<tr><td>${(r.fraction*100).toFixed(0)}% (smoke)</td><td class="val">${(r.LogReg*100).toFixed(1)}%</td><td class="val">\u2014</td><td class="val">${(r.CNN1D*100).toFixed(1)}%</td></tr>`;
+  });
+  html += `</table><div class="exp-conclusion">${pi.conclusion}</div></div>`;
+
+  // Phase E
+  const pe = E.phaseE;
+  html += `<div class="exp-block"><h4>${pe.title}</h4><div class="exp-meta">${pe.date} &mdash; ${pe.setting}</div><div class="exp-desc">${pe.description}</div>`;
+  html += `<table class="exp-table"><tr><th>Model</th><th>Accuracy</th><th>Macro F1</th><th>Note</th></tr>`;
+  for (const [model, val] of Object.entries(pe.results)) {
+    html += `<tr><td>${model}</td><td class="val">${(val.acc*100).toFixed(1)}%</td><td class="val">${(val.f1*100).toFixed(1)}%</td><td class="note">${val.note}</td></tr>`;
+  }
+  html += `</table><div class="exp-conclusion">${pe.conclusion}</div></div>`;
+
+  // Phase J
+  if (E.phaseJ) {
+    const j = E.phaseJ;
+    html += `<div class="exp-block"><h4>${j.title}</h4><div class="exp-meta">${j.date} &mdash; ${j.setting}</div><div class="exp-desc">${j.description}</div>`;
+    if (j.steps) {
+      j.steps.forEach(step => {
+        html += `<div style="margin-bottom:14px"><strong style="font-size:0.82rem;color:var(--text-primary)">${step.name}</strong>`;
+        html += `<table class="exp-table"><tr><th>Configuration</th><th>F1</th><th>Note</th></tr>`;
+        for (const [key, val] of Object.entries(step.results)) {
+          const f1 = val.f1 ? (val.f1*100).toFixed(1)+'%' : '\u2014';
+          const extra = val.s1auc ? ' (S1 AUC: '+val.s1auc+')' : '';
+          html += `<tr><td>${key}</td><td class="val">${f1}${extra}</td><td class="note">${val.note||''}</td></tr>`;
+        }
+        html += `</table>`;
+        if (step.conclusion) html += `<div class="exp-meta" style="margin-top:6px;color:var(--solum-purple);font-weight:600">${step.conclusion}</div>`;
+        html += `</div>`;
+      });
+    }
+    if (j.overallConclusion) html += `<div class="exp-conclusion">${j.overallConclusion}</div>`;
+    html += `</div>`;
+  }
+
+  document.getElementById('expBlocks').innerHTML = html;
+}
+
+/* ── New Sections (Phase L & M) ── */
+function renderNewSections() {
+  if (D.experiments.phaseL) {
+    document.getElementById('capNorm').textContent = D.experiments.phaseL.conclusion;
+    document.getElementById('capNormT').textContent = 'LR F1 across norms: SNV=0.872, None=0.879, MinMax=0.868, L2=0.877 (Δ=1.1pp). ResNet18: SNV=0.710, None=0.720, MinMax=0.640, L2=0.584 (Δ=13.6pp). LR\'s sklearn StandardScaler compensates for any upstream normalization. ResNet18 lacks this robustness — it overfits to scale patterns rather than spectral shape.';
+  }
+  if (D.experiments.phaseM) {
+    document.getElementById('capConf').textContent = D.experiments.phaseM.conclusion;
+    document.getElementById('capConfT').textContent = 'Demographics-only model: S1 AUC=0.766 (age/sex confounding), S2 F1=0.271 (cannot distinguish subtypes). SERS-only: S1 AUC=0.987, S2 F1=0.861. Age-matched (50-80y): demographics drops to 0.693, SERS maintains 0.989. Spectral-age Pearson |r|: mean=0.076, max=0.297. SERS+demographics fusion adds only +0.2% S1 AUC — spectral features already encode metabolic age signal.';
+  }
+}
+
+/* ── Next Steps ── */
+function renderNextSteps() {
+  const N = D.nextSteps;
+  document.getElementById('nsGrid').innerHTML = `
+    <div class="ns-col ns-milestones">
+      <h3><span class="ns-icon">&#9670;</span> Milestones</h3>
+      ${N.milestones.map(m=>`<div class="ns-item"><div class="ns-badge target">${m.target}</div><div class="ns-item-title">${m.title}</div><div class="ns-item-desc">${m.description}</div></div>`).join('')}
+    </div>
+    <div class="ns-col ns-risks">
+      <h3><span class="ns-icon">&#x26A0;</span> Risks</h3>
+      ${N.risks.map(r=>`<div class="ns-item"><div class="ns-badge severity-${r.severity}">${r.severity} severity</div><div class="ns-item-title">${r.title}</div><div class="ns-item-desc">${r.description}</div><div class="ns-mitigation"><strong>Mitigation:</strong> ${r.mitigation}</div></div>`).join('')}
+    </div>
+    <div class="ns-col ns-resources">
+      <h3><span class="ns-icon">&#x2B06;</span> Resource Asks</h3>
+      ${N.resourceAsks.map(r=>`<div class="ns-item"><div class="ns-badge priority-${r.priority}">${r.priority} \u2014 ${r.type}</div><div class="ns-item-title">${r.title}</div><div class="ns-item-desc">${r.description}</div></div>`).join('')}
+    </div>`;
+}
+
+/* ── Nav Highlight ── */
+function setupNav() {
+  const secs = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.nav-link');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id));
+      }
+    });
+  }, { rootMargin: '-15% 0px -65% 0px' });
+  secs.forEach(s => obs.observe(s));
+}
+</script>
+</body>
+</html>

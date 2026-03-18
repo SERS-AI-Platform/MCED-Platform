@@ -43,9 +43,13 @@ notebooks/
 # Large data files (mount volumes instead)
 data/
 results/
-models/
 *.csv
 *.xlsx
+
+# Models - exclude training artifacts, keep production
+models/results/
+models/__pycache__/
+!models/production/
 
 # Temporary files
 *.tmp

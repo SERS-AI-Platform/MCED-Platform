@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "training_date": "2026-03-18T10:49:17.556695",
+  "n_training_samples": 6200,
+  "n_spectral_features": 933,
+  "cancer_types": [
+    "PRO",
+    "LUN",
+    "CRC",
+    "CPAN",
+    "OVA"
+  ],
+  "non_cancer_groups": [
+    "NOR",
+    "DIA",
+    "HBP",
+    "H.D."
+  ],
+  "cancer_type_indices": {
+    "PRO": 0,
+    "LUN": 1,
+    "CRC": 2,
+    "CPAN": 3,
+    "OVA": 4
+  },
+  "clinical_features": [
+    "age",
+    "sex_numeric",
+    "bmi"
+  ],
+  "bmi_fill_median": 24.0,
+  "model_files": {
+    "stage1_sers": "stage1_sers.joblib",
+    "stage2_sers": "stage2_sers.joblib",
+    "stage1_fusion": "stage1_fusion.joblib",
+    "stage2_fusion": "stage2_fusion.joblib"
+  },
+  "training_metrics": {
+    "sers_only": {
+      "s1_auc": 0.9968690476190476,
+      "s2_f1_macro": 0.9972641604585533
+    },
+    "fusion": {
+      "s1_auc": 0.9996225352112676,
+      "s2_f1_macro": 0.998596613666707
+    }
+  },
+  "stage2_classes": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ]
+}

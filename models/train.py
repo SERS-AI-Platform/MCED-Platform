@@ -22,8 +22,14 @@ import argparse
 import logging
 import os
 import json
+import re
+import subprocess
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime
+from functools import singledispatch
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -34,12 +40,17 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import (
     accuracy_score, f1_score, roc_auc_score,
     confusion_matrix, classification_report,
 )
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import WeightedRandomSampler
+import joblib
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -62,10 +73,15 @@ from src.sers.visualization import plot_cancer_peak_difference
 logger = logging.getLogger(__name__)
 
 MODEL_DISPLAY_NAMES = {
+    "logistic_regression": "Logistic Regression",
+    "random_forest": "Random Forest",
     "resnet18": "ResNet18-1D",
     "cnn1d": "CNN1D-Shallow",
     "xgboost": "XGBoost-Hierarchical",
 }
+
+TORCH_MODEL_NAMES = {"resnet18", "cnn1d"}
+CLASSICAL_MODEL_NAMES = {"logistic_regression", "random_forest", "xgboost"}
 
 XGBOOST_DEFAULT_PARAMS = {
     "n_estimators": 300,
@@ -79,6 +95,162 @@ XGBOOST_DEFAULT_PARAMS = {
     "tree_method": "hist",
     "verbosity": 0,
 }
+
+LOGREG_DEFAULT_PARAMS = {
+    "C": 1.0,
+    "max_iter": 1000,
+    "solver": "saga",
+    "class_weight": "balanced",
+}
+
+RANDOM_FOREST_DEFAULT_PARAMS = {
+    "n_estimators": 500,
+    "max_depth": None,
+    "min_samples_leaf": 1,
+    "class_weight": "balanced_subsample",
+    "n_jobs": 1,
+}
+
+
+@dataclass(frozen=True)
+class TorchRunnerRequest:
+    X: np.ndarray
+    binary_labels: np.ndarray
+    cancer_type_labels: np.ndarray
+    sample_ids: np.ndarray
+    groups_arr: np.ndarray
+    config: ModelConfig
+    device: torch.device
+    model_name: str
+    runtime: Dict[str, Any]
+    n_splits: int = 5
+    ckpt_dir: Optional[Path] = None
+
+
+@dataclass(frozen=True)
+class ClassicalRunnerRequest:
+    model_name: str
+    X: np.ndarray
+    binary_labels: np.ndarray
+    cancer_type_labels: np.ndarray
+    sample_ids: np.ndarray
+    groups_arr: np.ndarray
+    config: ModelConfig
+    model_params: Dict[str, Any]
+    n_splits: int = 5
+    ckpt_dir: Optional[Path] = None
+
+
+@dataclass
+class FoldArtifacts:
+    fold_result: Dict[str, Any]
+    val_binary_prob: np.ndarray
+    val_cancer_logits: np.ndarray
+    val_embedding: np.ndarray
+    train_last: Dict[str, Any]
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+def apply_training_overrides(config, args):
+    overrides = {}
+    if args.epochs is not None:
+        overrides["n_epochs"] = args.epochs
+    if args.batch_size is not None:
+        overrides["batch_size"] = args.batch_size
+    if args.lr is not None:
+        overrides["learning_rate"] = args.lr
+    if args.weight_decay is not None:
+        overrides["weight_decay"] = args.weight_decay
+    if args.dropout_rate is not None:
+        overrides["dropout_rate"] = args.dropout_rate
+    if args.stage2_loss_weight is not None:
+        overrides["stage2_loss_weight"] = args.stage2_loss_weight
+    if args.head_hidden_dim is not None:
+        overrides["head_hidden_dim"] = args.head_hidden_dim
+    if args.resnet_channels is not None:
+        overrides["resnet_channels"] = tuple(args.resnet_channels)
+        overrides["encoder_output_dim"] = int(args.resnet_channels[-1])
+    if args.use_focal_loss:
+        overrides["use_focal_loss"] = True
+    if args.focal_gamma is not None:
+        overrides["focal_gamma"] = args.focal_gamma
+    if args.class_balance_beta is not None:
+        overrides["class_balance_beta"] = args.class_balance_beta
+    return ModelConfig(**{**config.__dict__, **overrides}) if overrides else config
+
+
+def resolve_xgboost_params(args):
+    params = dict(XGBOOST_DEFAULT_PARAMS)
+    if args.xgb_n_estimators is not None:
+        params["n_estimators"] = args.xgb_n_estimators
+    if args.xgb_max_depth is not None:
+        params["max_depth"] = args.xgb_max_depth
+    if args.xgb_learning_rate is not None:
+        params["learning_rate"] = args.xgb_learning_rate
+    if args.xgb_subsample is not None:
+        params["subsample"] = args.xgb_subsample
+    if args.xgb_colsample_bytree is not None:
+        params["colsample_bytree"] = args.xgb_colsample_bytree
+    if args.xgb_reg_lambda is not None:
+        params["reg_lambda"] = args.xgb_reg_lambda
+    if args.xgb_min_child_weight is not None:
+        params["min_child_weight"] = args.xgb_min_child_weight
+    return params
+
+
+def resolve_logreg_params(args):
+    params = dict(LOGREG_DEFAULT_PARAMS)
+    if args.logreg_c is not None:
+        params["C"] = args.logreg_c
+    if args.logreg_max_iter is not None:
+        params["max_iter"] = args.logreg_max_iter
+    return params
+
+
+def resolve_random_forest_params(args):
+    params = dict(RANDOM_FOREST_DEFAULT_PARAMS)
+    if args.rf_n_estimators is not None:
+        params["n_estimators"] = args.rf_n_estimators
+    if args.rf_max_depth is not None:
+        params["max_depth"] = args.rf_max_depth
+    if args.rf_min_samples_leaf is not None:
+        params["min_samples_leaf"] = args.rf_min_samples_leaf
+    return params
+
+
+def compute_effective_num_weights(labels, n_classes, beta):
+    labels = np.asarray(labels)
+    counts = np.bincount(labels, minlength=n_classes).astype(np.float64)
+    counts[counts == 0] = 1.0
+    effective_num = 1.0 - np.power(beta, counts)
+    weights = (1.0 - beta) / np.maximum(effective_num, 1e-12)
+    weights = weights / weights.sum() * n_classes
+    return weights
+
+
+def resolve_runtime_config(args, device):
+    cpu_count = os.cpu_count() or 1
+    num_workers = args.num_workers if args.num_workers is not None else min(4, cpu_count)
+    num_workers = max(0, int(num_workers))
+    if os.name == "nt" and num_workers > 0:
+        logger.warning("  Windows environment detected; forcing num_workers=0 to avoid multiprocessing permission errors")
+        num_workers = 0
+    pin_memory = device.type == "cuda"
+    prefetch_factor = None if num_workers == 0 else max(2, int(args.prefetch_factor))
+    use_amp = device.type == "cuda" and not args.no_amp
+    return {
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+        "prefetch_factor": prefetch_factor,
+        "use_amp": use_amp,
+    }
+
+
+def configure_torch_runtime(device):
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
+        if hasattr(torch, "set_float32_matmul_precision"):
+            torch.set_float32_matmul_precision("high")
 
 
 # =============================================================================
@@ -156,6 +328,31 @@ def resolve_version_name(model_root: Path, explicit_version: str | None = None) 
             existing.append(int(name[1:]))
     next_idx = max(existing, default=0) + 1
     return f"v{next_idx:03d}"
+
+
+def resolve_experiment_name(base_output: Path, explicit_experiment: str | None = None) -> str:
+    if explicit_experiment:
+        return str(explicit_experiment).strip()
+
+    existing = []
+    for child in base_output.iterdir() if base_output.exists() else []:
+        if not child.is_dir():
+            continue
+        match = re.fullmatch(r"experiment_(\d+)", child.name.lower())
+        if match:
+            existing.append(int(match.group(1)))
+    next_idx = max(existing, default=0) + 1
+    return f"experiment_{next_idx:03d}"
+
+
+def resolve_experiment_output_dir(base_output: Path, experiment: str | None = None) -> tuple[Path, str]:
+    base_output.mkdir(parents=True, exist_ok=True)
+    experiment_name = resolve_experiment_name(base_output, experiment)
+    experiment_dir = base_output / experiment_name
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+    with open(base_output / "latest_experiment.txt", "w", encoding="utf-8") as f:
+        f.write(experiment_name)
+    return experiment_dir, experiment_name
 
 
 def resolve_run_output_dir(base_output: Path, model_name: str, version: str | None = None) -> tuple[Path, str]:
@@ -253,36 +450,64 @@ class EarlyStopping:
         return self.should_stop
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device):
+def _build_loader(dataset, batch_size, runtime, sampler=None, shuffle=False):
+    kwargs = {
+        "dataset": dataset,
+        "batch_size": batch_size,
+        "num_workers": runtime["num_workers"],
+        "pin_memory": runtime["pin_memory"],
+    }
+    if sampler is not None:
+        kwargs["sampler"] = sampler
+    else:
+        kwargs["shuffle"] = shuffle
+    if runtime["num_workers"] > 0:
+        kwargs["persistent_workers"] = True
+        kwargs["prefetch_factor"] = runtime["prefetch_factor"]
+    return DataLoader(**kwargs)
+
+
+def train_one_epoch(model, loader, criterion, optimizer, device, runtime, scaler=None):
     model.train()
     total, n = 0.0, 0
+    use_amp = runtime["use_amp"]
     for batch in loader:
-        spec = batch["spectra"].to(device)
-        by = batch["binary_label"].to(device)
-        cy = batch["cancer_type_label"].to(device)
-        optimizer.zero_grad()
-        out = model(spec)
-        losses = criterion(out, by, cy)
-        losses["total"].backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
+        spec = batch["spectra"].to(device, non_blocking=runtime["pin_memory"])
+        by = batch["binary_label"].to(device, non_blocking=runtime["pin_memory"])
+        cy = batch["cancer_type_label"].to(device, non_blocking=runtime["pin_memory"])
+        optimizer.zero_grad(set_to_none=True)
+        with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+            out = model(spec)
+            losses = criterion(out, by, cy)
+        if scaler is not None and use_amp:
+            scaler.scale(losses["total"]).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            losses["total"].backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
         total += losses["total"].item()
         n += 1
     return total / max(n, 1)
 
 
 @torch.no_grad()
-def evaluate(model, loader, criterion, device):
+def evaluate(model, loader, criterion, device, runtime):
     model.eval()
     total, n = 0.0, 0
     all_bp, all_bt, all_cl, all_ct, all_emb = [], [], [], [], []
+    use_amp = runtime["use_amp"]
 
     for batch in loader:
-        spec = batch["spectra"].to(device)
-        by = batch["binary_label"].to(device)
-        cy = batch["cancer_type_label"].to(device)
-        out = model(spec)
-        losses = criterion(out, by, cy)
+        spec = batch["spectra"].to(device, non_blocking=runtime["pin_memory"])
+        by = batch["binary_label"].to(device, non_blocking=runtime["pin_memory"])
+        cy = batch["cancer_type_label"].to(device, non_blocking=runtime["pin_memory"])
+        with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+            out = model(spec)
+            losses = criterion(out, by, cy)
         total += losses["total"].item(); n += 1
 
         all_bp.append(out["binary_prob"].cpu().numpy())
@@ -328,7 +553,7 @@ def evaluate(model, loader, criterion, device):
     }
 
 
-def train_fold(model, train_ds, val_ds, config, device, fold_i):
+def train_fold(model, train_ds, val_ds, config, device, fold_i, runtime):
     # WeightedRandomSampler: balance classes in each mini-batch
     bl = train_ds.binary_labels.squeeze().numpy()
     ctl = train_ds.cancer_type_labels.numpy()
@@ -353,8 +578,8 @@ def train_fold(model, train_ds, val_ds, config, device, fold_i):
         num_samples=len(train_ds),
         replacement=True,
     )
-    train_loader = DataLoader(train_ds, batch_size=config.batch_size, sampler=sampler)
-    val_loader = DataLoader(val_ds, batch_size=config.batch_size)
+    train_loader = _build_loader(train_ds, config.batch_size, runtime, sampler=sampler)
+    val_loader = _build_loader(val_ds, config.batch_size, runtime, shuffle=False)
 
     # Class weights for loss
     pw = torch.tensor([n_neg / max(n_pos, 1)], dtype=torch.float32).to(device)
@@ -362,20 +587,30 @@ def train_fold(model, train_ds, val_ds, config, device, fold_i):
     cm = ctl >= 0
     cw_t = None
     if cm.sum() > 0:
-        cc = np.bincount(ctl[cm], minlength=config.n_cancer_types).astype(float)
-        cw = 1.0 / np.maximum(cc, 1)
-        cw = cw / cw.sum() * config.n_cancer_types
+        if config.class_balance_beta is not None:
+            cw = compute_effective_num_weights(
+                ctl[cm],
+                config.n_cancer_types,
+                config.class_balance_beta,
+            )
+        else:
+            cc = np.bincount(ctl[cm], minlength=config.n_cancer_types).astype(float)
+            cw = 1.0 / np.maximum(cc, 1)
+            cw = cw / cw.sum() * config.n_cancer_types
         cw_t = torch.tensor(cw, dtype=torch.float32).to(device)
 
     criterion = TwoStageLoss(
         config.stage1_loss_weight, config.stage2_loss_weight, pw, cw_t,
         label_smoothing=0.1,
+        use_focal_loss=config.use_focal_loss,
+        focal_gamma=config.focal_gamma,
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, patience=config.scheduler_patience, factor=0.5, min_lr=1e-6
     )
     es = EarlyStopping(config.early_stopping_patience)
+    scaler = torch.amp.GradScaler(device="cuda", enabled=runtime["use_amp"])
 
     history = {
         "train_loss": [],
@@ -390,8 +625,8 @@ def train_fold(model, train_ds, val_ds, config, device, fold_i):
     best_val_loss, best_state = float("inf"), None
 
     for epoch in range(config.n_epochs):
-        tl = train_one_epoch(model, train_loader, criterion, optimizer, device)
-        vm = evaluate(model, val_loader, criterion, device)
+        tl = train_one_epoch(model, train_loader, criterion, optimizer, device, runtime, scaler=scaler)
+        vm = evaluate(model, val_loader, criterion, device, runtime)
         scheduler.step(vm["loss"])
         lr = optimizer.param_groups[0]["lr"]
 
@@ -423,8 +658,8 @@ def train_fold(model, train_ds, val_ds, config, device, fold_i):
     if best_state:
         model.load_state_dict(best_state)
 
-    train_metrics = evaluate(model, train_loader, criterion, device)
-    val_metrics = evaluate(model, val_loader, criterion, device)
+    train_metrics = evaluate(model, train_loader, criterion, device, runtime)
+    val_metrics = evaluate(model, val_loader, criterion, device, runtime)
 
     return {
         "history": history, "best_val_loss": best_val_loss,
@@ -433,11 +668,550 @@ def train_fold(model, train_ds, val_ds, config, device, fold_i):
     }
 
 
+def _compute_overall_metrics(
+    val_binary_prob,
+    val_cancer_logits,
+    binary_labels,
+    cancer_type_labels,
+    train_last,
+    include_train_stage2_f1=False,
+):
+    valid = ~np.isnan(val_binary_prob)
+    bp_v = val_binary_prob[valid]
+    bt_v = binary_labels[valid]
+    cl_v = val_cancer_logits[valid]
+    ct_v = cancer_type_labels[valid]
+
+    bpred = (bp_v > 0.5).astype(int)
+    tn, fp, fn, tp = confusion_matrix(bt_v, bpred, labels=[0, 1]).ravel()
+
+    overall = {
+        "val_s1_auc": float(roc_auc_score(bt_v, bp_v)),
+        "val_s1_accuracy": float(accuracy_score(bt_v, bpred)),
+        "val_s1_sensitivity": float(tp / (tp + fn)) if (tp + fn) > 0 else 0,
+        "val_s1_specificity": float(tn / (tn + fp)) if (tn + fp) > 0 else 0,
+        "val_s1_f1": float(f1_score(bt_v, bpred)),
+    }
+
+    cancer_mask = ct_v >= 0
+    if cancer_mask.sum() > 0:
+        cancer_prob = torch.softmax(torch.tensor(cl_v[cancer_mask]), dim=-1).numpy()
+        cancer_pred = cancer_prob.argmax(axis=1)
+        overall["val_s2_accuracy"] = float(accuracy_score(ct_v[cancer_mask], cancer_pred))
+        overall["val_s2_f1_macro"] = float(
+            f1_score(ct_v[cancer_mask], cancer_pred, average="macro", zero_division=0)
+        )
+        try:
+            overall["val_s2_auc"] = float(
+                roc_auc_score(ct_v[cancer_mask], cancer_prob, multi_class="ovr", average="macro")
+            )
+        except ValueError:
+            overall["val_s2_auc"] = float("nan")
+
+    if train_last:
+        tbp = train_last["binary_prob"]
+        tbt = train_last["binary_true"]
+        overall["train_s1_auc"] = float(roc_auc_score(tbt, tbp))
+        train_cancer_mask = train_last["cancer_true"] >= 0
+        if train_cancer_mask.sum() > 0:
+            train_prob = torch.softmax(
+                torch.tensor(train_last["cancer_logits"][train_cancer_mask]),
+                dim=-1,
+            ).numpy()
+            if include_train_stage2_f1:
+                overall["train_s2_f1_macro"] = float(
+                    f1_score(
+                        train_last["cancer_true"][train_cancer_mask],
+                        train_prob.argmax(axis=1),
+                        average="macro",
+                        zero_division=0,
+                    )
+                )
+            try:
+                overall["train_s2_auc"] = float(
+                    roc_auc_score(
+                        train_last["cancer_true"][train_cancer_mask],
+                        train_prob,
+                        multi_class="ovr",
+                        average="macro",
+                    )
+                )
+            except ValueError:
+                overall["train_s2_auc"] = float("nan")
+
+    return overall
+
+
+class BaseCrossValidator(ABC):
+    include_train_stage2_f1 = False
+
+    def __init__(
+        self,
+        X,
+        binary_labels,
+        cancer_type_labels,
+        sample_ids,
+        groups_arr,
+        config,
+        n_splits=5,
+        ckpt_dir=None,
+    ):
+        self.X = X
+        self.binary_labels = binary_labels
+        self.cancer_type_labels = cancer_type_labels
+        self.sample_ids = sample_ids
+        self.groups_arr = groups_arr
+        self.config = config
+        self.n_splits = n_splits
+        self.ckpt_dir = ckpt_dir
+        self.cv = StratifiedGroupKFold(
+            n_splits=n_splits,
+            shuffle=True,
+            random_state=config.random_state,
+        )
+
+    @property
+    @abstractmethod
+    def model_display_name(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _make_embedding_buffer(self, n_samples):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _run_fold(self, fold_idx, train_idx, val_idx):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _log_fold_header(self, fold_idx, train_idx, val_idx):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _log_fold_summary(self, fold_idx, artifacts):
+        raise NotImplementedError
+
+    def _extract_history(self, fold_result):
+        return fold_result.get("history")
+
+    def _save_fold_artifacts(self, fold_idx, train_idx, val_idx, artifacts):
+        return None
+
+    def run(self):
+        folds = []
+        histories = []
+
+        n_samples = len(self.X)
+        val_binary_prob = np.full(n_samples, np.nan)
+        val_cancer_logits = np.full((n_samples, self.config.n_cancer_types), np.nan)
+        val_embedding = self._make_embedding_buffer(n_samples)
+        fold_ids = np.full(n_samples, -1, dtype=int)
+        train_last = {}
+
+        for fold_idx, (train_idx, val_idx) in enumerate(
+            self.cv.split(self.X, self.binary_labels, self.sample_ids)
+        ):
+            self._log_fold_header(fold_idx, train_idx, val_idx)
+            artifacts = self._run_fold(fold_idx, train_idx, val_idx)
+            folds.append(artifacts.fold_result)
+
+            history = self._extract_history(artifacts.fold_result)
+            if history is not None:
+                histories.append(history)
+
+            val_binary_prob[val_idx] = artifacts.val_binary_prob
+            val_cancer_logits[val_idx] = artifacts.val_cancer_logits
+            val_embedding[val_idx] = artifacts.val_embedding
+            fold_ids[val_idx] = fold_idx
+            train_last = artifacts.train_last
+
+            self._log_fold_summary(fold_idx, artifacts)
+            if self.ckpt_dir:
+                os.makedirs(self.ckpt_dir, exist_ok=True)
+                self._save_fold_artifacts(fold_idx, train_idx, val_idx, artifacts)
+
+        overall = _compute_overall_metrics(
+            val_binary_prob,
+            val_cancer_logits,
+            self.binary_labels,
+            self.cancer_type_labels,
+            train_last,
+            include_train_stage2_f1=self.include_train_stage2_f1,
+        )
+
+        logger.info("\n" + "=" * 64)
+        logger.info(f"  CV Results ({self.model_display_name})")
+        logger.info("=" * 64)
+        for key, value in overall.items():
+            logger.info(f"  {key:28s}: {value:.4f}")
+
+        return {
+            "overall": overall,
+            "folds": folds,
+            "histories": histories,
+            "val_binary_prob": val_binary_prob,
+            "val_cancer_logits": val_cancer_logits,
+            "val_embedding": val_embedding,
+            "fold_ids": fold_ids,
+            "train_last": train_last,
+            "binary_labels": self.binary_labels,
+            "cancer_type_labels": self.cancer_type_labels,
+            "groups": self.groups_arr,
+            "sample_ids": self.sample_ids,
+            "X": self.X,
+        }
+
+
+class TorchCrossValidator(BaseCrossValidator):
+    def __init__(self, request):
+        super().__init__(
+            request.X,
+            request.binary_labels,
+            request.cancer_type_labels,
+            request.sample_ids,
+            request.groups_arr,
+            request.config,
+            n_splits=request.n_splits,
+            ckpt_dir=request.ckpt_dir,
+        )
+        self.device = request.device
+        self.model_name = request.model_name
+        self.runtime = request.runtime
+
+    @property
+    def model_display_name(self):
+        return MODEL_DISPLAY_NAMES[self.model_name]
+
+    def _make_embedding_buffer(self, n_samples):
+        return np.full((n_samples, self.config.encoder_output_dim), np.nan)
+
+    def _log_fold_header(self, fold_idx, train_idx, val_idx):
+        logger.info(
+            f"\n  -- Fold {fold_idx+1}/{self.n_splits} "
+            f"(train={len(train_idx)}, val={len(val_idx)}) --"
+        )
+
+    def _run_fold(self, fold_idx, train_idx, val_idx):
+        train_ds = SERSDataset(
+            self.X[train_idx],
+            self.binary_labels[train_idx],
+            self.cancer_type_labels[train_idx],
+            groups=self.groups_arr[train_idx].tolist(),
+            sample_ids=[str(sample_id) for sample_id in self.sample_ids[train_idx]],
+            augment=True,
+        )
+        val_ds = SERSDataset(
+            self.X[val_idx],
+            self.binary_labels[val_idx],
+            self.cancer_type_labels[val_idx],
+            groups=self.groups_arr[val_idx].tolist(),
+            sample_ids=[str(sample_id) for sample_id in self.sample_ids[val_idx]],
+            augment=False,
+        )
+
+        model = build_model(self.model_name, self.config).to(self.device)
+        fold_result = train_fold(
+            model,
+            train_ds,
+            val_ds,
+            self.config,
+            self.device,
+            fold_idx,
+            self.runtime,
+        )
+        train_metrics = fold_result["train_metrics"]
+        val_metrics = fold_result["val_metrics"]
+
+        return FoldArtifacts(
+            fold_result=fold_result,
+            val_binary_prob=val_metrics["binary_prob"],
+            val_cancer_logits=val_metrics["cancer_logits"],
+            val_embedding=val_metrics["embedding"],
+            train_last={
+                "binary_prob": train_metrics["binary_prob"],
+                "binary_true": train_metrics["binary_true"],
+                "cancer_logits": train_metrics["cancer_logits"],
+                "cancer_true": train_metrics["cancer_true"],
+                "embedding": train_metrics["embedding"],
+                "idx": train_idx,
+            },
+        )
+
+    def _log_fold_summary(self, fold_idx, artifacts):
+        train_metrics = artifacts.fold_result["train_metrics"]
+        val_metrics = artifacts.fold_result["val_metrics"]
+        logger.info(
+            f"    Train S1={train_metrics['auc_s1']:.3f} S2={train_metrics['auc_s2']:.3f} "
+            f"Val S1={val_metrics['auc_s1']:.3f} S2={val_metrics['auc_s2']:.3f}"
+        )
+
+    def _save_fold_artifacts(self, fold_idx, train_idx, val_idx, artifacts):
+        torch.save(
+            {
+                "fold": fold_idx,
+                "model_state_dict": artifacts.fold_result["best_state"],
+                "model_name": self.model_name,
+                "config": self.config.__dict__,
+                "train_idx": train_idx,
+                "val_idx": val_idx,
+            },
+            self.ckpt_dir / f"fold_{fold_idx}.pt",
+        )
+
+
+class ClassicalCrossValidator(BaseCrossValidator):
+    include_train_stage2_f1 = True
+
+    def __init__(self, request):
+        super().__init__(
+            request.X,
+            request.binary_labels,
+            request.cancer_type_labels,
+            request.sample_ids,
+            request.groups_arr,
+            request.config,
+            n_splits=request.n_splits,
+            ckpt_dir=request.ckpt_dir,
+        )
+        self.model_name = request.model_name
+        self.model_params = request.model_params
+
+    @property
+    def model_display_name(self):
+        return MODEL_DISPLAY_NAMES[self.model_name]
+
+    def _make_embedding_buffer(self, n_samples):
+        return np.full((n_samples, self.X.shape[1]), np.nan)
+
+    def _extract_history(self, fold_result):
+        return None
+
+    def _log_fold_header(self, fold_idx, train_idx, val_idx):
+        logger.info(
+            f"\n  -- Fold {fold_idx+1}/{self.n_splits} "
+            f"(train={len(train_idx)}, val={len(val_idx)}) --"
+        )
+
+    def _run_fold(self, fold_idx, train_idx, val_idx):
+        X_train, X_val = self.X[train_idx], self.X[val_idx]
+        yb_train, yb_val = self.binary_labels[train_idx], self.binary_labels[val_idx]
+        yc_train, yc_val = self.cancer_type_labels[train_idx], self.cancer_type_labels[val_idx]
+
+        binary_model = _build_classical_estimator(
+            self.model_name,
+            "binary:logistic",
+            self.config.random_state + fold_idx,
+            self.model_params,
+        )
+        binary_model = _fit_classical_estimator(
+            self.model_name,
+            binary_model,
+            X_train,
+            yb_train,
+            sample_weight=_binary_sample_weights(yb_train),
+        )
+
+        bp_train = binary_model.predict_proba(X_train)[:, 1]
+        bp_val = binary_model.predict_proba(X_val)[:, 1]
+
+        cancer_train_mask = yc_train >= 0
+        stage2_model = None
+        present_classes = np.array([], dtype=int)
+        train_stage2_prob = np.full(
+            (len(X_train), self.config.n_cancer_types),
+            1.0 / self.config.n_cancer_types,
+        )
+        val_stage2_prob = np.full(
+            (len(X_val), self.config.n_cancer_types),
+            1.0 / self.config.n_cancer_types,
+        )
+
+        if cancer_train_mask.sum() > 0:
+            present_classes = np.unique(yc_train[cancer_train_mask])
+            if len(present_classes) == 1:
+                train_stage2_prob = np.zeros((len(X_train), self.config.n_cancer_types), dtype=np.float64)
+                val_stage2_prob = np.zeros((len(X_val), self.config.n_cancer_types), dtype=np.float64)
+                train_stage2_prob[:, present_classes[0]] = 1.0
+                val_stage2_prob[:, present_classes[0]] = 1.0
+            else:
+                local_labels = np.searchsorted(present_classes, yc_train[cancer_train_mask])
+                stage2_model = _build_classical_estimator(
+                    self.model_name,
+                    "multi:softprob",
+                    self.config.random_state + fold_idx + 100,
+                    self.model_params,
+                    num_class=len(present_classes),
+                )
+                stage2_model = _fit_classical_estimator(
+                    self.model_name,
+                    stage2_model,
+                    X_train[cancer_train_mask],
+                    local_labels,
+                    sample_weight=_multiclass_sample_weights(local_labels),
+                )
+                train_stage2_local = stage2_model.predict_proba(X_train)
+                val_stage2_local = stage2_model.predict_proba(X_val)
+                if train_stage2_local.ndim == 1:
+                    train_stage2_local = np.column_stack([1 - train_stage2_local, train_stage2_local])
+                    val_stage2_local = np.column_stack([1 - val_stage2_local, val_stage2_local])
+                train_stage2_prob = _expand_stage2_probabilities(
+                    np.asarray(train_stage2_local),
+                    present_classes,
+                    self.config.n_cancer_types,
+                )
+                val_stage2_prob = _expand_stage2_probabilities(
+                    np.asarray(val_stage2_local),
+                    present_classes,
+                    self.config.n_cancer_types,
+                )
+
+        train_stage2_mask = yc_train >= 0
+        if train_stage2_mask.sum() > 0:
+            train_pred = train_stage2_prob[train_stage2_mask].argmax(axis=1)
+            train_f1_s2 = f1_score(
+                yc_train[train_stage2_mask],
+                train_pred,
+                average="macro",
+                zero_division=0,
+            )
+            try:
+                train_auc_s2 = roc_auc_score(
+                    yc_train[train_stage2_mask],
+                    train_stage2_prob[train_stage2_mask],
+                    multi_class="ovr",
+                    average="macro",
+                )
+            except ValueError:
+                train_auc_s2 = float("nan")
+        else:
+            train_f1_s2 = float("nan")
+            train_auc_s2 = float("nan")
+
+        val_stage2_mask = yc_val >= 0
+        if val_stage2_mask.sum() > 0:
+            val_pred = val_stage2_prob[val_stage2_mask].argmax(axis=1)
+            val_f1_s2 = f1_score(
+                yc_val[val_stage2_mask],
+                val_pred,
+                average="macro",
+                zero_division=0,
+            )
+            try:
+                val_auc_s2 = roc_auc_score(
+                    yc_val[val_stage2_mask],
+                    val_stage2_prob[val_stage2_mask],
+                    multi_class="ovr",
+                    average="macro",
+                )
+            except ValueError:
+                val_auc_s2 = float("nan")
+        else:
+            val_f1_s2 = float("nan")
+            val_auc_s2 = float("nan")
+
+        return FoldArtifacts(
+            fold_result={
+                "history": {},
+                "best_val_loss": float("nan"),
+                "train_metrics": {
+                    "auc_s1": roc_auc_score(yb_train, bp_train),
+                    "auc_s2": train_auc_s2,
+                    "f1_macro_s2": train_f1_s2,
+                },
+                "val_metrics": {
+                    "auc_s1": roc_auc_score(yb_val, bp_val),
+                    "auc_s2": val_auc_s2,
+                    "f1_macro_s2": val_f1_s2,
+                },
+                "epochs": 1,
+                "best_state": None,
+            },
+            val_binary_prob=bp_val,
+            val_cancer_logits=np.log(np.clip(val_stage2_prob, 1e-8, 1.0)),
+            val_embedding=X_val,
+            train_last={
+                "binary_prob": bp_train,
+                "binary_true": yb_train,
+                "cancer_logits": np.log(np.clip(train_stage2_prob, 1e-8, 1.0)),
+                "cancer_true": yc_train,
+                "embedding": X_train,
+                "idx": train_idx,
+            },
+            extra={
+                "binary_model": binary_model,
+                "stage2_model": stage2_model,
+                "present_classes": present_classes,
+            },
+        )
+
+    def _log_fold_summary(self, fold_idx, artifacts):
+        val_metrics = artifacts.fold_result["val_metrics"]
+        logger.info(
+            f"    Fold {fold_idx+1} {self.model_display_name} "
+            f"S1_AUC={val_metrics['auc_s1']:.3f} "
+            f"S2_F1={val_metrics['f1_macro_s2']:.3f} "
+            f"S2_AUC={val_metrics['auc_s2']:.3f}"
+        )
+
+    def _save_fold_artifacts(self, fold_idx, train_idx, val_idx, artifacts):
+        _save_classical_estimator(
+            artifacts.extra["binary_model"],
+            self.ckpt_dir / f"fold_{fold_idx}_binary.joblib",
+        )
+        if artifacts.extra["stage2_model"] is not None:
+            _save_classical_estimator(
+                artifacts.extra["stage2_model"],
+                self.ckpt_dir / f"fold_{fold_idx}_stage2.joblib",
+            )
+        with open(self.ckpt_dir / f"fold_{fold_idx}_meta.json", "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "fold": fold_idx,
+                    "model_name": self.model_name,
+                    "present_classes": artifacts.extra["present_classes"].tolist(),
+                    "train_idx": train_idx.tolist(),
+                    "val_idx": val_idx.tolist(),
+                },
+                f,
+                indent=2,
+            )
+
+
+@singledispatch
+def build_cv_runner(request):
+    raise TypeError(f"Unsupported CV runner request: {type(request)!r}")
+
+
+@build_cv_runner.register
+def _(request: TorchRunnerRequest):
+    return TorchCrossValidator(request)
+
+
+@build_cv_runner.register
+def _(request: ClassicalRunnerRequest):
+    return ClassicalCrossValidator(request)
+
+
 # =============================================================================
 # 5. Cross-Validation
 # =============================================================================
 def run_torch_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
-                 config, device, model_name, n_splits=5, ckpt_dir=None):
+                 config, device, model_name, runtime, n_splits=5, ckpt_dir=None):
+    return build_cv_runner(
+        TorchRunnerRequest(
+            X=X,
+            binary_labels=binary_labels,
+            cancer_type_labels=cancer_type_labels,
+            sample_ids=sample_ids,
+            groups_arr=groups_arr,
+            config=config,
+            device=device,
+            model_name=model_name,
+            runtime=runtime,
+            n_splits=n_splits,
+            ckpt_dir=ckpt_dir,
+        )
+    ).run()
 
     cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=config.random_state)
     folds, histories = [], []
@@ -462,7 +1236,7 @@ def run_torch_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
                              augment=False)
 
         model = build_model(model_name, config).to(device)
-        fr = train_fold(model, train_ds, val_ds, config, device, i)
+        fr = train_fold(model, train_ds, val_ds, config, device, i, runtime)
         folds.append(fr); histories.append(fr["history"])
 
         vm = fr["val_metrics"]
@@ -546,7 +1320,7 @@ def run_torch_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
     }
 
 
-def _make_xgb_classifier(objective, random_state, num_class=None):
+def _make_xgb_classifier(objective, random_state, xgb_params, num_class=None):
     try:
         from xgboost import XGBClassifier
     except ImportError as exc:
@@ -555,7 +1329,7 @@ def _make_xgb_classifier(objective, random_state, num_class=None):
         ) from exc
 
     params = {
-        **XGBOOST_DEFAULT_PARAMS,
+        **xgb_params,
         "objective": objective,
         "random_state": random_state,
         "eval_metric": "logloss" if objective == "binary:logistic" else "mlogloss",
@@ -563,6 +1337,52 @@ def _make_xgb_classifier(objective, random_state, num_class=None):
     if num_class is not None:
         params["num_class"] = num_class
     return XGBClassifier(**params)
+
+
+def _make_logistic_regression_classifier(random_state, logreg_params):
+    return make_pipeline(
+        StandardScaler(),
+        LogisticRegression(
+            **logreg_params,
+            random_state=random_state,
+        ),
+    )
+
+
+def _make_random_forest_classifier(random_state, rf_params):
+    return RandomForestClassifier(
+        **rf_params,
+        random_state=random_state,
+    )
+
+
+def _build_classical_estimator(model_name, objective, random_state, params, num_class=None):
+    if model_name == "xgboost":
+        return _make_xgb_classifier(objective, random_state, params, num_class=num_class)
+    if model_name == "logistic_regression":
+        return _make_logistic_regression_classifier(random_state, params)
+    if model_name == "random_forest":
+        return _make_random_forest_classifier(random_state, params)
+    raise ValueError(f"Unsupported classical model: {model_name}")
+
+
+def _fit_classical_estimator(model_name, estimator, X, y, sample_weight=None):
+    if model_name == "logistic_regression":
+        fit_kwargs = {}
+        if sample_weight is not None:
+            fit_kwargs["logisticregression__sample_weight"] = sample_weight
+        estimator.fit(X, y, **fit_kwargs)
+        return estimator
+
+    if sample_weight is not None:
+        estimator.fit(X, y, sample_weight=sample_weight)
+    else:
+        estimator.fit(X, y)
+    return estimator
+
+
+def _save_classical_estimator(estimator, path):
+    joblib.dump(estimator, path)
 
 
 def _binary_sample_weights(labels):
@@ -593,226 +1413,39 @@ def _expand_stage2_probabilities(probabilities, present_classes, n_classes):
     return full / full_sum
 
 
+def run_classical_cv(model_name, X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
+                     config, model_params, n_splits=5, ckpt_dir=None):
+    return build_cv_runner(
+        ClassicalRunnerRequest(
+            model_name=model_name,
+            X=X,
+            binary_labels=binary_labels,
+            cancer_type_labels=cancer_type_labels,
+            sample_ids=sample_ids,
+            groups_arr=groups_arr,
+            config=config,
+            model_params=model_params,
+            n_splits=n_splits,
+            ckpt_dir=ckpt_dir,
+        )
+    ).run()
+
+
+
 def run_xgboost_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
-                   config, n_splits=5, ckpt_dir=None):
-    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=config.random_state)
-    folds, histories = [], []
-
-    n = len(X)
-    val_bp = np.full(n, np.nan)
-    val_cl = np.full((n, config.n_cancer_types), np.nan)
-    val_emb = np.full((n, X.shape[1]), np.nan)
-    fold_ids = np.full(n, -1, dtype=int)
-    train_last = {}
-
-    for i, (ti, vi) in enumerate(cv.split(X, binary_labels, sample_ids)):
-        logger.info(f"\n  -- Fold {i+1}/{n_splits} (train={len(ti)}, val={len(vi)}) --")
-
-        X_train, X_val = X[ti], X[vi]
-        yb_train, yb_val = binary_labels[ti], binary_labels[vi]
-        yc_train, yc_val = cancer_type_labels[ti], cancer_type_labels[vi]
-
-        binary_model = _make_xgb_classifier("binary:logistic", config.random_state + i)
-        binary_model.fit(X_train, yb_train, sample_weight=_binary_sample_weights(yb_train))
-
-        bp_train = binary_model.predict_proba(X_train)[:, 1]
-        bp_val = binary_model.predict_proba(X_val)[:, 1]
-
-        cancer_train_mask = yc_train >= 0
-        stage2_model = None
-        present_classes = np.array([], dtype=int)
-        train_stage2_prob = np.full((len(X_train), config.n_cancer_types), 1.0 / config.n_cancer_types)
-        val_stage2_prob = np.full((len(X_val), config.n_cancer_types), 1.0 / config.n_cancer_types)
-
-        if cancer_train_mask.sum() > 0:
-            present_classes = np.unique(yc_train[cancer_train_mask])
-            if len(present_classes) == 1:
-                train_stage2_prob = np.zeros((len(X_train), config.n_cancer_types), dtype=np.float64)
-                val_stage2_prob = np.zeros((len(X_val), config.n_cancer_types), dtype=np.float64)
-                train_stage2_prob[:, present_classes[0]] = 1.0
-                val_stage2_prob[:, present_classes[0]] = 1.0
-            else:
-                local_labels = np.searchsorted(present_classes, yc_train[cancer_train_mask])
-                stage2_model = _make_xgb_classifier(
-                    "multi:softprob",
-                    config.random_state + i + 100,
-                    num_class=len(present_classes),
-                )
-                stage2_model.fit(
-                    X_train[cancer_train_mask],
-                    local_labels,
-                    sample_weight=_multiclass_sample_weights(local_labels),
-                )
-                train_stage2_local = stage2_model.predict_proba(X_train)
-                val_stage2_local = stage2_model.predict_proba(X_val)
-                if train_stage2_local.ndim == 1:
-                    train_stage2_local = np.column_stack([1 - train_stage2_local, train_stage2_local])
-                    val_stage2_local = np.column_stack([1 - val_stage2_local, val_stage2_local])
-                train_stage2_prob = _expand_stage2_probabilities(
-                    np.asarray(train_stage2_local),
-                    present_classes,
-                    config.n_cancer_types,
-                )
-                val_stage2_prob = _expand_stage2_probabilities(
-                    np.asarray(val_stage2_local),
-                    present_classes,
-                    config.n_cancer_types,
-                )
-
-        val_bp[vi] = bp_val
-        val_cl[vi] = np.log(np.clip(val_stage2_prob, 1e-8, 1.0))
-        val_emb[vi] = X_val
-        fold_ids[vi] = i
-
-        train_last = {
-            "binary_prob": bp_train,
-            "binary_true": yb_train,
-            "cancer_logits": np.log(np.clip(train_stage2_prob, 1e-8, 1.0)),
-            "cancer_true": yc_train,
-            "embedding": X_train,
-            "idx": ti,
-        }
-
-        tm_stage2_mask = yc_train >= 0
-        if tm_stage2_mask.sum() > 0:
-            train_cpred = train_stage2_prob[tm_stage2_mask].argmax(axis=1)
-            train_f1_s2 = f1_score(yc_train[tm_stage2_mask], train_cpred, average="macro", zero_division=0)
-            try:
-                train_auc_s2 = roc_auc_score(
-                    yc_train[tm_stage2_mask],
-                    train_stage2_prob[tm_stage2_mask],
-                    multi_class="ovr",
-                    average="macro",
-                )
-            except ValueError:
-                train_auc_s2 = float("nan")
-        else:
-            train_f1_s2 = float("nan")
-            train_auc_s2 = float("nan")
-
-        vm_stage2_mask = yc_val >= 0
-        if vm_stage2_mask.sum() > 0:
-            cpred = val_stage2_prob[vm_stage2_mask].argmax(axis=1)
-            val_f1_s2 = f1_score(yc_val[vm_stage2_mask], cpred, average="macro", zero_division=0)
-            try:
-                val_auc_s2 = roc_auc_score(
-                    yc_val[vm_stage2_mask],
-                    val_stage2_prob[vm_stage2_mask],
-                    multi_class="ovr",
-                    average="macro",
-                )
-            except ValueError:
-                val_auc_s2 = float("nan")
-        else:
-            val_f1_s2 = float("nan")
-            val_auc_s2 = float("nan")
-
-        logger.info(
-            f"    Fold {i+1} XGB "
-            f"S1_AUC={roc_auc_score(yb_val, bp_val):.3f} "
-            f"S2_F1={val_f1_s2:.3f} "
-            f"S2_AUC={val_auc_s2:.3f}"
-        )
-
-        folds.append(
-            {
-                "history": {},
-                "best_val_loss": float("nan"),
-                "train_metrics": {
-                    "auc_s1": roc_auc_score(yb_train, bp_train),
-                    "auc_s2": train_auc_s2,
-                    "f1_macro_s2": train_f1_s2,
-                },
-                "val_metrics": {
-                    "auc_s1": roc_auc_score(yb_val, bp_val),
-                    "auc_s2": val_auc_s2,
-                    "f1_macro_s2": val_f1_s2,
-                },
-                "epochs": 1,
-                "best_state": None,
-            }
-        )
-
-        if ckpt_dir:
-            os.makedirs(ckpt_dir, exist_ok=True)
-            binary_model.get_booster().save_model(str(ckpt_dir / f"fold_{i}_binary.json"))
-            if stage2_model is not None:
-                stage2_model.get_booster().save_model(str(ckpt_dir / f"fold_{i}_stage2.json"))
-            with open(ckpt_dir / f"fold_{i}_meta.json", "w", encoding="utf-8") as f:
-                json.dump(
-                    {
-                        "fold": i,
-                        "model_name": "xgboost",
-                        "present_classes": present_classes.tolist(),
-                        "train_idx": ti.tolist(),
-                        "val_idx": vi.tolist(),
-                    },
-                    f,
-                    indent=2,
-                )
-
-    valid = ~np.isnan(val_bp)
-    bp_v, bt_v = val_bp[valid], binary_labels[valid]
-    cl_v, ct_v = val_cl[valid], cancer_type_labels[valid]
-
-    bpred = (bp_v > 0.5).astype(int)
-    tn, fp, fn, tp = confusion_matrix(bt_v, bpred, labels=[0, 1]).ravel()
-    overall = {
-        "val_s1_auc": float(roc_auc_score(bt_v, bp_v)),
-        "val_s1_accuracy": float(accuracy_score(bt_v, bpred)),
-        "val_s1_sensitivity": float(tp / (tp + fn)) if (tp + fn) > 0 else 0,
-        "val_s1_specificity": float(tn / (tn + fp)) if (tn + fp) > 0 else 0,
-        "val_s1_f1": float(f1_score(bt_v, bpred)),
-    }
-
-    cm = ct_v >= 0
-    if cm.sum() > 0:
-        cp = torch.softmax(torch.tensor(cl_v[cm]), dim=-1).numpy()
-        cpred = cp.argmax(axis=1)
-        overall["val_s2_accuracy"] = float(accuracy_score(ct_v[cm], cpred))
-        overall["val_s2_f1_macro"] = float(f1_score(ct_v[cm], cpred, average="macro", zero_division=0))
-        try:
-            overall["val_s2_auc"] = float(roc_auc_score(ct_v[cm], cp, multi_class="ovr", average="macro"))
-        except ValueError:
-            overall["val_s2_auc"] = float("nan")
-
-    if train_last:
-        tbp, tbt = train_last["binary_prob"], train_last["binary_true"]
-        overall["train_s1_auc"] = float(roc_auc_score(tbt, tbp))
-        tcm = train_last["cancer_true"] >= 0
-        if tcm.sum() > 0:
-            tcp = torch.softmax(torch.tensor(train_last["cancer_logits"][tcm]), dim=-1).numpy()
-            overall["train_s2_f1_macro"] = float(
-                f1_score(train_last["cancer_true"][tcm], tcp.argmax(axis=1), average="macro", zero_division=0)
-            )
-            try:
-                overall["train_s2_auc"] = float(
-                    roc_auc_score(train_last["cancer_true"][tcm], tcp, multi_class="ovr", average="macro")
-                )
-            except ValueError:
-                overall["train_s2_auc"] = float("nan")
-
-    logger.info("\n" + "=" * 64)
-    logger.info("  CV Results (XGBoost-Hierarchical)")
-    logger.info("=" * 64)
-    for k, v in overall.items():
-        logger.info(f"  {k:28s}: {v:.4f}")
-
-    return {
-        "overall": overall,
-        "folds": folds,
-        "histories": histories,
-        "val_binary_prob": val_bp,
-        "val_cancer_logits": val_cl,
-        "val_embedding": val_emb,
-        "fold_ids": fold_ids,
-        "train_last": train_last,
-        "binary_labels": binary_labels,
-        "cancer_type_labels": cancer_type_labels,
-        "groups": groups_arr,
-        "sample_ids": sample_ids,
-        "X": X,
-    }
+                   config, xgb_params, n_splits=5, ckpt_dir=None):
+    return run_classical_cv(
+        "xgboost",
+        X,
+        binary_labels,
+        cancer_type_labels,
+        sample_ids,
+        groups_arr,
+        config,
+        xgb_params,
+        n_splits=n_splits,
+        ckpt_dir=ckpt_dir,
+    )
 
 
 # =============================================================================
@@ -918,9 +1551,73 @@ def save_stage1_difference_artifacts(df, out_dir):
         logger.warning(f"Stage 1 cancer/non-cancer difference plot failed: {exc}")
 
 
+def save_benchmark_visualizations(benchmark_df, out_dir):
+    if benchmark_df is None or benchmark_df.empty:
+        return
+
+    df = benchmark_df.copy()
+    df = df.sort_values("val_s2_f1_macro", ascending=False).reset_index(drop=True)
+    labels = [f"{row['model']}\n{row['version']}" for _, row in df.iterrows()]
+    y = np.arange(len(df))
+
+    panels = [
+        ("val_s1_auc", "Stage 1 AUROC", "#287271"),
+        ("val_s2_f1_macro", "Stage 2 Macro F1", "#c8553d"),
+        ("val_s2_auc", "Stage 2 AUROC", "#4d9de0"),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(16, 7), sharey=True)
+    for ax, (metric, title, color) in zip(axes, panels):
+        values = df[metric].astype(float).to_numpy()
+        ax.barh(y, values, color=color, alpha=0.9)
+        ax.set_title(title)
+        ax.set_xlim(max(0.0, np.nanmin(values) - 0.08), 1.0)
+        ax.set_xlabel("Score")
+        ax.grid(True, axis="x", alpha=0.25)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels)
+        for yi, val in zip(y, values):
+            ax.text(min(val + 0.01, 0.995), yi, f"{val:.3f}", va="center", fontsize=9)
+
+    axes[0].invert_yaxis()
+    fig.suptitle("Benchmark Comparison Across Models", fontsize=14, fontweight="bold")
+    plt.tight_layout()
+    plt.savefig(out_dir / "benchmark_comparison.png", dpi=150)
+    plt.close(fig)
+
+    gap_cols = ["train_s1_auc", "train_s2_f1_macro", "train_s2_auc"]
+    if all(col in df.columns for col in gap_cols):
+        gap_df = pd.DataFrame(
+            {
+                "model": labels,
+                "stage1_auc_gap": df["train_s1_auc"] - df["val_s1_auc"],
+                "stage2_f1_gap": df["train_s2_f1_macro"] - df["val_s2_f1_macro"],
+                "stage2_auc_gap": df["train_s2_auc"] - df["val_s2_auc"],
+            }
+        )
+        gap_df.to_csv(out_dir / "benchmark_train_val_gaps.csv", index=False)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.arange(len(gap_df))
+        w = 0.25
+        ax.bar(x - w, gap_df["stage1_auc_gap"], width=w, color="#287271", label="S1 AUROC gap")
+        ax.bar(x, gap_df["stage2_f1_gap"], width=w, color="#c8553d", label="S2 Macro F1 gap")
+        ax.bar(x + w, gap_df["stage2_auc_gap"], width=w, color="#4d9de0", label="S2 AUROC gap")
+        ax.set_xticks(x)
+        ax.set_xticklabels(gap_df["model"], rotation=20, ha="right")
+        ax.set_ylabel("Train - Val")
+        ax.set_title("Benchmark Train-Val Gap")
+        ax.grid(True, axis="y", alpha=0.25)
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig(out_dir / "benchmark_train_val_gap.png", dpi=150)
+        plt.close(fig)
+
+
 def write_experiment_logs(out_dir, model_name, args, results, summary, extra=None):
     record = {
         "timestamp": summary["timestamp"],
+        "experiment": summary.get("experiment"),
         "model_name": model_name,
         "model_display_name": summary["model"],
         "version": summary.get("version"),
@@ -944,6 +1641,22 @@ def write_experiment_logs(out_dir, model_name, args, results, summary, extra=Non
     run_log_dir.mkdir(parents=True, exist_ok=True)
     with open(run_log_dir / "experiment_runs.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(record, default=str) + "\n")
+
+
+def save_experiment_manifest(experiment_dir, experiment_name, args, model_rows, started_at, elapsed):
+    manifest = {
+        "experiment": experiment_name,
+        "timestamp": started_at,
+        "elapsed": str(elapsed),
+        "input": str(args.input),
+        "output_root": str(Path(args.output)),
+        "experiment_dir": str(experiment_dir),
+        "aggregate": args.aggregate,
+        "n_splits": args.n_splits,
+        "models": model_rows,
+    }
+    with open(experiment_dir / "experiment_summary.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, default=str)
 
 
 def save_fold_predictions(results, out_dir):
@@ -971,10 +1684,30 @@ def save_fold_predictions(results, out_dir):
     np.savez_compressed(out_dir / "fold_predictions.npz", **save_dict)
 
 
+def build_model_params_summary(model_name, config, args):
+    if model_name == "xgboost":
+        return resolve_xgboost_params(args)
+    if model_name == "logistic_regression":
+        return resolve_logreg_params(args)
+    if model_name == "random_forest":
+        return resolve_random_forest_params(args)
+    return {
+        "resnet_channels": list(config.resnet_channels),
+        "resnet_blocks": list(config.resnet_blocks),
+        "encoder_output_dim": config.encoder_output_dim,
+        "head_hidden_dim": config.head_hidden_dim,
+        "dropout_rate": config.dropout_rate,
+        "use_focal_loss": config.use_focal_loss,
+        "focal_gamma": config.focal_gamma,
+        "class_balance_beta": config.class_balance_beta,
+    }
+
+
 def build_training_summary(results, config, args, model_name, model_display_name, n_samples, n_features, timestamp,
-                           version_name, output_dir):
+                           version_name, output_dir, experiment_name=None, model_params=None):
     return {
         "timestamp": timestamp,
+        "experiment": experiment_name,
         "model_name": model_name,
         "model": model_display_name,
         "version": version_name,
@@ -999,19 +1732,19 @@ def build_training_summary(results, config, args, model_name, model_display_name
             "head_hidden_dim": config.head_hidden_dim,
             "stage1_loss_weight": config.stage1_loss_weight,
             "stage2_loss_weight": config.stage2_loss_weight,
+            "use_focal_loss": config.use_focal_loss,
+            "focal_gamma": config.focal_gamma,
+            "class_balance_beta": config.class_balance_beta,
             "early_stopping_patience": config.early_stopping_patience,
             "scheduler_patience": config.scheduler_patience,
             "random_state": config.random_state,
+            "num_workers": args.num_workers,
+            "prefetch_factor": args.prefetch_factor,
+            "use_amp": not args.no_amp,
             "selected_cancer_types": list(config.cancer_types),
             "selected_non_cancer_groups": list(config.non_cancer_groups),
         },
-        "model_params": XGBOOST_DEFAULT_PARAMS if model_name == "xgboost" else {
-            "resnet_channels": list(config.resnet_channels),
-            "resnet_blocks": list(config.resnet_blocks),
-            "encoder_output_dim": config.encoder_output_dim,
-            "head_hidden_dim": config.head_hidden_dim,
-            "dropout_rate": config.dropout_rate,
-        },
+        "model_params": model_params or build_model_params_summary(model_name, config, args),
     }
 
 
@@ -1076,25 +1809,34 @@ def save_run_artifacts(results, summary, config, args, out_dir, df_valid, binary
     )
 
 
-def run_single_model(model_name, out_dir, version_name, X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
+def run_single_model(model_name, out_dir, version_name, experiment_name, X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
                      df_valid, config, device, args, timestamp):
     model_display_name = MODEL_DISPLAY_NAMES[model_name]
     ckpt_dir = out_dir / "checkpoints"
     out_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+    model_params = build_model_params_summary(model_name, config, args)
 
     logger.info("\n" + "=" * 64)
     logger.info(f"  Model: {model_display_name}")
     logger.info("=" * 64)
+    runtime = resolve_runtime_config(args, device)
+    if model_name in TORCH_MODEL_NAMES:
+        logger.info(
+            f"  Runtime: amp={runtime['use_amp']} num_workers={runtime['num_workers']} "
+            f"pin_memory={runtime['pin_memory']}"
+        )
 
-    if model_name == "xgboost":
-        results = run_xgboost_cv(
+    if model_name in CLASSICAL_MODEL_NAMES:
+        results = run_classical_cv(
+            model_name,
             X,
             binary_labels,
             cancer_type_labels,
             sample_ids,
             groups_arr,
             config,
+            model_params,
             n_splits=args.n_splits,
             ckpt_dir=ckpt_dir,
         )
@@ -1110,6 +1852,7 @@ def run_single_model(model_name, out_dir, version_name, X, binary_labels, cancer
             config,
             device,
             model_name=model_name,
+            runtime=runtime,
             n_splits=args.n_splits,
             ckpt_dir=ckpt_dir,
         )
@@ -1125,6 +1868,8 @@ def run_single_model(model_name, out_dir, version_name, X, binary_labels, cancer
         timestamp=timestamp,
         version_name=version_name,
         output_dir=out_dir,
+        experiment_name=experiment_name,
+        model_params=model_params,
     )
     save_run_artifacts(results, summary, config, args, out_dir, df_valid, binary_labels, cancer_type_labels)
 
@@ -1141,9 +1886,12 @@ def parse_args():
     p = argparse.ArgumentParser(description="SERS ResNet18-1D Training")
     p.add_argument("--input", "-i", default="results/processed_spectra.csv")
     p.add_argument("--output", "-o", default="results/training")
-    p.add_argument("--config", "-c", default="config.yaml")
-    p.add_argument("--model", choices=["resnet18", "cnn1d", "xgboost"], default="resnet18")
-    p.add_argument("--benchmark-models", nargs="+", choices=["resnet18", "cnn1d", "xgboost"], default=None)
+    p.add_argument("--config", "-c", default="config/config.yaml")
+    model_choices = ["logistic_regression", "random_forest", "xgboost", "cnn1d", "resnet18"]
+    p.add_argument("--model", choices=model_choices, default="resnet18")
+    p.add_argument("--benchmark-models", nargs="+", choices=model_choices, default=None)
+    p.add_argument("--experiment", default=None,
+                   help="Experiment label under the output root. Defaults to auto-increment like experiment_001.")
     p.add_argument("--version", default=None,
                    help="Version label to store under each model directory. Defaults to auto-increment like v001.")
     p.add_argument("--cancer-types", nargs="+", default=None,
@@ -1155,7 +1903,32 @@ def parse_args():
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
+    p.add_argument("--weight-decay", type=float, default=None)
+    p.add_argument("--dropout-rate", type=float, default=None)
+    p.add_argument("--stage2-loss-weight", type=float, default=None)
+    p.add_argument("--head-hidden-dim", type=int, default=None)
+    p.add_argument("--resnet-channels", nargs="+", type=int, default=None,
+                   help="Override ResNet channels, e.g. --resnet-channels 16 32 64 128")
+    p.add_argument("--use-focal-loss", action="store_true")
+    p.add_argument("--focal-gamma", type=float, default=None)
+    p.add_argument("--class-balance-beta", type=float, default=None,
+                   help="Effective-number beta for stage2 class-balanced loss, e.g. 0.999")
+    p.add_argument("--logreg-c", type=float, default=None)
+    p.add_argument("--logreg-max-iter", type=int, default=None)
+    p.add_argument("--rf-n-estimators", type=int, default=None)
+    p.add_argument("--rf-max-depth", type=int, default=None)
+    p.add_argument("--rf-min-samples-leaf", type=int, default=None)
+    p.add_argument("--xgb-n-estimators", type=int, default=None)
+    p.add_argument("--xgb-max-depth", type=int, default=None)
+    p.add_argument("--xgb-learning-rate", type=float, default=None)
+    p.add_argument("--xgb-subsample", type=float, default=None)
+    p.add_argument("--xgb-colsample-bytree", type=float, default=None)
+    p.add_argument("--xgb-reg-lambda", type=float, default=None)
+    p.add_argument("--xgb-min-child-weight", type=float, default=None)
     p.add_argument("--device", default="auto")
+    p.add_argument("--num-workers", type=int, default=None)
+    p.add_argument("--prefetch-factor", type=int, default=2)
+    p.add_argument("--no-amp", action="store_true")
     p.add_argument("--no-mlflow", action="store_true")
     return p.parse_args()
 
@@ -1163,17 +1936,21 @@ def parse_args():
 def main():
     args = parse_args()
     t0 = datetime.now()
+    out_root = Path(args.output)
+    experiment_dir, experiment_name = resolve_experiment_output_dir(out_root, args.experiment)
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s │ %(levelname)-7s │ %(message)s", datefmt="%H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout),
-                  logging.FileHandler("train.log", mode="w", encoding="utf-8")],
+                  logging.FileHandler(experiment_dir / "train.log", mode="w", encoding="utf-8")],
     )
 
     logger.info("=" * 64)
     logger.info("  SERS Two-Stage Training")
     logger.info("=" * 64)
+    logger.info(f"  Experiment: {experiment_name}")
+    logger.info(f"  Output dir: {experiment_dir}")
 
     if args.device == "auto":
         device = torch.device(
@@ -1183,10 +1960,8 @@ def main():
         )
     else:
         device = torch.device(args.device)
+    configure_torch_runtime(device)
     logger.info(f"  Device: {device}")
-
-    out_dir = Path(args.output)
-    out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         import yaml
@@ -1202,12 +1977,7 @@ def main():
     n_feat = len(feat_cols)
 
     mc = ModelConfig.from_pipeline_config(raw_cfg, n_spectral_features=n_feat) if raw_cfg else ModelConfig(n_spectral_features=n_feat)
-    if args.epochs:
-        mc = ModelConfig(**{**mc.__dict__, "n_epochs": args.epochs})
-    if args.batch_size:
-        mc = ModelConfig(**{**mc.__dict__, "batch_size": args.batch_size})
-    if args.lr:
-        mc = ModelConfig(**{**mc.__dict__, "learning_rate": args.lr})
+    mc = apply_training_overrides(mc, args)
     mc = apply_class_selection(
         mc,
         cancer_types=args.cancer_types,
@@ -1232,49 +2002,76 @@ def main():
 
     model_names = args.benchmark_models if args.benchmark_models else [args.model]
     benchmark_rows = []
+    benchmark_dir = experiment_dir / "benchmark"
+    benchmark_dir.mkdir(parents=True, exist_ok=True)
 
     for model_name in model_names:
-        run_out_dir, version_name = resolve_run_output_dir(out_dir, model_name, args.version)
+        run_out_dir, version_name = resolve_run_output_dir(experiment_dir, model_name, args.version)
         logger.info(f"\n[Step 5] {args.n_splits}-fold CV for {MODEL_DISPLAY_NAMES[model_name]} ({version_name})...")
-        results, summary = run_single_model(
-            model_name,
-            run_out_dir,
-            version_name,
-            X,
-            bl,
-            ctl,
-            sample_ids,
-            groups_arr,
-            df_valid,
-            mc,
-            device,
-            args,
-            t0.isoformat(),
-        )
-        row = {
-            "model_name": model_name,
-            "model": summary["model"],
-            "version": version_name,
-            "output": str(run_out_dir),
-            "aggregate": args.aggregate,
-            "n_samples": summary["n_samples"],
-            "n_features": summary["n_features"],
-        }
-        row.update(summary["metrics"])
-        benchmark_rows.append(row)
+        try:
+            results, summary = run_single_model(
+                model_name,
+                run_out_dir,
+                version_name,
+                experiment_name,
+                X,
+                bl,
+                ctl,
+                sample_ids,
+                groups_arr,
+                df_valid,
+                mc,
+                device,
+                args,
+                t0.isoformat(),
+            )
+            row = {
+                "experiment": experiment_name,
+                "status": "completed",
+                "model_name": model_name,
+                "model": summary["model"],
+                "version": version_name,
+                "output": str(run_out_dir),
+                "aggregate": args.aggregate,
+                "n_samples": summary["n_samples"],
+                "n_features": summary["n_features"],
+            }
+            row.update(summary["metrics"])
+            benchmark_rows.append(row)
+        except Exception as exc:
+            logger.exception(f"  Model run failed for {MODEL_DISPLAY_NAMES[model_name]}: {exc}")
+            benchmark_rows.append(
+                {
+                    "experiment": experiment_name,
+                    "status": "failed",
+                    "model_name": model_name,
+                    "model": MODEL_DISPLAY_NAMES[model_name],
+                    "version": version_name,
+                    "output": str(run_out_dir),
+                    "aggregate": args.aggregate,
+                    "error": str(exc),
+                }
+            )
+            if len(model_names) == 1:
+                raise
 
     if args.benchmark_models and benchmark_rows:
-        pd.DataFrame(benchmark_rows).to_csv(out_dir / "benchmark_summary.csv", index=False)
+        benchmark_df = pd.DataFrame(benchmark_rows)
+        benchmark_df.to_csv(benchmark_dir / "benchmark_summary.csv", index=False)
+        completed_df = benchmark_df[benchmark_df["status"] == "completed"].copy()
+        if not completed_df.empty:
+            save_benchmark_visualizations(completed_df, benchmark_dir)
 
     elapsed = datetime.now() - t0
+    save_experiment_manifest(experiment_dir, experiment_name, args, benchmark_rows, t0.isoformat(), elapsed)
     logger.info(f"\n{'=' * 64}")
     logger.info(f"  Training complete! ({elapsed})")
-    logger.info(f"  Output: {out_dir}/")
+    logger.info(f"  Output: {experiment_dir}/")
     if args.benchmark_models:
-        logger.info(f"  Benchmark summary: {out_dir / 'benchmark_summary.csv'}")
-        logger.info(f"  Next: python models/test.py -i {out_dir / model_names[0]}")
+        logger.info(f"  Benchmark summary: {benchmark_dir / 'benchmark_summary.csv'}")
+        logger.info(f"  Next: python models/test.py -i {experiment_dir / model_names[0]}")
     else:
-        logger.info(f"  Next: python models/test.py -i {out_dir / model_names[0]}")
+        logger.info(f"  Next: python models/test.py -i {experiment_dir / model_names[0]}")
     logger.info(f"{'=' * 64}")
     return 0
 

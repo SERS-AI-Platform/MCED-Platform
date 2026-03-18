@@ -7,7 +7,7 @@ SERS-based spectral analysis pipeline for multi-cancer screening from urine meta
 ### Using Conda (Recommended)
 ```bash
 # Create environment
-conda env create -f environment.yml
+conda env create -f config/environment.yml
 conda activate sers-analysis
 ```
 
@@ -30,31 +30,46 @@ sers validate -i data/raw
 sers run -i data/raw -o results/
 ```
 
-### Python API
+### Python API (Stable Public API)
 ```python
-from sers import load_config
-from sers.analysis import run_pipeline
 from pathlib import Path
 
-# Load custom config
-config = load_config("config.yaml")
-
-# Run pipeline
-result = run_pipeline(
-    data_dir=Path("data/raw"),
-    config=config,
+from sers import (
+    load_config,
+    find_spectra,
+    parse_filename,
+    read_spectrum,
+    make_common_grid,
+    preprocess_spectra,
+    run_qc_pipeline,
 )
 
-# Get sklearn-compatible format
-X, y, sample_ids = result.to_matrix()
+config = load_config("config/config.yaml")
+files = find_spectra(Path("data/raw"))
 
-# Access QC report
-print(result.qc_report.head())
+spectra = {}
+x_arrays = []
+for path in files:
+    sid = parse_filename(path)
+    x, y = read_spectrum(path)
+    spectra[(sid.group, sid.sample_id, sid.replicate)] = (x, y)
+    x_arrays.append(x)
+
+common_grid = make_common_grid(x_arrays)
+processed = preprocess_spectra(spectra, common_grid, config.preprocessing)
+gate_df, qc_stats, failures, group_summary = run_qc_pipeline(
+    processed,
+    common_grid,
+    qc_config=config.qc,
+)
 ```
+
+Stable public API is exported from `sers.__all__` and is safe to import from `sers` directly.
+Internal helpers are intentionally excluded from `__all__` and may change without notice.
 
 ## Configuration
 
-Update `config.yaml` as needed:
+Edit `config/config.yaml` to adjust:
 
 ```yaml
 dataset:
@@ -85,40 +100,73 @@ export SERS_MODEL_DIR=/path/to/models
 
 ```bash
 # Build
-docker build -t sers-analysis .
+docker build -t sers-analysis -f infra/Dockerfile .
 
 # Run
-docker run \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/results:/results \
-  sers-analysis run
+docker compose -f infra/docker-compose.yml up --build
 ```
 
 ## Project Structure
 
 ```
-sers-analysis/
-├── src/sers/                         # Main package
-│   ├── __init__.py
-│   ├── analysis.py                   # Pipeline orchestration
-│   ├── cli.py                        # Command-line interface
-│   ├── config.py                     # Configuration management
-│   ├── io.py                         # File I/O
-│   ├── preprocessing.py              # Signal processing
-│   ├── signal.py
-│   ├── visualization.py
-│   ├── qc/
-│   │   ├── __init__.py
-│   │   └── qc.py                     # Quality control module
-│   └── validation/protocol/
-│       └── variance_convergence.py
-├── models/
-│   ├── model.py
-│   ├── test.py
-│   └── train.py
-├── config.yaml                       # User configuration
+SERS-AI/
+├── main.py                           # Pipeline entry point
 ├── pyproject.toml                    # Package metadata
-└── Dockerfile                        # Container deployment
+├── README.md
+│
+├── src/sers/                         # Core library
+│   ├── config.py                     # Centralized path & config management
+│   ├── preprocessing.py              # Signal processing
+│   ├── io.py                         # File I/O
+│   ├── visualization.py
+│   ├── qc/                           # Quality control module
+│   └── validation/                   # Protocol validation
+│
+├── models/                           # ML training code
+│   ├── train.py                      # Main training script
+│   ├── test.py                       # Evaluation
+│   ├── model.py                      # Model definitions
+│   ├── tune_torch.py                 # Hyperparameter tuning
+│   └── results/                      # Model outputs (gitignored)
+│       ├── 01_benchmarks/            # Formal model comparisons
+│       ├── 02_tuning/                # Hyperparameter search
+│       ├── 03_learning_curves/       # Data efficiency analysis
+│       ├── 04_comparisons/           # Cross-experiment summaries
+│       ├── 05_subset_analysis/       # Targeted experiments
+│       └── _archive/                 # Superseded early experiments
+│
+├── config/                           # Configuration files
+│   ├── config.yaml                   # Pipeline & dataset config
+│   ├── environment.yml               # Conda environment
+│   └── environment.lock.yml          # Locked dependencies
+│
+├── scripts/                          # Utility & analysis scripts
+│   ├── run_qc_preprocess.py          # QC preprocessing runner
+│   ├── explore_data.py               # Dataset exploration
+│   ├── db_create.py                  # Database setup
+│   └── ...
+│
+├── data/                             # Raw & clinical data (gitignored)
+├── results/                          # QC & preprocessing output (gitignored)
+├── logs/                             # Log files (gitignored)
+├── notebooks/                        # Jupyter notebooks
+│
+├── docs/                             # Experiment documentation
+│   ├── EXPERIMENT_CONTEXT.md         # Full experiment history
+│   ├── MODEL_WORKFLOW.md             # Training workflow guide
+│   └── CHANGELOG.md
+│
+├── dashboard/                        # Executive dashboards
+│   ├── SERS_AI_Executive_Dashboard.html
+│   ├── dashboard_data.json
+│   └── img/                          # Dashboard images
+│
+├── infra/                            # Infrastructure
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── DOCKER_QUICKSTART.sh
+│
+└── tests/                            # Test suite (planned)
 ```
 
 ## Development
@@ -142,3 +190,13 @@ Automated `tests/`-based pytest suite is not yet included in this repository (�
 ## License
 
 MIT
+
+### Team Rule: Import Smoke Check
+
+To prevent accidental public API breakage, run the following smoke-check in CI and before release:
+
+```bash
+python -c "from sers import *"
+```
+
+This command must succeed without ImportError.

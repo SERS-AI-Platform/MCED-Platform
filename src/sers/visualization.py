@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Visualization functions for SERS spectroscopy data.
 Each function saves ONE plot to ONE file (no subplots unless noted).
@@ -11,10 +13,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
+from scipy.signal import find_peaks
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CANCER_GROUPS = ("PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN")
+PAPER_TITLE_SIZE = 18
+PAPER_LABEL_SIZE = 15
+PAPER_TICK_SIZE = 12
+PAPER_LEGEND_SIZE = 11
+PAPER_ANNOTATION_SIZE = 10
+PAPER_LINEWIDTH = 2.2
 
 
 def _ensure_output_dir(output_path: Path) -> None:
@@ -34,6 +43,60 @@ def _feature_axis_from_names(feature_names: Sequence[str]) -> np.ndarray:
         except (IndexError, ValueError):
             axis.append(float(i))
     return np.asarray(axis, dtype=float)
+
+
+def _apply_publication_style(
+    ax: plt.Axes,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    title: Optional[str] = None,
+) -> None:
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, fontsize=PAPER_LABEL_SIZE, labelpad=8)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel, fontsize=PAPER_LABEL_SIZE, labelpad=8)
+    if title is not None:
+        ax.set_title(title, fontsize=PAPER_TITLE_SIZE, fontweight="bold", pad=12)
+
+    ax.tick_params(
+        axis="both",
+        which="major",
+        labelsize=PAPER_TICK_SIZE,
+        width=1.1,
+        length=5,
+    )
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.1)
+        spine.set_alpha(0.85)
+
+
+def _save_figure(fig: plt.Figure, output_path: Path, dpi: int = 300) -> None:
+    _ensure_output_dir(Path(output_path))
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Saved: {Path(output_path).name}")
+
+
+def _annotate_peak_labels(
+    ax: plt.Axes,
+    peak_df: pd.DataFrame,
+    value_col: str,
+    color: str = "#111111",
+) -> None:
+    for idx, row in enumerate(peak_df.itertuples(index=False)):
+        y_offset = 12 + (idx % 2) * 12
+        ax.annotate(
+            f"{row.wavenumber:.0f}",
+            xy=(row.wavenumber, getattr(row, value_col)),
+            xytext=(0, y_offset),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=PAPER_ANNOTATION_SIZE,
+            color=color,
+            bbox={"boxstyle": "round,pad=0.2", "fc": "white", "ec": "none", "alpha": 0.75},
+        )
 
 
 def _normalize_shap_values(shap_values: Any) -> List[np.ndarray]:
@@ -454,8 +517,14 @@ def plot_cancer_peak_difference(
     top_k = min(top_k, len(feature_cols))
     top_idx = np.argsort(np.abs(diff))[-top_k:][::-1]
 
-    fig, ax = plt.subplots(figsize=(14, 7))
-    ax.plot(axis, non_cancer_mean, color="#2b6cb0", linewidth=2, label="Non-cancer mean")
+    fig, ax = plt.subplots(figsize=(14.5, 7.5))
+    ax.plot(
+        axis,
+        non_cancer_mean,
+        color="#2b6cb0",
+        linewidth=PAPER_LINEWIDTH,
+        label="Non-cancer mean",
+    )
     ax.fill_between(
         axis,
         non_cancer_mean - non_cancer_std,
@@ -463,7 +532,7 @@ def plot_cancer_peak_difference(
         color="#2b6cb0",
         alpha=0.12,
     )
-    ax.plot(axis, cancer_mean, color="#c53030", linewidth=2, label="Cancer mean")
+    ax.plot(axis, cancer_mean, color="#c53030", linewidth=PAPER_LINEWIDTH, label="Cancer mean")
     ax.fill_between(
         axis,
         cancer_mean - cancer_std,
@@ -471,15 +540,25 @@ def plot_cancer_peak_difference(
         color="#c53030",
         alpha=0.12,
     )
-    ax.set_xlabel("Raman Shift (cm^-1)", fontsize=12)
-    ax.set_ylabel("Mean Intensity (a.u.)", fontsize=12)
-    ax.set_title(title, fontsize=15, fontweight="bold")
+    _apply_publication_style(
+        ax,
+        xlabel="Raman Shift (cm^-1)",
+        ylabel="Mean Intensity (a.u.)",
+        title=title,
+    )
     ax.grid(True, alpha=0.25)
 
     ax2 = ax.twinx()
-    ax2.plot(axis, diff, color="#222222", linewidth=1.5, alpha=0.8, label="Cancer - Non-cancer")
+    ax2.plot(
+        axis,
+        diff,
+        color="#222222",
+        linewidth=1.6,
+        alpha=0.8,
+        label="Cancer - Non-cancer",
+    )
     ax2.axhline(0.0, color="#444444", linestyle="--", linewidth=1, alpha=0.6)
-    ax2.set_ylabel("Difference (a.u.)", fontsize=12)
+    _apply_publication_style(ax2, ylabel="Difference (a.u.)")
 
     for idx in top_idx:
         wn = axis[idx]
@@ -488,7 +567,7 @@ def plot_cancer_peak_difference(
             wn,
             diff[idx],
             f"{wn:.0f}",
-            fontsize=8,
+            fontsize=PAPER_ANNOTATION_SIZE,
             rotation=90,
             va="bottom" if diff[idx] >= 0 else "top",
             ha="center",
@@ -496,13 +575,15 @@ def plot_cancer_peak_difference(
 
     lines1, labels1 = ax.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
+    ax.legend(
+        lines1 + lines2,
+        labels1 + labels2,
+        loc="upper right",
+        fontsize=PAPER_LEGEND_SIZE,
+        frameon=True,
+    )
 
-    _ensure_output_dir(Path(output_path))
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
-    plt.close()
-    logger.info(f"Saved: {Path(output_path).name}")
+    _save_figure(fig, output_path)
 
     top_peaks = pd.DataFrame(
         {
@@ -562,10 +643,21 @@ def plot_group_peak_difference(
 
     top_k = min(top_k, len(feature_cols))
     top_idx = np.argsort(np.abs(diff))[-top_k:][::-1]
-    reference_label = "Reference mean" if reference_groups is None else "Other diagnoses mean"
+    if reference_groups is None:
+        reference_label = "Reference mean"
+    elif len(reference_groups) == 1:
+        reference_label = f"{reference_groups[0]} mean"
+    else:
+        reference_label = "Other diagnoses mean"
 
-    fig, ax = plt.subplots(figsize=(14, 7))
-    ax.plot(axis, reference_mean, color=reference_color, linewidth=2, label=reference_label)
+    fig, ax = plt.subplots(figsize=(14.5, 7.5))
+    ax.plot(
+        axis,
+        reference_mean,
+        color=reference_color,
+        linewidth=PAPER_LINEWIDTH,
+        label=reference_label,
+    )
     ax.fill_between(
         axis,
         reference_mean - reference_std,
@@ -573,7 +665,13 @@ def plot_group_peak_difference(
         color=reference_color,
         alpha=0.12,
     )
-    ax.plot(axis, target_mean, color=target_color, linewidth=2, label=f"{target_group} mean")
+    ax.plot(
+        axis,
+        target_mean,
+        color=target_color,
+        linewidth=PAPER_LINEWIDTH,
+        label=f"{target_group} mean",
+    )
     ax.fill_between(
         axis,
         target_mean - target_std,
@@ -581,15 +679,18 @@ def plot_group_peak_difference(
         color=target_color,
         alpha=0.12,
     )
-    ax.set_xlabel("Raman Shift (cm^-1)", fontsize=12)
-    ax.set_ylabel("Mean Intensity (a.u.)", fontsize=12)
-    ax.set_title(title or f"{target_group} vs Reference Peak Difference", fontsize=15, fontweight="bold")
+    _apply_publication_style(
+        ax,
+        xlabel="Raman Shift (cm^-1)",
+        ylabel="Mean Intensity (a.u.)",
+        title=title or f"{target_group} vs Reference Peak Difference",
+    )
     ax.grid(True, alpha=0.25)
 
     ax2 = ax.twinx()
     ax2.plot(axis, diff, color="#222222", linewidth=1.5, alpha=0.85, label=f"{target_group} - Reference")
     ax2.axhline(0.0, color="#444444", linestyle="--", linewidth=1, alpha=0.6)
-    ax2.set_ylabel("Difference (a.u.)", fontsize=12)
+    _apply_publication_style(ax2, ylabel="Difference (a.u.)")
 
     for idx in top_idx:
         wn = axis[idx]
@@ -598,7 +699,7 @@ def plot_group_peak_difference(
             wn,
             diff[idx],
             f"{wn:.0f}",
-            fontsize=8,
+            fontsize=PAPER_ANNOTATION_SIZE,
             rotation=90,
             va="bottom" if diff[idx] >= 0 else "top",
             ha="center",
@@ -606,13 +707,15 @@ def plot_group_peak_difference(
 
     lines1, labels1 = ax.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
+    ax.legend(
+        lines1 + lines2,
+        labels1 + labels2,
+        loc="upper right",
+        fontsize=PAPER_LEGEND_SIZE,
+        frameon=True,
+    )
 
-    _ensure_output_dir(Path(output_path))
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
-    plt.close()
-    logger.info(f"Saved: {Path(output_path).name}")
+    _save_figure(fig, output_path)
 
     top_peaks = pd.DataFrame(
         {
@@ -825,6 +928,237 @@ def build_mean_spectrum_profile(
     return profile
 
 
+def summarize_spectrum_peaks(
+    spectra: np.ndarray,
+    feature_names: Optional[Sequence[str]] = None,
+    top_k: int = 8,
+    min_peak_distance: int = 8,
+    prominence_ratio: float = 0.05,
+) -> pd.DataFrame:
+    """Summarize the strongest intensity peaks on a mean spectrum."""
+    profile = build_mean_spectrum_profile(spectra, feature_names)
+    signal = profile["mean_intensity"].to_numpy(dtype=float)
+    std = profile["std_intensity"].to_numpy(dtype=float)
+    axis = profile["wavenumber"].to_numpy(dtype=float)
+    feature_values = profile["feature"].to_numpy()
+
+    if top_k <= 0:
+        raise ValueError("top_k must be >= 1")
+
+    prominence = max(float(np.ptp(signal)) * float(prominence_ratio), 1e-12)
+    peak_idx, properties = find_peaks(
+        signal,
+        distance=max(int(min_peak_distance), 1),
+        prominence=prominence,
+    )
+    prominences = np.asarray(properties.get("prominences", np.full(len(peak_idx), np.nan)))
+
+    if len(peak_idx) == 0:
+        peak_idx = np.argsort(signal)[-min(int(top_k), len(signal)):][::-1]
+        prominences = np.full(len(peak_idx), np.nan)
+    else:
+        order = np.argsort(signal[peak_idx])[::-1]
+        peak_idx = peak_idx[order]
+        prominences = prominences[order]
+
+    peak_idx = peak_idx[: min(int(top_k), len(peak_idx))]
+    prominences = prominences[: len(peak_idx)]
+
+    peak_df = pd.DataFrame(
+        {
+            "peak_rank": np.arange(1, len(peak_idx) + 1),
+            "feature": feature_values[peak_idx],
+            "wavenumber": axis[peak_idx],
+            "peak_intensity": signal[peak_idx],
+            "std_intensity": std[peak_idx],
+            "prominence": prominences,
+        }
+    )
+    return peak_df.sort_values("peak_rank", ignore_index=True)
+
+
+def plot_peak_intensity_profile(
+    spectra: np.ndarray,
+    output_path: Path,
+    feature_names: Optional[Sequence[str]] = None,
+    title: str = "Peak Intensity Profile",
+    color: str = "#c0392b",
+    top_k: int = 8,
+    min_peak_distance: int = 8,
+    prominence_ratio: float = 0.05,
+) -> pd.DataFrame:
+    """Plot mean spectrum and annotate the most intense spectral peaks."""
+    profile = build_mean_spectrum_profile(spectra, feature_names)
+    peak_df = summarize_spectrum_peaks(
+        spectra,
+        feature_names=feature_names,
+        top_k=top_k,
+        min_peak_distance=min_peak_distance,
+        prominence_ratio=prominence_ratio,
+    )
+
+    x = profile["wavenumber"].to_numpy()
+    mean_y = profile["mean_intensity"].to_numpy()
+    std_y = profile["std_intensity"].to_numpy()
+
+    fig, ax = plt.subplots(figsize=(13, 5.8))
+    ax.plot(x, mean_y, color=color, linewidth=PAPER_LINEWIDTH)
+    ax.fill_between(x, mean_y - std_y, mean_y + std_y, color=color, alpha=0.14)
+    ax.scatter(
+        peak_df["wavenumber"],
+        peak_df["peak_intensity"],
+        s=42,
+        color=color,
+        edgecolor="white",
+        linewidth=0.8,
+        zorder=3,
+        label=f"Top {len(peak_df)} peaks",
+    )
+    for row in peak_df.itertuples(index=False):
+        ax.axvline(row.wavenumber, color=color, linestyle=":", linewidth=1, alpha=0.28)
+
+    _annotate_peak_labels(ax, peak_df, value_col="peak_intensity", color=color)
+    _apply_publication_style(
+        ax,
+        xlabel="Raman Shift (cm^-1)",
+        ylabel="Mean Intensity (a.u.)",
+        title=title,
+    )
+    ax.grid(True, alpha=0.22)
+    ax.legend(fontsize=PAPER_LEGEND_SIZE, loc="upper right", frameon=True)
+
+    _save_figure(fig, output_path)
+    return peak_df
+
+
+def plot_peak_intensity_overview(
+    peak_df: pd.DataFrame,
+    output_path: Path,
+    title: str = "Top Peak Intensity by Diagnosis",
+) -> pd.DataFrame:
+    """Plot the highest-intensity representative peak for each diagnosis."""
+    required_cols = {"diagnosis", "peak_rank", "wavenumber", "peak_intensity"}
+    missing = required_cols - set(peak_df.columns)
+    if missing:
+        raise KeyError(f"Missing required columns: {sorted(missing)}")
+
+    top_df = (
+        peak_df.loc[peak_df["peak_rank"] == 1, ["diagnosis", "wavenumber", "peak_intensity"]]
+        .sort_values("peak_intensity", ascending=True, ignore_index=True)
+    )
+    if top_df.empty:
+        raise ValueError("Peak overview requires at least one diagnosis peak")
+
+    fig, ax = plt.subplots(figsize=(9.5, max(4.5, 0.55 * len(top_df) + 2)))
+    ax.barh(top_df["diagnosis"], top_df["peak_intensity"], color="#4c78a8", alpha=0.88)
+    for row in top_df.itertuples(index=False):
+        ax.text(
+            row.peak_intensity,
+            row.diagnosis,
+            f"  {row.wavenumber:.0f} cm^-1",
+            va="center",
+            ha="left",
+            fontsize=PAPER_ANNOTATION_SIZE,
+        )
+
+    _apply_publication_style(
+        ax,
+        xlabel="Peak Intensity (a.u.)",
+        ylabel="Diagnosis",
+        title=title,
+    )
+    ax.grid(True, axis="x", alpha=0.22)
+
+    _save_figure(fig, output_path)
+    return top_df
+
+
+def summarize_confusion_pairs(
+    y_true: Sequence[int],
+    y_pred: Sequence[int],
+    class_names: Sequence[str],
+) -> pd.DataFrame:
+    """Summarize off-diagonal multiclass confusion pairs."""
+    y_true = np.asarray(y_true, dtype=int)
+    y_pred = np.asarray(y_pred, dtype=int)
+    if y_true.shape != y_pred.shape:
+        raise ValueError("y_true and y_pred must have the same shape")
+
+    confusion_rows: List[Dict[str, Any]] = []
+    for class_idx in sorted(set(y_true.tolist())):
+        class_mask = y_true == class_idx
+        class_total = int(class_mask.sum())
+        if class_total == 0:
+            continue
+
+        wrong_pred, counts = np.unique(y_pred[class_mask & (y_pred != class_idx)], return_counts=True)
+        order = np.argsort(counts)[::-1]
+        for pred_idx, count in zip(wrong_pred[order], counts[order]):
+            confusion_rows.append(
+                {
+                    "true_idx": int(class_idx),
+                    "predicted_idx": int(pred_idx),
+                    "true_class": class_names[class_idx],
+                    "predicted_class": class_names[pred_idx],
+                    "count": int(count),
+                    "true_total": class_total,
+                    "confusion_rate": float(count) / float(class_total),
+                }
+            )
+
+    return pd.DataFrame(confusion_rows).sort_values(
+        ["count", "confusion_rate"],
+        ascending=False,
+        ignore_index=True,
+    ) if confusion_rows else pd.DataFrame(
+        columns=[
+            "true_idx",
+            "predicted_idx",
+            "true_class",
+            "predicted_class",
+            "count",
+            "true_total",
+            "confusion_rate",
+        ]
+    )
+
+
+def plot_confusion_summary_bar(
+    confusion_df: pd.DataFrame,
+    output_path: Path,
+    title: str = "Confused Classes",
+    color: str = "#6c757d",
+) -> pd.DataFrame:
+    """Plot confusion-rate bars for a single true class."""
+    if confusion_df.empty:
+        raise ValueError("Confusion summary plot requires at least one confusion pair")
+
+    plot_df = confusion_df.sort_values("confusion_rate", ascending=True, ignore_index=True)
+    fig, ax = plt.subplots(figsize=(8.8, max(3.8, 0.7 * len(plot_df) + 1.5)))
+    ax.barh(plot_df["predicted_class"], plot_df["confusion_rate"], color=color, alpha=0.88)
+    for row in plot_df.itertuples(index=False):
+        ax.text(
+            row.confusion_rate,
+            row.predicted_class,
+            f"  {row.count}/{row.true_total}",
+            va="center",
+            ha="left",
+            fontsize=PAPER_ANNOTATION_SIZE,
+        )
+
+    _apply_publication_style(
+        ax,
+        xlabel="Misclassification Rate",
+        ylabel="Predicted Class",
+        title=title,
+    )
+    ax.set_xlim(0, max(0.05, plot_df["confusion_rate"].max() * 1.18))
+    ax.grid(True, axis="x", alpha=0.22)
+
+    _save_figure(fig, output_path)
+    return plot_df
+
+
 def plot_mean_spectrum(
     spectra: np.ndarray,
     output_path: Path,
@@ -839,19 +1173,18 @@ def plot_mean_spectrum(
     mean_y = profile["mean_intensity"].to_numpy()
     std_y = profile["std_intensity"].to_numpy()
 
-    fig, ax = plt.subplots(figsize=(12, 4.5))
-    ax.plot(x, mean_y, color=color, linewidth=1.8)
+    fig, ax = plt.subplots(figsize=(12.8, 5.0))
+    ax.plot(x, mean_y, color=color, linewidth=PAPER_LINEWIDTH)
     ax.fill_between(x, mean_y - std_y, mean_y + std_y, color=color, alpha=0.16)
-    ax.set_xlabel("Raman Shift (cm^-1)")
-    ax.set_ylabel("Mean Intensity (a.u.)")
-    ax.set_title(title)
+    _apply_publication_style(
+        ax,
+        xlabel="Raman Shift (cm^-1)",
+        ylabel="Mean Intensity (a.u.)",
+        title=title,
+    )
     ax.grid(True, alpha=0.25)
 
-    _ensure_output_dir(Path(output_path))
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
-    logger.info(f"Saved: {Path(output_path).name}")
+    _save_figure(fig, output_path)
     return profile
 
 
@@ -865,7 +1198,7 @@ def plot_mean_spectra_overlay(
 ) -> pd.DataFrame:
     """Plot one mean spectrum per class on a shared axis."""
     rows = []
-    fig, ax = plt.subplots(figsize=(13, 5))
+    fig, ax = plt.subplots(figsize=(13.5, 5.6))
 
     for idx, (spectra, class_name) in enumerate(zip(spectra_by_class, class_names)):
         spectra = np.asarray(spectra, dtype=float)
@@ -876,7 +1209,7 @@ def plot_mean_spectra_overlay(
         ax.plot(
             profile["wavenumber"],
             profile["mean_intensity"],
-            linewidth=1.7,
+            linewidth=PAPER_LINEWIDTH - 0.2,
             color=color,
             label=f"{class_name} (n={spectra.shape[0]})",
         )
@@ -887,17 +1220,16 @@ def plot_mean_spectra_overlay(
     if not rows:
         raise ValueError("No class spectra available for overlay plot")
 
-    ax.set_xlabel("Raman Shift (cm^-1)")
-    ax.set_ylabel("Mean Intensity (a.u.)")
-    ax.set_title(title)
+    _apply_publication_style(
+        ax,
+        xlabel="Raman Shift (cm^-1)",
+        ylabel="Mean Intensity (a.u.)",
+        title=title,
+    )
     ax.grid(True, alpha=0.25)
-    ax.legend(fontsize=8, ncol=2)
+    ax.legend(fontsize=PAPER_LEGEND_SIZE, ncol=2, frameon=True)
 
-    _ensure_output_dir(Path(output_path))
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
-    logger.info(f"Saved: {Path(output_path).name}")
+    _save_figure(fig, output_path)
     return pd.concat(rows, ignore_index=True)
 
 
@@ -1049,6 +1381,11 @@ __all__ = [
     "plot_variance_heatmap",
     "plot_cancer_peak_difference",
     "plot_group_peak_difference",
+    "summarize_spectrum_peaks",
+    "plot_peak_intensity_profile",
+    "plot_peak_intensity_overview",
+    "summarize_confusion_pairs",
+    "plot_confusion_summary_bar",
     "build_shap_spectrum_profile",
     "build_mean_spectrum_profile",
     "compute_gradient_shap_values",

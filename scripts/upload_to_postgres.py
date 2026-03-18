@@ -18,6 +18,7 @@ Prerequisites:
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -40,7 +41,29 @@ DB_HOST = "localhost"
 DB_PORT = 5432
 DB_NAME = "sers_clinical"
 DB_USER = "postgres"
-DB_PASSWORD = "1234"  # override with --password
+DB_PASSWORD = os.getenv("PGPASSWORD", "solumhc1")  # override with --password
+
+
+def connect_pg(**kwargs):
+    """
+    Connect to PostgreSQL with clearer diagnostics on Korean Windows.
+    A failed auth can return non-UTF8 localized messages that trigger UnicodeDecodeError.
+    """
+    try:
+        return psycopg2.connect(**kwargs)
+    except UnicodeDecodeError:
+        host = kwargs.get("host")
+        port = kwargs.get("port")
+        user = kwargs.get("user")
+        dbname = kwargs.get("dbname")
+        log.error(
+            "PostgreSQL connection failed (Unicode decode error from server message). "
+            "This usually means auth/connection failed and Windows locale encoding broke "
+            "error decoding."
+        )
+        log.error("Connection params: host=%s port=%s user=%s dbname=%s", host, port, user, dbname)
+        log.error("Check: 1) correct --password  2) PostgreSQL service is running  3) host/port is correct")
+        raise SystemExit(1)
 
 
 # ==========================================================================
@@ -48,7 +71,9 @@ DB_PASSWORD = "1234"  # override with --password
 # ==========================================================================
 def ensure_database(host, port, user, password, dbname):
     """Create the database if it doesn't exist."""
-    conn = psycopg2.connect(host=host, port=port, user=user, password=password, dbname="postgres")
+    conn = connect_pg(
+        host=host, port=port, user=user, password=password, dbname="postgres"
+    )
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     cur = conn.cursor()
 
@@ -245,7 +270,7 @@ def insert_samples_and_spectra(engine, df):
 
     # Use raw psycopg2 for efficient array insertion
     url = engine.url
-    conn = psycopg2.connect(
+    conn = connect_pg(
         host=url.host, port=url.port,
         dbname=url.database, user=url.username, password=url.password,
     )

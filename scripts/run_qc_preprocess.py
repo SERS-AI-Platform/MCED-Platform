@@ -179,8 +179,8 @@ Examples:
     )
     parser.add_argument(
         "--config", "-c",
-        default="config.yaml",
-        help="Path to config.yaml (default: config.yaml)",
+        default="config/config.yaml",
+        help="Path to config.yaml (default: config/config.yaml)",
     )
     parser.add_argument(
         "--normalization", "-n",

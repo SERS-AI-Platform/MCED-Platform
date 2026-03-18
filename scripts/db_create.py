@@ -39,7 +39,7 @@ from sers.io import read_spectrum, parse_filename, find_spectra
 DB_CONFIG = dict(
     host="localhost",
     port=5432,
-    database="sers_db",
+    database="postgres",
     user="postgres",
     password="solumhc1",
 )

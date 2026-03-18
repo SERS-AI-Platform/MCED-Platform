@@ -192,7 +192,7 @@ RESULTS_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_RESULTS_DIR", str(_PROJECT_ROOT / "results"))
 ))
 FIG_DIR: Path = Path(_normalize_path(
-    os.environ.get("SERS_FIGURES_DIR", str(_PROJECT_ROOT / "figures"))
+    os.environ.get("SERS_FIGURES_DIR", str(RESULTS_DIR / "figures"))
 ))
 MODEL_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_MODEL_DIR", str(_PROJECT_ROOT / "models"))
@@ -201,9 +201,18 @@ LOG_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_LOG_DIR", str(_PROJECT_ROOT / "logs"))
 ))
 
+# Infrastructure
+INFRA_DIR: Path = _PROJECT_ROOT / "infra"
+
+# Documentation
+DOCS_DIR: Path = _PROJECT_ROOT / "docs"
+
+# Dashboard
+DASHBOARD_DIR: Path = _PROJECT_ROOT / "dashboard"
+
 # Config
 CONFIG_DIR: Path = Path(_normalize_path(
-    os.environ.get("CONFIG_DIR", str(_PROJECT_ROOT))
+    os.environ.get("CONFIG_DIR", str(_PROJECT_ROOT / "config"))
 ))
 
 # MLflow
@@ -353,6 +362,22 @@ class Config:
     qc: QCConfig = field(default_factory=QCConfig)
     modeling: ModelingConfig = field(default_factory=ModelingConfig)
     display: DisplayConfig = field(default_factory=DisplayConfig)
+
+    @property
+    def project_root(self) -> Path:
+        return _PROJECT_ROOT
+
+    @property
+    def data_root(self) -> Path:
+        return DATA_ROOT
+
+    @property
+    def processed_dir(self) -> Path:
+        return PROCESSED_DIR
+
+    @property
+    def results_dir(self) -> Path:
+        return RESULTS_DIR
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "Config":

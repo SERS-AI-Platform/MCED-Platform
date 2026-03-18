@@ -60,7 +60,7 @@ FINGERPRINT_REGION = (400.0, 2200.0)
 # =============================================================================
 # Helpers
 # =============================================================================
-def interpolate_to_grid(
+def _interpolate_to_grid(
     x: np.ndarray,
     y: np.ndarray,
     common_grid: np.ndarray,
@@ -85,7 +85,7 @@ def interpolate_to_grid(
     return f(common_grid)
 
 
-def group_spectra_by_sample(
+def _group_spectra_by_sample(
     spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
     common_grid: np.ndarray,
 ) -> Dict[Tuple[str, str], List[Tuple[str, np.ndarray]]]:
@@ -106,7 +106,7 @@ def group_spectra_by_sample(
     samples: Dict[Tuple[str, str], List[Tuple[str, np.ndarray]]] = {}
     for (group, sid, rep), (x, y) in spectra.items():
         key = (group, sid)
-        y_interp = interpolate_to_grid(x, y, common_grid)
+        y_interp = _interpolate_to_grid(x, y, common_grid)
         samples.setdefault(key, []).append((rep, y_interp))
     return samples
 
@@ -283,7 +283,7 @@ def calculate_replicate_qc(
 
     Correlation = Pearson correlation between all replicate pairs.
     """
-    samples = group_spectra_by_sample(spectra, common_grid)
+    samples = _group_spectra_by_sample(spectra, common_grid)
     fp_mask = (common_grid >= fingerprint_region[0]) & (
         common_grid <= fingerprint_region[1]
     )
@@ -456,7 +456,7 @@ def calculate_variance_convergence(
     pd.DataFrame
         Columns: n_reps, mean_rsd, std_rsd, mean_corr, n_samples
     """
-    samples = group_spectra_by_sample(spectra, common_grid)
+    samples = _group_spectra_by_sample(spectra, common_grid)
     # Flatten to lists only
     sample_spectra = {k: [y for _, y in v] for k, v in samples.items()}
 
@@ -525,7 +525,7 @@ def filter_by_correlation(
     for key, (x, y) in spectra.items():
         group, sid, rep = key
         sample_key = (group, sid)
-        y_interp = interpolate_to_grid(x, y, common_grid)
+        y_interp = _interpolate_to_grid(x, y, common_grid)
         samples.setdefault(sample_key, []).append((key, y_interp, (x, y)))
 
     filtered, rejected = {}, []
@@ -617,7 +617,7 @@ def select_medoid_spectra(
     dict
         Keys (group, sample_id) → y_medoid on common_grid
     """
-    samples = group_spectra_by_sample(spectra, common_grid)
+    samples = _group_spectra_by_sample(spectra, common_grid)
     medoids = {}
 
     for sample_key, replicate_list in samples.items():
@@ -826,3 +826,17 @@ def run_qc_pipeline(
         logger.info(f"Report saved to {save_report}")
 
     return gate_df, qc_stats, failures, group_summary
+
+__all__ = [
+    "calculate_intensity_gate",
+    "filter_by_intensity_gate",
+    "calculate_replicate_qc",
+    "identify_qc_failures",
+    "summarize_qc_by_group",
+    "calculate_variance_convergence",
+    "filter_by_correlation",
+    "find_medoid",
+    "select_medoid_spectra",
+    "detect_outliers",
+    "run_qc_pipeline",
+]

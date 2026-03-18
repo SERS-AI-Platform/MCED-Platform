@@ -1,16 +1,19 @@
 # Data files
 data/
 
-# Results
+# Results & model outputs
 results/
+models/results/
 
 # Models & artifacts
 mlruns/
 mlartifacts/
 .mlflow/
 runs/
-logs/
 experiments/
+
+# Logs
+logs/
 
 # Python
 __pycache__/
@@ -55,4 +58,3 @@ Thumbs.db
 *.svg
 *.ico
 *.webp
-figures/

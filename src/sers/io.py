@@ -3,7 +3,6 @@
 import re
 from pathlib import Path
 from typing import Dict, Tuple, Optional, List,NamedTuple
-from tqdm import tqdm
 import logging
 from dataclasses import dataclass
 
@@ -122,7 +121,11 @@ def find_spectra(
         Sorted list of matching file paths
     """
     glob_method = directory.rglob if recursive else directory.glob
-    return sorted(glob_method(pattern))
+    # Match both cases (e.g. *.csv and *.CSV) for Linux compatibility
+    files = list(glob_method(pattern))
+    if not files and pattern != pattern.upper():
+        files = list(glob_method(pattern.upper()))
+    return sorted(files)
 
 
 def make_common_grid(
@@ -342,6 +345,8 @@ def load_dataset(
     spectra = {}
     metadata = []
     failed_files = []
+
+    from tqdm import tqdm
 
     iterator = tqdm(all_files, desc="Loading spectra", disable=not show_progress)
 

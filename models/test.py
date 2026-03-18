@@ -58,23 +58,35 @@ from src.sers.visualization import (
     build_mean_spectrum_profile,
     build_shap_spectrum_profile,
     compute_gradient_shap_values,
+    plot_confusion_summary_bar,
     plot_binary_shap_summary,
     plot_class_shap_summary,
     plot_mean_spectrum,
     plot_mean_spectra_overlay,
     plot_multiclass_shap_summary,
+    plot_peak_intensity_overview,
+    plot_peak_intensity_profile,
     plot_group_peak_difference,
     plot_shap_feature_importance_bar,
     plot_shap_mean_magnitude_spectrum,
     plot_shap_mean_signed_spectrum,
+    summarize_confusion_pairs,
     summarize_shap_feature_importance,
 )
 
 logger = logging.getLogger(__name__)
 
 plt.rcParams.update({
-    "figure.dpi": 150, "savefig.dpi": 150, "savefig.bbox": "tight",
-    "font.size": 10, "axes.titlesize": 13, "axes.labelsize": 11,
+    "figure.dpi": 180,
+    "savefig.dpi": 300,
+    "savefig.bbox": "tight",
+    "font.size": 13,
+    "axes.titlesize": 18,
+    "axes.labelsize": 15,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "legend.fontsize": 11,
+    "axes.linewidth": 1.1,
 })
 GROUP_COLORS = {
     "PRO": "#E91E63", "BRE": "#F06292", "OVA": "#AB47BC",
@@ -505,16 +517,21 @@ def save_shap_outputs_by_diagnosis(sv_list, X_exp, y_exp, cancer_types, out_dir,
         )
 
 
-def save_mean_spectra_by_diagnosis(X_val, y_val, cancer_types, out_dir, feature_names):
+def save_mean_spectra_by_diagnosis(X_val, y_val, y_pred, cancer_types, out_dir, feature_names):
     diagnosis_dir = out_dir / "by_diagnosis"
     diagnosis_dir.mkdir(parents=True, exist_ok=True)
 
     feature_cols = list(feature_names)
     spectra_df = pd.DataFrame(np.asarray(X_val), columns=feature_cols)
     spectra_df["group"] = [cancer_types[idx] for idx in y_val]
+    confusion_df = summarize_confusion_pairs(y_val, y_pred, cancer_types)
 
     spectra_by_class = []
     class_names = []
+    peak_rows = []
+
+    if not confusion_df.empty:
+        confusion_df.to_csv(out_dir / "confusion_pairs.csv", index=False)
 
     for class_idx, class_name in enumerate(cancer_types):
         class_mask = y_val == class_idx
@@ -538,6 +555,19 @@ def save_mean_spectra_by_diagnosis(X_val, y_val, cancer_types, out_dir, feature_
             color=GROUP_COLORS.get(class_name, "#c0392b"),
         )
 
+        peak_df = plot_peak_intensity_profile(
+            class_x,
+            class_dir / "peak_intensity_profile.png",
+            feature_names=feature_names,
+            title=f"{class_name} - Peak Intensity Profile",
+            color=GROUP_COLORS.get(class_name, "#c0392b"),
+            top_k=8,
+        )
+        peak_df.insert(0, "diagnosis", class_name)
+        peak_df.insert(1, "n_samples", int(class_mask.sum()))
+        peak_df.to_csv(class_dir / "peak_intensity_profile.csv", index=False)
+        peak_rows.append(peak_df)
+
         reference_groups = [name for name in cancer_types if name != class_name and (y_val == cancer_types.index(name)).any()]
         if reference_groups:
             diff_df = plot_group_peak_difference(
@@ -552,6 +582,38 @@ def save_mean_spectra_by_diagnosis(X_val, y_val, cancer_types, out_dir, feature_
             )
             diff_df.to_csv(class_dir / "peak_difference_vs_rest.csv", index=False)
 
+        class_confusion_df = confusion_df[confusion_df["true_class"] == class_name].copy()
+        if not class_confusion_df.empty:
+            class_confusion_df.to_csv(class_dir / "confusion_classes.csv", index=False)
+            plot_confusion_summary_bar(
+                class_confusion_df,
+                class_dir / "confusion_classes.png",
+                title=f"{class_name} - Confused Classes",
+                color=GROUP_COLORS.get(class_name, "#6c757d"),
+            )
+
+            for row in class_confusion_df.head(3).itertuples(index=False):
+                confused_name = row.predicted_class
+                confused_slug = sanitize_output_name(confused_name)
+                confused_df = plot_group_peak_difference(
+                    spectra_df,
+                    class_dir / f"peak_difference_vs_confused_{confused_slug}.png",
+                    target_group=class_name,
+                    reference_groups=[confused_name],
+                    group_col="group",
+                    top_k=20,
+                    title=f"{class_name} vs Confused {confused_name} Peak Difference",
+                    target_color=GROUP_COLORS.get(class_name, "#c0392b"),
+                    reference_color=GROUP_COLORS.get(confused_name, "#4c78a8"),
+                )
+                confused_df.insert(0, "confused_class", confused_name)
+                confused_df.insert(1, "confusion_count", int(row.count))
+                confused_df.insert(2, "confusion_rate", float(row.confusion_rate))
+                confused_df.to_csv(
+                    class_dir / f"peak_difference_vs_confused_{confused_slug}.csv",
+                    index=False,
+                )
+
         spectra_by_class.append(class_x)
         class_names.append(class_name)
 
@@ -565,6 +627,15 @@ def save_mean_spectra_by_diagnosis(X_val, y_val, cancer_types, out_dir, feature_
             title="Stage 2 - Mean Spectra by Diagnosis",
         )
         overlay_df.to_csv(out_dir / "mean_spectra_overlay.csv", index=False)
+
+    if peak_rows:
+        peak_summary_df = pd.concat(peak_rows, ignore_index=True)
+        peak_summary_df.to_csv(out_dir / "peak_intensity_by_diagnosis.csv", index=False)
+        plot_peak_intensity_overview(
+            peak_summary_df,
+            out_dir / "peak_intensity_overview.png",
+            title="Stage 2 - Top Peak Intensity by Diagnosis",
+        )
 
 
 def run_shap_s2(model, X_bg, X_exp, y_exp, cancer_types, device, out_dir, feature_names):
@@ -683,13 +754,35 @@ def run_one_vs_rest_feature_selection(X, y_multiclass, names, out_dir, top_k=20)
         pd.DataFrame(rows).to_csv(out_dir / "ovr_feature_summary.csv", index=False)
 
 
-def run_gradcam_1d(model, X, out_dir, stage="binary", class_idx=None, max_samples=128):
+def resolve_gradcam_target_layer(model):
+    encoder = getattr(model, "encoder", None)
+    if encoder is None:
+        return None
+    if hasattr(encoder, "layer4"):
+        return encoder.layer4
+    if hasattr(encoder, "features") and len(encoder.features) >= 9:
+        return encoder.features[8]
+    return None
+
+
+def run_gradcam_1d(
+    model,
+    X,
+    out_dir,
+    stage="binary",
+    class_idx=None,
+    class_name=None,
+    max_samples=128,
+):
     n_samples = min(max_samples, len(X))
     if n_samples == 0:
         return
     X = X[:n_samples]
     device = next(model.parameters()).device
-    layer = model.encoder.layer4
+    layer = resolve_gradcam_target_layer(model)
+    if layer is None:
+        logger.warning("  Grad-CAM skipped: no compatible encoder layer found")
+        return
 
     activations, gradients = [], []
 
@@ -714,8 +807,10 @@ def run_gradcam_1d(model, X, out_dir, stage="binary", class_idx=None, max_sample
             out_name = "gradcam_binary.png"
         else:
             score = out["cancer_logits"][:, class_idx]
-            title = f"Grad-CAM (Class: {class_idx})"
-            out_name = f"gradcam_class_{class_idx}.png"
+            resolved_name = class_name or f"class_{class_idx}"
+            slug = sanitize_output_name(resolved_name)
+            title = f"Grad-CAM ({resolved_name})"
+            out_name = f"gradcam_{slug}.png"
         score.sum().backward()
 
         act = activations.pop()
@@ -835,7 +930,7 @@ def resolve_train_dir(input_path: str | Path) -> Path:
 
 def parse_args():
     p = argparse.ArgumentParser(description="SERS ResNet18-1D Evaluation")
-    p.add_argument("--input", "-i", default="models/results/training")
+    p.add_argument("--input", "-i", default="models/results/_archive/resnet18_medoid_v1")
     p.add_argument("--processed-csv", default="results/processed_spectra.csv")
     p.add_argument("--device", default="auto")
     p.add_argument("--tsne-dim", type=int, choices=[2, 3], default=3)
@@ -901,7 +996,9 @@ def run_stage2(vct, vcl, vX, tct, tcl, cancer_types, s2_dir, met_dir, feature_na
     type_df = plot_bars_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "per_type_metrics.png")
     type_df.to_csv(met_dir / "per_cancer_type_metrics.csv", index=False)
     logger.info(f"\n{type_df.to_string(index=False)}")
-    save_mean_spectra_by_diagnosis(vX[cm], vct[cm], cancer_types, s2_dir, feature_names)
+    y_prob = torch.softmax(torch.tensor(vcl[cm]), dim=-1).numpy()
+    y_pred = y_prob.argmax(axis=1)
+    save_mean_spectra_by_diagnosis(vX[cm], vct[cm], y_pred, cancer_types, s2_dir, feature_names)
 
     if tct is not None:
         tcm_mask = tct >= 0
@@ -928,8 +1025,8 @@ def save_threshold_sweep(vbt, vbp, met_dir):
 
 def load_trained_model(train_dir, device, summary):
     model_name = str(summary.get("model_name", "resnet18")).lower()
-    if model_name == "xgboost":
-        logger.info("  SHAP model loading skipped for XGBoost checkpoints")
+    if model_name in {"xgboost", "logistic_regression", "random_forest"}:
+        logger.info(f"  SHAP model loading skipped for non-torch model: {model_name}")
         return None
 
     ckpt_files = sorted((train_dir / "checkpoints").glob("fold_*.pt"))
@@ -1041,12 +1138,14 @@ def main():
             run_gradcam_1d(model, X[valid], s1_dir, stage="binary", max_samples=args.gradcam_samples)
             if cm.sum() > 0:
                 for idx in sorted(set(vct[cm])):
+                    class_name = cancer_types[int(idx)] if int(idx) < len(cancer_types) else f"class_{idx}"
                     run_gradcam_1d(
                         model,
                         X[valid][cm][vct[cm] == idx],
                         s2_dir,
                         stage="multiclass",
                         class_idx=int(idx),
+                        class_name=class_name,
                         max_samples=args.gradcam_samples,
                     )
     else:

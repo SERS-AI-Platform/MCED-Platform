@@ -172,7 +172,7 @@ def main():
         logger.info("="*60)
 
         logger.info("\n[Step 1] Loading configuration...")
-        config = load_config("config.yaml")
+        config = load_config("config/config.yaml")
         logger.info("Configuration loaded successfully.")
 
         logger.info(f"Folder mapping: {len(config.folder_to_group)} entries")
