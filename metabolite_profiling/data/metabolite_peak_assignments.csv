@@ -1,0 +1,528 @@
+sers_peak_cm1,metabolite,metabolite_peak_cm1,delta_cm1,vibration_mode
+448.1,4-Methoxyphenol,438.5,9.6,unassigned
+448.1,Creatinine,457.8,9.7,unassigned
+538.7,1-Hydroxylpyrene,548.4,9.7,unassigned
+538.7,Adenine,534.9,3.8,unassigned
+538.7,Betaine,544.4,5.7,unassigned
+538.7,Cholesterol,548.4,9.7,unassigned
+538.7,Cysteine,533.0,5.7,unassigned
+538.7,Glutamic acid,542.7,4.0,unassigned
+538.7,Hypoxanthine,546.5,7.8,unassigned
+538.7,Taurine,546.5,7.8,unassigned
+538.7,Xylose,536.9,1.8,unassigned
+617.7,2-Naphthol,614.0,3.7,"C-S stretch (cysteine, methionine)"
+617.7,2-Phenylacetamide,619.8,2.1,"C-S stretch (cysteine, methionine)"
+617.7,8-Hydroxy-2-deoxyguanosine,615.9,1.8,"C-S stretch (cysteine, methionine)"
+617.7,Adenine,614.0,3.7,"C-S stretch (cysteine, methionine)"
+617.7,Adenosine,627.5,9.8,"C-S stretch (cysteine, methionine)"
+617.7,Arginine,612.1,5.7,"C-S stretch (cysteine, methionine)"
+617.7,Aspartic acid,615.9,1.8,"C-S stretch (cysteine, methionine)"
+617.7,Betaine,613.8,3.9,"C-S stretch (cysteine, methionine)"
+617.7,Cholesterol,614.0,3.7,"C-S stretch (cysteine, methionine)"
+617.7,Choline,615.8,2.0,"C-S stretch (cysteine, methionine)"
+617.7,Creatinine,621.7,4.0,"C-S stretch (cysteine, methionine)"
+617.7,Fucose,612.1,5.7,"C-S stretch (cysteine, methionine)"
+617.7,Hippuric acid,614.0,3.7,"C-S stretch (cysteine, methionine)"
+617.7,Hypoxanthine,617.9,0.1,"C-S stretch (cysteine, methionine)"
+617.7,Palmitic acid,614.0,3.7,"C-S stretch (cysteine, methionine)"
+617.7,Phenylalanine,617.9,0.1,"C-S stretch (cysteine, methionine)"
+617.7,Proline,612.1,5.7,"C-S stretch (cysteine, methionine)"
+617.7,Spermidine,617.9,0.1,"C-S stretch (cysteine, methionine)"
+617.7,Stearic acid,614.0,3.7,"C-S stretch (cysteine, methionine)"
+617.7,Uracil,612.1,5.7,"C-S stretch (cysteine, methionine)"
+617.7,Xylonic acid,614.0,3.7,"C-S stretch (cysteine, methionine)"
+683.3,"1,2,4,-Trimethylbenzene",677.6,5.6,unassigned
+683.3,1-Octanol,677.6,5.6,unassigned
+683.3,2-Naphthol,677.6,5.6,unassigned
+683.3,8-Hydroxy-2-deoxyguanosine,673.8,9.5,unassigned
+683.3,Acrylic acid,677.6,5.6,unassigned
+683.3,Adenosine,673.8,9.5,unassigned
+683.3,Anisole,681.5,1.8,unassigned
+683.3,Arginine,675.7,7.6,unassigned
+683.3,Ascorbic acid,681.5,1.8,unassigned
+683.3,Aspartic acid,675.7,7.6,unassigned
+683.3,Benzoic acid,681.3,2.0,unassigned
+683.3,Betaine,681.3,2.0,unassigned
+683.3,Choline,685.2,1.9,unassigned
+683.3,Creatinine,679.6,3.7,unassigned
+683.3,Cysteine,673.8,9.5,unassigned
+683.3,Galactosamine,683.4,0.1,unassigned
+683.3,Glutamic acid,673.8,9.5,unassigned
+683.3,Glycocholic acid,673.8,9.5,unassigned
+683.3,Hippuric acid,673.8,9.5,unassigned
+683.3,Hypoxanthine,673.8,9.5,unassigned
+683.3,Isoleucine,679.6,3.7,unassigned
+683.3,Kaempferol,675.6,7.7,unassigned
+683.3,Kynurenine,677.6,5.6,unassigned
+683.3,Leucine,677.6,5.6,unassigned
+683.3,Maleic acid,683.3,0.0,unassigned
+683.3,Methyl 2-Hydroxyisobutyrate,679.6,3.7,unassigned
+683.3,Methyl DL-2-Aminobutyrate,683.4,0.1,unassigned
+683.3,Methyl-beta-D-Ribofuranoside,683.4,0.1,unassigned
+683.3,N-Acetylneuraminic acid,681.5,1.8,unassigned
+683.3,Palmitic acid,683.4,0.1,unassigned
+683.3,Proline,681.5,1.8,unassigned
+683.3,Pyrimidine,681.5,1.8,unassigned
+683.3,Serine,681.5,1.8,unassigned
+683.3,Threonine,679.6,3.7,unassigned
+683.3,Trimethylamine-N-oxide,681.5,1.8,unassigned
+683.3,Tyrosine,677.6,5.6,unassigned
+683.3,Xylonic acid,683.4,0.1,unassigned
+683.3,Xylose,679.6,3.7,unassigned
+683.3,p-Cymene,675.7,7.6,unassigned
+723.8,8-Hydroxy-2-deoxyguanosine,720.1,3.7,"C-N stretch, adenine ring breathing"
+723.8,Adenine,729.7,5.9,"C-N stretch, adenine ring breathing"
+723.8,Adenosine,733.6,9.8,"C-N stretch, adenine ring breathing"
+723.8,Choline,718.0,5.8,"C-N stretch, adenine ring breathing"
+723.8,Creatinine,716.2,7.6,"C-N stretch, adenine ring breathing"
+723.8,Hypoxanthine,720.1,3.7,"C-N stretch, adenine ring breathing"
+723.8,Kynurenine,725.9,2.1,"C-N stretch, adenine ring breathing"
+795.1,1-Hydroxylpyrene,795.3,0.2,unassigned
+795.1,2-Naphthol,797.2,2.1,unassigned
+795.1,4-Pyridoxic acid,793.4,1.8,unassigned
+795.1,Adenosine,799.1,4.0,unassigned
+795.1,Cholesterol,795.3,0.2,unassigned
+795.1,Hippuric acid,799.1,4.0,unassigned
+795.1,Kynurenine,799.1,4.0,unassigned
+795.1,O-Acetylcarnitine,797.2,2.1,unassigned
+795.1,Palmitic acid,797.2,2.1,unassigned
+795.1,Pseudouridine,791.4,3.7,unassigned
+795.1,Stearic acid,797.2,2.1,unassigned
+795.1,Uracil,791.4,3.7,unassigned
+849.1,"1,2,4,-Trimethylbenzene",845.4,3.7,tyrosine ring breathing
+849.1,1-Hydroxylpyrene,845.4,3.7,tyrosine ring breathing
+849.1,1-Octanol,847.4,1.8,tyrosine ring breathing
+849.1,2-Naphthol,843.5,5.6,tyrosine ring breathing
+849.1,3-Hepatanone,845.4,3.7,tyrosine ring breathing
+849.1,4-Pyridoxic acid,849.3,0.2,tyrosine ring breathing
+849.1,8-Hydroxy-2-deoxyguanosine,845.4,3.7,tyrosine ring breathing
+849.1,Acrylic acid,845.4,3.7,tyrosine ring breathing
+849.1,Alanine,847.4,1.8,tyrosine ring breathing
+849.1,Anisole,845.4,3.7,tyrosine ring breathing
+849.1,Arginine,841.6,7.5,tyrosine ring breathing
+849.1,Ascorbic acid,843.5,5.6,tyrosine ring breathing
+849.1,Aspartic acid,847.4,1.8,tyrosine ring breathing
+849.1,Benzoic acid,851.0,1.9,tyrosine ring breathing
+849.1,Betaine,853.0,3.9,tyrosine ring breathing
+849.1,Cholesterol,849.3,0.2,tyrosine ring breathing
+849.1,Choline,853.0,3.9,tyrosine ring breathing
+849.1,Cysteine,839.6,9.5,tyrosine ring breathing
+849.1,Fucose,847.4,1.8,tyrosine ring breathing
+849.1,Galactosamine,847.4,1.8,tyrosine ring breathing
+849.1,Glucose,845.4,3.7,tyrosine ring breathing
+849.1,Glutamic acid,845.4,3.7,tyrosine ring breathing
+849.1,Glycine,847.4,1.8,tyrosine ring breathing
+849.1,Glycocholic acid,849.3,0.2,tyrosine ring breathing
+849.1,Glycogen,839.6,9.5,tyrosine ring breathing
+849.1,Guanine,851.2,2.1,tyrosine ring breathing
+849.1,Histidine,851.2,2.1,tyrosine ring breathing
+849.1,Inosine,849.3,0.2,tyrosine ring breathing
+849.1,Isoleucine,845.4,3.7,tyrosine ring breathing
+849.1,Kynurenine,849.3,0.2,tyrosine ring breathing
+849.1,Leucine,843.5,5.6,tyrosine ring breathing
+849.1,Maleic acid,854.9,5.8,tyrosine ring breathing
+849.1,Malic acid,847.4,1.8,tyrosine ring breathing
+849.1,Methyl 2-Hydroxyisobutyrate,841.6,7.5,tyrosine ring breathing
+849.1,Methyl DL-2-Aminobutyrate,849.3,0.2,tyrosine ring breathing
+849.1,Methyl alfa-D-Glucopyranoside,841.6,7.5,tyrosine ring breathing
+849.1,Methyl-beta-D-Ribofuranoside,845.4,3.7,tyrosine ring breathing
+849.1,N-Acetylneuraminic acid,849.3,0.2,tyrosine ring breathing
+849.1,NADH,839.6,9.5,tyrosine ring breathing
+849.1,O-Acetylcarnitine,843.5,5.6,tyrosine ring breathing
+849.1,Palmitic acid,849.3,0.2,tyrosine ring breathing
+849.1,Phenylalanine,847.4,1.8,tyrosine ring breathing
+849.1,Proline,849.3,0.2,tyrosine ring breathing
+849.1,Pseudouridine,849.3,0.2,tyrosine ring breathing
+849.1,Pyrimidine,845.4,3.7,tyrosine ring breathing
+849.1,Serine,845.4,3.7,tyrosine ring breathing
+849.1,Spermidine,849.3,0.2,tyrosine ring breathing
+849.1,Sphinganine,853.1,4.0,tyrosine ring breathing
+849.1,Stearic acid,845.4,3.7,tyrosine ring breathing
+849.1,Taurine,845.4,3.7,tyrosine ring breathing
+849.1,Threonine,845.4,3.7,tyrosine ring breathing
+849.1,Trimethylamine-N-oxide,843.5,5.6,tyrosine ring breathing
+849.1,Tryptophan,847.4,1.8,tyrosine ring breathing
+849.1,Tyrosine,851.2,2.1,tyrosine ring breathing
+849.1,Uric acid,847.4,1.8,tyrosine ring breathing
+849.1,Valine,845.4,3.7,tyrosine ring breathing
+849.1,Xanthine,847.4,1.8,tyrosine ring breathing
+849.1,Xylonic acid,847.4,1.8,tyrosine ring breathing
+849.1,Xylose,845.4,3.7,tyrosine ring breathing
+849.1,cis-Aconitic acid,845.4,3.7,tyrosine ring breathing
+849.1,p-Cymene,843.5,5.6,tyrosine ring breathing
+849.1,trans-Aconitic acid,847.4,1.8,tyrosine ring breathing
+895.4,"1,2,4,-Trimethylbenzene",891.7,3.7,unassigned
+895.4,1-Octanol,891.7,3.7,unassigned
+895.4,3-Hepatanone,893.6,1.7,unassigned
+895.4,4-Methoxyphenol,895.6,0.2,unassigned
+895.4,4-Pyridoxic acid,895.6,0.2,unassigned
+895.4,8-Hydroxy-2-deoxyguanosine,891.7,3.7,unassigned
+895.4,Acrylic acid,891.7,3.7,unassigned
+895.4,Alanine,891.7,3.7,unassigned
+895.4,Anisole,889.8,5.6,unassigned
+895.4,Arginine,893.6,1.7,unassigned
+895.4,Ascorbic acid,891.7,3.7,unassigned
+895.4,Aspartic acid,891.7,3.7,unassigned
+895.4,Benzoic acid,897.3,1.9,unassigned
+895.4,Betaine,897.3,1.9,unassigned
+895.4,Cholesterol,891.7,3.7,unassigned
+895.4,Choline,897.3,1.9,unassigned
+895.4,Cysteine,889.8,5.6,unassigned
+895.4,Galactosamine,889.8,5.6,unassigned
+895.4,Glutamic acid,887.8,7.5,unassigned
+895.4,Glycine,889.8,5.6,unassigned
+895.4,Glycogen,891.7,3.7,unassigned
+895.4,Hippuric acid,889.8,5.6,unassigned
+895.4,Isoleucine,891.7,3.7,unassigned
+895.4,Leucine,891.7,3.7,unassigned
+895.4,Maleic acid,897.3,1.9,unassigned
+895.4,Malic acid,891.7,3.7,unassigned
+895.4,Methyl 2-Hydroxyisobutyrate,891.7,3.7,unassigned
+895.4,Methyl DL-2-Aminobutyrate,891.7,3.7,unassigned
+895.4,Methyl alfa-D-Glucopyranoside,887.8,7.5,unassigned
+895.4,Methyl-beta-D-Ribofuranoside,891.7,3.7,unassigned
+895.4,N-Acetylneuraminic acid,889.8,5.6,unassigned
+895.4,O-Acetylcarnitine,891.7,3.7,unassigned
+895.4,Palmitic acid,891.7,3.7,unassigned
+895.4,Pyrimidine,887.8,7.5,unassigned
+895.4,Sphinganine,891.7,3.7,unassigned
+895.4,Stearic acid,891.7,3.7,unassigned
+895.4,Taurine,887.8,7.5,unassigned
+895.4,Threonine,889.8,5.6,unassigned
+895.4,Trimethylamine-N-oxide,893.6,1.7,unassigned
+895.4,Uric acid,893.6,1.7,unassigned
+895.4,Valine,889.8,5.6,unassigned
+895.4,Xylonic acid,893.6,1.7,unassigned
+895.4,Xylose,891.7,3.7,unassigned
+895.4,cis-Aconitic acid,889.8,5.6,unassigned
+895.4,p-Cymene,891.7,3.7,unassigned
+895.4,trans-Aconitic acid,891.7,3.7,unassigned
+933.9,"1,2,4,-Trimethylbenzene",932.2,1.7,unassigned
+933.9,1-Octanol,932.2,1.7,unassigned
+933.9,2-Naphthol,934.1,0.2,unassigned
+933.9,2-Phenylacetamide,932.2,1.7,unassigned
+933.9,3-Hepatanone,932.2,1.7,unassigned
+933.9,4-Methoxyphenol,932.2,1.7,unassigned
+933.9,4-Pyridoxic acid,934.1,0.2,unassigned
+933.9,8-Hydroxy-2-deoxyguanosine,934.1,0.2,unassigned
+933.9,Acrylic acid,934.1,0.2,unassigned
+933.9,Alanine,932.2,1.7,unassigned
+933.9,Anisole,934.1,0.2,unassigned
+933.9,Arginine,932.2,1.7,unassigned
+933.9,Ascorbic acid,934.1,0.2,unassigned
+933.9,Aspartic acid,934.1,0.2,unassigned
+933.9,Benzoic acid,935.9,1.9,unassigned
+933.9,Betaine,935.9,1.9,unassigned
+933.9,Cholesterol,932.2,1.7,unassigned
+933.9,Choline,937.8,3.9,unassigned
+933.9,Creatine,932.2,1.7,unassigned
+933.9,Creatinine,934.1,0.2,unassigned
+933.9,Cysteine,930.3,3.7,unassigned
+933.9,Fucose,932.2,1.7,unassigned
+933.9,Galactosamine,932.2,1.7,unassigned
+933.9,Glucose,932.2,1.7,unassigned
+933.9,Glutamic acid,932.2,1.7,unassigned
+933.9,Glycine,932.2,1.7,unassigned
+933.9,Glycocholic acid,934.1,0.2,unassigned
+933.9,Glycogen,936.1,2.1,unassigned
+933.9,Guanine,934.1,0.2,unassigned
+933.9,Hippuric acid,932.2,1.7,unassigned
+933.9,Histidine,932.2,1.7,unassigned
+933.9,Inosine,934.1,0.2,unassigned
+933.9,Isoleucine,932.2,1.7,unassigned
+933.9,Kaempferol,934.0,0.1,unassigned
+933.9,Kynurenine,934.1,0.2,unassigned
+933.9,Leucine,932.2,1.7,unassigned
+933.9,Maleic acid,937.8,3.9,unassigned
+933.9,Malic acid,932.2,1.7,unassigned
+933.9,Methyl 2-Hydroxyisobutyrate,932.2,1.7,unassigned
+933.9,Methyl DL-2-Aminobutyrate,932.2,1.7,unassigned
+933.9,Methyl alfa-D-Glucopyranoside,932.2,1.7,unassigned
+933.9,Methyl-beta-D-Ribofuranoside,932.2,1.7,unassigned
+933.9,N-Acetylneuraminic acid,934.1,0.2,unassigned
+933.9,NADH,936.1,2.1,unassigned
+933.9,O-Acetylcarnitine,934.1,0.2,unassigned
+933.9,Palmitic acid,934.1,0.2,unassigned
+933.9,Phenylalanine,932.2,1.7,unassigned
+933.9,Pseudouridine,934.1,0.2,unassigned
+933.9,Pyrimidine,932.2,1.7,unassigned
+933.9,Serine,932.2,1.7,unassigned
+933.9,Spermidine,932.2,1.7,unassigned
+933.9,Sphinganine,932.2,1.7,unassigned
+933.9,Stearic acid,934.1,0.2,unassigned
+933.9,Taurine,932.2,1.7,unassigned
+933.9,Threonine,932.2,1.7,unassigned
+933.9,Trimethylamine-N-oxide,934.1,0.2,unassigned
+933.9,Tryptophan,932.2,1.7,unassigned
+933.9,Tyrosine,934.1,0.2,unassigned
+933.9,Uracil,934.1,0.2,unassigned
+933.9,Uric acid,934.1,0.2,unassigned
+933.9,Valine,932.2,1.7,unassigned
+933.9,Xylonic acid,932.2,1.7,unassigned
+933.9,Xylose,932.2,1.7,unassigned
+933.9,cis-Aconitic acid,932.2,1.7,unassigned
+933.9,p-Cymene,934.1,0.2,unassigned
+933.9,trans-Aconitic acid,932.2,1.7,unassigned
+999.5,"1,2,4,-Trimethylbenzene",997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,1-Hydroxylpyrene,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,1-Octanol,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,2-Naphthol,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,2-Phenylacetamide,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,3-Hepatanone,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,4-Methoxyphenol,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,4-Pyridoxic acid,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,Adenosine,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Alanine,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Anisole,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Arginine,1001.6,2.1,phenylalanine ring breathing (strongest SERS peak)
+999.5,Aspartic acid,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Benzoic acid,1003.4,3.9,phenylalanine ring breathing (strongest SERS peak)
+999.5,Betaine,1005.3,5.8,phenylalanine ring breathing (strongest SERS peak)
+999.5,Cholesterol,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Creatine,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Cysteine,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Fucose,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Galactosamine,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Glucose,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Glutamic acid,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,Hippuric acid,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Histidine,1001.6,2.1,phenylalanine ring breathing (strongest SERS peak)
+999.5,Hypoxanthine,993.9,5.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Inosine,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,Isoleucine,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Leucine,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Methyl 2-Hydroxyisobutyrate,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,Methyl alfa-D-Glucopyranoside,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Methyl-beta-D-Ribofuranoside,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Palmitic acid,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Phenylalanine,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,Proline,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Pseudouridine,1001.6,2.1,phenylalanine ring breathing (strongest SERS peak)
+999.5,Spermidine,995.8,3.6,phenylalanine ring breathing (strongest SERS peak)
+999.5,Stearic acid,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,Trimethylamine-N-oxide,1001.6,2.1,phenylalanine ring breathing (strongest SERS peak)
+999.5,Tryptophan,1001.6,2.1,phenylalanine ring breathing (strongest SERS peak)
+999.5,Uracil,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+999.5,Uric acid,1001.6,2.1,phenylalanine ring breathing (strongest SERS peak)
+999.5,Xanthine,997.8,1.7,phenylalanine ring breathing (strongest SERS peak)
+999.5,p-Cymene,999.7,0.2,phenylalanine ring breathing (strongest SERS peak)
+1147.9,1-Hydroxylpyrene,1142.4,5.5,C-N stretch
+1147.9,2-Naphthol,1146.3,1.7,C-N stretch
+1147.9,4-Methoxyphenol,1155.9,8.0,C-N stretch
+1147.9,8-Hydroxy-2-deoxyguanosine,1146.3,1.7,C-N stretch
+1147.9,Benzoic acid,1149.9,2.0,C-N stretch
+1147.9,Cholesterol,1144.3,3.6,C-N stretch
+1147.9,Cysteine,1144.3,3.6,C-N stretch
+1147.9,Galactosamine,1142.4,5.5,C-N stretch
+1147.9,Kaempferol,1148.1,0.2,C-N stretch
+1147.9,Maleic acid,1149.9,2.0,C-N stretch
+1147.9,Malic acid,1144.3,3.6,C-N stretch
+1147.9,Methyl DL-2-Aminobutyrate,1144.3,3.6,C-N stretch
+1147.9,Methyl-beta-D-Ribofuranoside,1146.3,1.7,C-N stretch
+1147.9,N-Acetylneuraminic acid,1140.5,7.5,C-N stretch
+1147.9,Palmitic acid,1146.3,1.7,C-N stretch
+1147.9,Spermidine,1144.3,3.6,C-N stretch
+1147.9,Sphinganine,1144.3,3.6,C-N stretch
+1147.9,Stearic acid,1148.2,0.3,C-N stretch
+1147.9,Threonine,1138.5,9.4,C-N stretch
+1147.9,Tyrosine,1140.5,7.5,C-N stretch
+1147.9,Xylonic acid,1144.3,3.6,C-N stretch
+1147.9,Xylose,1142.4,5.5,C-N stretch
+1147.9,cis-Aconitic acid,1144.3,3.6,C-N stretch
+1147.9,trans-Aconitic acid,1138.5,9.4,C-N stretch
+1230.8,"1,2,4,-Trimethylbenzene",1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,1-Hydroxylpyrene,1235.0,4.1,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,1-Octanol,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,3-Hepatanone,1229.2,1.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,8-Hydroxy-2-deoxyguanosine,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Acrylic acid,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Adenine,1235.0,4.1,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Alanine,1223.4,7.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Arginine,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Aspartic acid,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Betaine,1234.8,4.0,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Cholesterol,1229.2,1.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Choline,1234.8,4.0,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Cysteine,1223.4,7.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Fucose,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Galactosamine,1231.1,0.3,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Glutamic acid,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Glycine,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Glycogen,1223.4,7.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Isoleucine,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Kynurenine,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Leucine,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Maleic acid,1234.8,4.0,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Malic acid,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Methyl 2-Hydroxyisobutyrate,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Methyl DL-2-Aminobutyrate,1227.3,3.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,N-Acetylneuraminic acid,1229.2,1.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,O-Acetylcarnitine,1221.5,9.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Palmitic acid,1229.2,1.6,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Proline,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Pyrimidine,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Serine,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Spermidine,1223.4,7.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Stearic acid,1231.1,0.3,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Taurine,1223.4,7.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Threonine,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Tryptophan,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Uric acid,1231.1,0.3,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Valine,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Xylonic acid,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,Xylose,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,cis-Aconitic acid,1223.4,7.4,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,p-Cymene,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1230.8,trans-Aconitic acid,1225.3,5.5,"C-C6H5 stretch, phenylalanine, tryptophan"
+1292.5,"1,2,4,-Trimethylbenzene",1292.8,0.3,Amide III
+1292.5,1-Octanol,1287.0,5.5,Amide III
+1292.5,3-Hepatanone,1290.9,1.6,Amide III
+1292.5,4-Pyridoxic acid,1290.9,1.6,Amide III
+1292.5,Alanine,1290.9,1.6,Amide III
+1292.5,Anisole,1298.6,6.1,Amide III
+1292.5,Arginine,1302.5,9.9,Amide III
+1292.5,Choline,1292.6,0.1,Amide III
+1292.5,Cysteine,1290.9,1.6,Amide III
+1292.5,Galactosamine,1298.6,6.1,Amide III
+1292.5,Glucose,1300.5,8.0,Amide III
+1292.5,Glutamic acid,1290.9,1.6,Amide III
+1292.5,Glycine,1302.5,9.9,Amide III
+1292.5,Glycogen,1298.6,6.1,Amide III
+1292.5,Isoleucine,1292.8,0.3,Amide III
+1292.5,Kynurenine,1298.6,6.1,Amide III
+1292.5,Leucine,1289.0,3.6,Amide III
+1292.5,Malic acid,1290.9,1.6,Amide III
+1292.5,Methyl DL-2-Aminobutyrate,1298.6,6.1,Amide III
+1292.5,N-Acetylneuraminic acid,1290.9,1.6,Amide III
+1292.5,O-Acetylcarnitine,1296.7,4.2,Amide III
+1292.5,Palmitic acid,1294.8,2.2,Amide III
+1292.5,Purine,1292.8,0.3,Amide III
+1292.5,Pyrimidine,1292.8,0.3,Amide III
+1292.5,Spermidine,1289.0,3.6,Amide III
+1292.5,Taurine,1289.0,3.6,Amide III
+1292.5,Threonine,1285.1,7.4,Amide III
+1292.5,Tryptophan,1300.5,8.0,Amide III
+1292.5,Valine,1290.9,1.6,Amide III
+1292.5,cis-Aconitic acid,1302.5,9.9,Amide III
+1292.5,p-Cymene,1290.9,1.6,Amide III
+1292.5,trans-Aconitic acid,1302.5,9.9,Amide III
+1352.3,2-Phenylacetamide,1352.6,0.3,"CH deformation, tryptophan"
+1352.3,4-Methoxyphenol,1350.7,1.6,"CH deformation, tryptophan"
+1352.3,Adenosine,1348.8,3.5,"CH deformation, tryptophan"
+1352.3,Galactosamine,1354.5,2.2,"CH deformation, tryptophan"
+1352.3,Hippuric acid,1354.5,2.2,"CH deformation, tryptophan"
+1352.3,Hypoxanthine,1362.3,10.0,"CH deformation, tryptophan"
+1352.3,Methyl alfa-D-Glucopyranoside,1354.5,2.2,"CH deformation, tryptophan"
+1352.3,Trimethylamine-N-oxide,1354.5,2.2,"CH deformation, tryptophan"
+1352.3,Tryptophan,1356.5,4.2,"CH deformation, tryptophan"
+1448.7,"1,2,4,-Trimethylbenzene",1443.2,5.4,CH2 deformation
+1448.7,1-Octanol,1445.2,3.5,CH2 deformation
+1448.7,2-Naphthol,1449.0,0.3,CH2 deformation
+1448.7,2-Phenylacetamide,1445.2,3.5,CH2 deformation
+1448.7,3-Hepatanone,1445.2,3.5,CH2 deformation
+1448.7,4-Methoxyphenol,1443.2,5.4,CH2 deformation
+1448.7,4-Pyridoxic acid,1441.3,7.4,CH2 deformation
+1448.7,8-Hydroxy-2-deoxyguanosine,1447.1,1.6,CH2 deformation
+1448.7,Acrylic acid,1445.2,3.5,CH2 deformation
+1448.7,Adenine,1449.0,0.3,CH2 deformation
+1448.7,Alanine,1443.2,5.4,CH2 deformation
+1448.7,Anisole,1445.2,3.5,CH2 deformation
+1448.7,Arginine,1441.3,7.4,CH2 deformation
+1448.7,Ascorbic acid,1445.2,3.5,CH2 deformation
+1448.7,Aspartic acid,1445.2,3.5,CH2 deformation
+1448.7,Benzoic acid,1450.8,2.1,CH2 deformation
+1448.7,Betaine,1448.9,0.2,CH2 deformation
+1448.7,Cholesterol,1447.1,1.6,CH2 deformation
+1448.7,Choline,1450.8,2.1,CH2 deformation
+1448.7,Creatine,1441.3,7.4,CH2 deformation
+1448.7,Fucose,1443.2,5.4,CH2 deformation
+1448.7,Galactosamine,1447.1,1.6,CH2 deformation
+1448.7,Glucose,1443.2,5.4,CH2 deformation
+1448.7,Glutamic acid,1443.2,5.4,CH2 deformation
+1448.7,Glycine,1441.3,7.4,CH2 deformation
+1448.7,Glycocholic acid,1447.1,1.6,CH2 deformation
+1448.7,Glycogen,1445.2,3.5,CH2 deformation
+1448.7,Hippuric acid,1447.1,1.6,CH2 deformation
+1448.7,Histidine,1439.4,9.3,CH2 deformation
+1448.7,Hypoxanthine,1454.8,6.1,CH2 deformation
+1448.7,Isoleucine,1443.2,5.4,CH2 deformation
+1448.7,Kynurenine,1449.0,0.3,CH2 deformation
+1448.7,Leucine,1443.2,5.4,CH2 deformation
+1448.7,Maleic acid,1450.8,2.1,CH2 deformation
+1448.7,Malic acid,1445.2,3.5,CH2 deformation
+1448.7,Methyl 2-Hydroxyisobutyrate,1445.2,3.5,CH2 deformation
+1448.7,Methyl DL-2-Aminobutyrate,1447.1,1.6,CH2 deformation
+1448.7,Methyl alfa-D-Glucopyranoside,1445.2,3.5,CH2 deformation
+1448.7,Methyl-beta-D-Ribofuranoside,1447.1,1.6,CH2 deformation
+1448.7,N-Acetylneuraminic acid,1445.2,3.5,CH2 deformation
+1448.7,O-Acetylcarnitine,1447.1,1.6,CH2 deformation
+1448.7,Palmitic acid,1447.1,1.6,CH2 deformation
+1448.7,Phenylalanine,1445.2,3.5,CH2 deformation
+1448.7,Proline,1443.2,5.4,CH2 deformation
+1448.7,Pseudouridine,1445.2,3.5,CH2 deformation
+1448.7,Pyrimidine,1445.2,3.5,CH2 deformation
+1448.7,Serine,1443.2,5.4,CH2 deformation
+1448.7,Spermidine,1441.3,7.4,CH2 deformation
+1448.7,Stearic acid,1447.1,1.6,CH2 deformation
+1448.7,Taurine,1445.2,3.5,CH2 deformation
+1448.7,Threonine,1443.2,5.4,CH2 deformation
+1448.7,Trimethylamine-N-oxide,1443.2,5.4,CH2 deformation
+1448.7,Tryptophan,1445.2,3.5,CH2 deformation
+1448.7,Tyrosine,1449.0,0.3,CH2 deformation
+1448.7,Uracil,1445.2,3.5,CH2 deformation
+1448.7,Uric acid,1443.2,5.4,CH2 deformation
+1448.7,Valine,1445.2,3.5,CH2 deformation
+1448.7,Xanthine,1445.2,3.5,CH2 deformation
+1448.7,Xylonic acid,1445.2,3.5,CH2 deformation
+1448.7,Xylose,1445.2,3.5,CH2 deformation
+1448.7,cis-Aconitic acid,1447.1,1.6,CH2 deformation
+1448.7,p-Cymene,1443.2,5.4,CH2 deformation
+1448.7,trans-Aconitic acid,1445.2,3.5,CH2 deformation
+1597.1,"1,2,4,-Trimethylbenzene",1595.6,1.5,"purine ring, nucleotides"
+1597.1,1-Hydroxylpyrene,1593.7,3.5,"purine ring, nucleotides"
+1597.1,1-Octanol,1595.6,1.5,"purine ring, nucleotides"
+1597.1,2-Phenylacetamide,1599.5,2.3,"purine ring, nucleotides"
+1597.1,3-Hepatanone,1593.7,3.5,"purine ring, nucleotides"
+1597.1,4-Pyridoxic acid,1605.2,8.1,"purine ring, nucleotides"
+1597.1,8-Hydroxy-2-deoxyguanosine,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Alanine,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Arginine,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Ascorbic acid,1589.8,7.3,"purine ring, nucleotides"
+1597.1,Aspartic acid,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Benzoic acid,1601.2,4.1,"purine ring, nucleotides"
+1597.1,Betaine,1597.3,0.2,"purine ring, nucleotides"
+1597.1,Cholesterol,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Choline,1601.2,4.1,"purine ring, nucleotides"
+1597.1,Creatinine,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Cysteine,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Fucose,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Galactosamine,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Glucose,1589.8,7.3,"purine ring, nucleotides"
+1597.1,Glutamic acid,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Glycine,1591.7,5.4,"purine ring, nucleotides"
+1597.1,Glycocholic acid,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Glycogen,1601.4,4.2,"purine ring, nucleotides"
+1597.1,Hippuric acid,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Hypoxanthine,1589.8,7.3,"purine ring, nucleotides"
+1597.1,Isoleucine,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Kaempferol,1603.2,6.1,"purine ring, nucleotides"
+1597.1,Leucine,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Maleic acid,1601.2,4.1,"purine ring, nucleotides"
+1597.1,Methyl 2-Hydroxyisobutyrate,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Methyl alfa-D-Glucopyranoside,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Methyl-beta-D-Ribofuranoside,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Palmitic acid,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Phenylalanine,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Proline,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Pseudouridine,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Spermidine,1599.5,2.3,"purine ring, nucleotides"
+1597.1,Sphinganine,1597.5,0.4,"purine ring, nucleotides"
+1597.1,Stearic acid,1601.4,4.2,"purine ring, nucleotides"
+1597.1,Tyrosine,1595.6,1.5,"purine ring, nucleotides"
+1597.1,Valine,1593.7,3.5,"purine ring, nucleotides"
+1597.1,Xylonic acid,1595.6,1.5,"purine ring, nucleotides"
+1597.1,p-Cymene,1591.7,5.4,"purine ring, nucleotides"
+1651.1,Histidine,1653.4,2.3,Amide I (C=O stretch)
+1651.1,Maleic acid,1657.1,6.0,Amide I (C=O stretch)
+1651.1,Pseudouridine,1645.7,5.4,Amide I (C=O stretch)
+1651.1,Uric acid,1659.2,8.1,Amide I (C=O stretch)

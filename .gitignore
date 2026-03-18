@@ -1,5 +1,15 @@
-# Data files
-data/
+# Data files — ignore raw data but allow scripts and reports
+data/*
+!data/clinical_data/
+data/clinical_data/*
+!data/clinical_data/standardize_clinical.py
+!data/clinical_data/link_sers_clinical.py
+!data/clinical_data/normalize_excel_files.py
+!data/clinical_data/apply_column_mappings.py
+!data/clinical_data/standardized/
+data/clinical_data/standardized/*
+!data/clinical_data/standardized/clinical_data_report_draft.md
+!data/clinical_data/standardized/figures/
 
 # Results & model outputs
 results/
@@ -47,14 +57,15 @@ Thumbs.db
 *.sqlite
 .cache/
 
-# Images & Figures
-*.png
+# Images & Figures (general)
 *.jpg
 *.jpeg
 *.gif
 *.bmp
 *.tiff
 *.tif
-*.svg
 *.ico
 *.webp
+# Allow analysis figures and SVGs
+# *.png — allowed for reports
+# *.svg — allowed for reports
