@@ -1,0 +1,247 @@
+AACR Poster - Staging Data Re-ingestion & AJCC Mapping Log
+Generated: 2026-03-19 18:27:47
+======================================================================
+
+AJCC 8th Edition Pancreatic Cancer Staging Rules Applied:
+  Stage IA  : T1 (≤2cm) N0 M0
+  Stage IB  : T2 (>2-4cm) N0 M0
+  Stage IIA : T3 (>4cm) N0 M0
+  Stage IIB : T1-T3, N1 (1-3 LN), M0
+  Stage III : T1-T3 N2 (≥4 LN) M0  OR  T4 (any N) M0
+  Stage IV  : Any T, Any N, M1
+
+======================================================================
+PANCREATIC CANCER: TNM → AJCC 8th Edition Staging
+======================================================================
+  CPAN 1: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 2: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 3: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 4: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 5: T1a N0 M0 → IA (T1A N0 M0 → Stage IA (T1 N0))
+  CPAN 6: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 7: T3 N3 M1 → IV (T3 N3 M1 → Stage IV (distant metastasis))
+  CPAN 8: T3 N2 M0 → III (T3 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 9: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 10: T4 N2 M0 → III (T4 N2 M0 → Stage III (T4, locally advanced))
+  CPAN 11: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 12: T2 N0 M0 → IB (T2 N0 M0 → Stage IB (T2 N0))
+  CPAN 13: T4 N0 M0 → III (T4 N0 M0 → Stage III (T4, locally advanced))
+  CPAN 14: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 15: T1 N0 M0 → IA (T1 N0 M0 → Stage IA (T1 N0))
+  CPAN 16: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 17: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 18: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 19: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 20: T3 N2 M0 → III (T3 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 21: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 22: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 23: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 24: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 25: T1 NX M0 → Unknown (Cannot stage: T1/NX/M0 contains X (unknown))
+  CPAN 26: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 27: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 28: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 29: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 30: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 31: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 32: T3 N2 M0 → III (T3 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 33: T2 N0 M0 → IB (T2 N0 M0 → Stage IB (T2 N0))
+  CPAN 34: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 35: T4 N0 M0 → III (T4 N0 M0 → Stage III (T4, locally advanced))
+  CPAN 36: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 37: T2 N2 M0 → III (T2 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 38: T3 N2 M1 → IV (T3 N2 M1 → Stage IV (distant metastasis))
+  CPAN 39: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 40: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 41: T2 N2 M0 → III (T2 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 42: T3 N1 MX → Unknown (Cannot stage: T3/N1/MX contains X (unknown))
+  CPAN 43: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 44: T4 N0 M1 → IV (T4 N0 M1 → Stage IV (distant metastasis))
+  CPAN 45: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 46: T2 N0 M0 → IB (T2 N0 M0 → Stage IB (T2 N0))
+  CPAN 47: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 48: T3 N2 M0 → III (T3 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 49: T2 N0 M0 → IB (T2 N0 M0 → Stage IB (T2 N0))
+  CPAN 50: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 51: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 52: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 53: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 54: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 55: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 56: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 57: T2 N2 M0 → III (T2 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 58: T1b N0 M0 → IA (T1B N0 M0 → Stage IA (T1 N0))
+  CPAN 59: T2 N0 M0 → IB (T2 N0 M0 → Stage IB (T2 N0))
+  CPAN 60: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 61: T3 N1 M0 → IIB (T3 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 62: T3 N2 M0 → III (T3 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 63: T2 N1 M1 → IV (T2 N1 M1 → Stage IV (distant metastasis))
+  CPAN 64: T2 N1 M0 → IIB (T2 N1 M0 → Stage IIB (N1, limited nodal))
+  CPAN 65: T4 N1 M1 → IV (T4 N1 M1 → Stage IV (distant metastasis))
+  CPAN 66: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 67: T3 N0 M0 → IIA (T3 N0 M0 → Stage IIA (T3 N0))
+  CPAN 68: T2 N0 M1 → IV (T2 N0 M1 → Stage IV (distant metastasis))
+  CPAN 69: T2 N2 M0 → III (T2 N2 M0 → Stage III (≥N2, regional spread))
+  CPAN 70: T2 N0 M0 → IB (T2 N0 M0 → Stage IB (T2 N0))
+
+PAN AJCC Stage Distribution (n=70):
+  Stage IA: 3 (4.3%)
+  Stage IB: 6 (8.6%)
+  Stage IIA: 11 (15.7%)
+  Stage IIB: 19 (27.1%)
+  Stage III: 12 (17.1%)
+  Stage IV: 17 (24.3%)
+  Stage Unknown: 2 (2.9%)
+
+======================================================================
+PROSTATE CANCER: TNM + Gleason Score Extraction
+======================================================================
+  PRO 1: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 2: TNM=nan → T=None N=None M=None | Gleason=8(4+4) → 8
+  PRO 3: TNM=nan → T=None N=None M=None | Gleason=8(4 + 4) → 8
+  PRO 4: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 5: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 6: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 7: TNM=nan → T=None N=None M=None | Gleason=6(3 + 3) → 6
+  PRO 8: TNM=T3bN0M0 → T=T3B N=N0 M=M0 | Gleason=9(4 + 5) → 9
+  PRO 9: TNM=T4N1M1 → T=T4 N=N1 M=M1 | Gleason=8(4 + 4) → 8
+  PRO 10: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 11: TNM=nan → T=None N=None M=None | Gleason=8(4 + 4) → 8
+  PRO 12: TNM=T3N0M1 → T=T3 N=N0 M=M1 | Gleason=9(4 + 5) → 9
+  PRO 13: TNM=pT2c pNx → T=T2C N=NX M=None | Gleason=7(3 + 4) → 7
+  PRO 14: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 15: TNM=T2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(4 + 3) → 7
+  PRO 16: TNM=pT2cN0M → T=T2C N=N0 M=None | Gleason=7(3 + 4) → 7
+  PRO 17: TNM=T4N0M0 → T=T4 N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 18: TNM=nan → T=None N=None M=None | Gleason=8(4 + 4) → 8
+  PRO 19: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 20: TNM=nan → T=None N=None M=None | Gleason=7(4+3) → 7
+  PRO 21: TNM=nan → T=None N=None M=None | Gleason= 7(4 + 3) → 7
+  PRO 22: TNM=nan → T=None N=None M=None | Gleason=8(4 + 4) → 8
+  PRO 23: TNM=T1cN0M0 → T=T1C N=N0 M=M0 | Gleason=7(4 + 3) → 7
+  PRO 24: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 25: TNM=pT3aN0M → T=T3A N=N0 M=None | Gleason=7(4+3) → 7
+  PRO 26: TNM=pT2a pNx → T=T2A N=NX M=None | Gleason=7(3 + 4) → 7
+  PRO 27: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 28: TNM=nan → T=None N=None M=None | Gleason=9(4 + 5) → 9
+  PRO 29: TNM=nan → T=None N=None M=None | Gleason=9(4 + 5) → 9
+  PRO 30: TNM=T4N0M1 → T=T4 N=N0 M=M1 | Gleason=9(4 + 5) → 9
+  PRO 31: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 32: TNM=pT3bN1M1 → T=T3B N=N1 M=M1 | Gleason=7(4 + 3) → 7
+  PRO 33: TNM=pT2aN1M0 → T=T2A N=N1 M=M0 | Gleason= 6(3 + 3) → 6
+  PRO 34: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 35: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=9(4 + 5)  → 9
+  PRO 36: TNM=T3bN0M0 → T=T3B N=N0 M=M0 | Gleason=8(4 + 4) → 8
+  PRO 37: TNM=T3bN0M0 → T=T3B N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 38: TNM=T3bN1M0 → T=T3B N=N1 M=M0 | Gleason=8(3 + 5) → 8
+  PRO 39: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(4 + 3)  → 7
+  PRO 40: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 41: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 42: TNM=T3N1M1 → T=T3 N=N1 M=M1 | Gleason= 8(4 + 4) → 8
+  PRO 43: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 44: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 45: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 46: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason= 7(4 + 3) → 7
+  PRO 47: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason= 7(4 + 3) → 7
+  PRO 48: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 49: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason= 7(4 + 3) → 7
+  PRO 50: TNM=pT2c pNx → T=T2C N=NX M=None | Gleason=7(3 + 4) → 7
+  PRO 51: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 52: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 53: TNM=pT2cN0M0 → T=T2C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 54: TNM=T1cN0M0 → T=T1C N=N0 M=M0 | Gleason=6(3+3) → 6
+  PRO 55: TNM=T1aN0M0 → T=T1A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 56: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 57: TNM=T3N0M0 → T=T3 N=N0 M=M0 | Gleason=8 (4+4) → 8
+  PRO 58: TNM=T3N0M1b → T=T3 N=N0 M=M1B | Gleason=8 (4+4)  → 8
+  PRO 59: TNM=cT4N0M1b → T=T4 N=N0 M=M1B | Gleason=9(4 + 5) → 9
+  PRO 60: TNM=nan → T=None N=None M=None | Gleason=6(3+3) → 6
+  PRO 61: TNM=cT4N1Mib → T=T4 N=N1 M=None | Gleason=9(4+5) → 9
+  PRO 62: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=9(4+5) → 9
+  PRO 63: TNM=cT3N0M1b → T=T3 N=N0 M=M1B | Gleason=9(4+5) → 9
+  PRO 64: TNM=pT1cN0M0 → T=T1C N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 65: TNM=cT4N0M1c → T=T4 N=N0 M=M1C | Gleason=9(4 + 5) → 9
+  PRO 66: TNM=cT4N2M1b → T=T4 N=N2 M=M1B | Gleason=9(4 + 5) → 9
+  PRO 67: TNM=cT4N2M0 → T=T4 N=N2 M=M0 | Gleason=7(4 + 3) → 7
+  PRO 68: TNM=cT4N2M1b → T=T4 N=N2 M=M1B | Gleason= 9(5 + 4) → 9
+  PRO 69: TNM=cT3bN1M0 → T=T3B N=N1 M=M0 | Gleason=8(4+4) → 8
+  PRO 70: TNM=cT4N1M1a → T=T4 N=N1 M=M1A | Gleason=10(5 + 5) → 10
+  PRO 71: TNM=nan → T=None N=None M=None | Gleason=7(3+4) → 7
+  PRO 72: TNM=pT4N0M1b → T=T4 N=N0 M=M1B | Gleason=9(4+5) → 9
+  PRO 73: TNM=cT2N0M1b → T=T2 N=N0 M=M1B | Gleason=7(3+4) → 7
+  PRO 74: TNM=nan → T=None N=None M=None | Gleason=9(4 + 5) → 9
+  PRO 75: TNM=cT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(3 + 4) → 7
+  PRO 76: TNM=cT4N0Mib → T=T4 N=N0 M=None | Gleason=8(3 + 5) → 8
+  PRO 77: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 78: TNM=T3bN0M0   → T=T3B N=N0 M=M0 | Gleason=8 (4+4) → 8
+  PRO 79: TNM=pT2c pNx → T=T2C N=NX M=None | Gleason=7(3 + 4) → 7
+  PRO 80: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=8(4 + 4) → 8
+  PRO 81: TNM=pT3aN0M0 → T=T3A N=N0 M=M0 | Gleason=7(4 + 3) → 7
+  PRO 82: TNM=T3bN0M1c → T=T3B N=N0 M=M1C | Gleason=7(4 + 3) → 7
+  PRO 83: TNM=cT2N0M1b  → T=T2 N=N0 M=M1B | Gleason=8(4+4) → 8
+  PRO 84: TNM=nan → T=None N=None M=None | Gleason=7(3+4) → 7
+  PRO 85: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 86: TNM=T4N0M0 → T=T4 N=N0 M=M0 | Gleason=9 (4+5) → 9
+  PRO 87: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 88: TNM=cT3bN1M1b → T=T3B N=N1 M=M1B | Gleason=8(4+4) → 8
+  PRO 89: TNM=cT4N1M1 → T=T4 N=N1 M=M1 | Gleason=8(4+4) → 8
+  PRO 90: TNM=cT4N1M1b → T=T4 N=N1 M=M1B | Gleason=9(4 + 5) → 9
+  PRO 91: TNM=cT1N1M1b → T=T1 N=N1 M=M1B | Gleason=9(4 + 5) → 9
+  PRO 92: TNM=cT3bN0M0 → T=T3B N=N0 M=M0 | Gleason=8(4 + 4) → 8
+  PRO 93: TNM=cT4N0M1b → T=T4 N=N0 M=M1B | Gleason=9(4 + 5) → 9
+  PRO 94: TNM=nan → T=None N=None M=None | Gleason=9(4 + 5) → 9
+  PRO 95: TNM=cT1c → T=T1C N=None M=None | Gleason=7 (3+4) → 7
+  PRO 96: TNM=cT3bN1M1b → T=T3B N=N1 M=M1B | Gleason=9(4 + 5) → 9
+  PRO 97: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 98: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 99: TNM=nan → T=None N=None M=None | Gleason=7(3 + 4) → 7
+  PRO 100: TNM=pT4N1M1 → T=T4 N=N1 M=M1 | Gleason=8 (4+4) → 8
+
+PRO TNM available: 76/100
+PRO Gleason available: 100/100
+Gleason distribution:
+  Gleason 6: 4
+  Gleason 7: 54
+  Gleason 8: 20
+  Gleason 9: 21
+  Gleason 10: 1
+
+======================================================================
+COLORECTAL CANCER: Merge raw Excel (270) + standardized (30)
+======================================================================
+  CRC standardized total: 300
+  CRC with staging: 30
+  CRC without staging: 270
+  CRC raw Excel rows: 270
+  Match: 270 unstaged patients = 270 raw rows, mapping by order
+
+CRC AJCC Stage Distribution (n=300):
+  Stage I: 238 (79.3%)
+  Stage IIA: 12 (4.0%)
+  Stage IIB: 1 (0.3%)
+  Stage IIC: 2 (0.7%)
+  Stage IIIA: 28 (9.3%)
+  Stage IIIB: 7 (2.3%)
+  Stage IIIC: 6 (2.0%)
+  Stage IV: 6 (2.0%)
+  CRC T-stage: {'T1': 143, 'T1a': 2, 'T1b': 3, 'T1c': 1, 'T2': 121, 'T3': 17, 'T4a': 7, 'T4b': 6}
+  CRC N-stage: {'N0': 249, 'N1': 5, 'N1a': 15, 'N1b': 15, 'N2': 1, 'N2a': 8, 'N2b': 3, 'NX': 4}
+  CRC M-stage: {'M0': 288, 'M1': 5, 'M1a': 1, 'MX': 6}
+
+======================================================================
+OVARIAN CANCER: TNM from pathology column
+======================================================================
+  OVA pathology available: 30/70
+  Values: {'TXNXMX': 17, 'T1aN0MX': 2, 'T1bNXMX': 2, 'T1aNXMX': 2, 'T3N0MX': 1, 'TXNXM1': 1, 'T3NXMX': 1, 'T1c2NXMX': 1, 'T3aN0': 1, 'T3bN0MX': 1, 'T1c2N0': 1}
+  NOTE: 17/30 are TXNXMX (unknown) — limited staging available for OVA
+  OVA staging will be reported as 'Not available' in demographics table
+
+======================================================================
+LUNG CANCER: Stage from standardized (already complete)
+======================================================================
+  LUN stage available: 253/300
+  Stage I: 168 (56.0%)
+  Stage II: 58 (19.3%)
+  Stage III: 22 (7.3%)
+  Stage IV: 4 (1.3%)
+  Stage Unknown: 1 (0.3%)

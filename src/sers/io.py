@@ -9,6 +9,11 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from sers.logging_config import setup_logging
+from sers.validation import validate_spectrum
+
+setup_logging()
+
 logger = logging.getLogger(__name__)
 
 class SpectrumID(NamedTuple):
@@ -53,49 +58,89 @@ def parse_filename(path: Path, fallback_group: str = "UNK") -> SpectrumID:
     SpectrumID(group='H.D.', sample_id='042', replicate=3)
     """
     stem = path.stem
-    
-    # Primary pattern: GROUP (space or _) ID _ REP
+
+    # Primary pattern: GROUP (space or _) ID _ REP (exact end)
     pattern = r"^([A-Za-z]+(?:\.[A-Za-z]+)*\.?)[\s_]?([0-9]+)_([0-9]+)$"
     if m := re.match(pattern, stem):
         group, sid, rep = m.groups()
         return SpectrumID(group.strip().upper(), sid, int(rep))
-    
+
+    # Handheld pattern: GROUP ID_REP(...)_Sample_... (Metrohm Mira P)
+    pattern_hh = r"^([A-Za-z]+(?:\.[A-Za-z]+)*\.?)[\s_]([0-9]+)_([0-9]+)\("
+    if m := re.match(pattern_hh, stem):
+        group, sid, rep = m.groups()
+        return SpectrumID(group.strip().upper(), sid, int(rep))
+
     # Fallback: just numbers, use provided group
     if m := re.search(r"([0-9]+)_([0-9]+)$", stem):
         sid, rep = m.groups()
         return SpectrumID(fallback_group.upper(), sid, int(rep))
-    
+
     raise ValueError(f"Cannot parse filename: {path.name}")
+
+
+def _read_handheld_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Read Metrohm Mira P handheld format (key-value CSV with Intensities field)."""
+    metadata = {}
+    with open(path, "r") as f:
+        for line in f:
+            parts = line.strip().strip('"').split('","')
+            if len(parts) == 2:
+                metadata[parts[0]] = parts[1]
+
+    if "Intensities" not in metadata:
+        raise ValueError(f"No 'Intensities' field in {path}")
+
+    first_wn = float(metadata.get("Firstwavenumber", 400))
+    last_wn = float(metadata.get("LastWavenumber", 2300))
+    intensities = np.array([float(v) for v in metadata["Intensities"].split(",")])
+    wavenumbers = np.linspace(first_wn, last_wn, len(intensities))
+    return wavenumbers, intensities
 
 
 def read_spectrum(path: Path) -> tuple[np.ndarray, np.ndarray]:
     """
-    Read 2-column spectrum CSV (raman_shift, intensity).
-    
+    Read spectrum file (2-column CSV/TXT or Metrohm handheld format).
+
     Parameters
     ----------
     path : Path
-        Path to CSV file with columns [raman_shift, intensity]
-    
+        Path to spectrum file
+
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
         (raman_shift, intensity) arrays sorted by raman_shift
-    
+
     Raises
     ------
     ValueError
         If file has fewer than 2 columns or no valid data
     """
-    df = pd.read_csv(path, sep=None, engine="python", header=None, usecols=[0, 1])
-    df.columns = ["raman_shift", "intensity"]
-    df = df.apply(pd.to_numeric, errors="coerce").dropna()
-    
-    if df.empty:
-        raise ValueError(f"No valid numeric data in {path}")
+    # Try standard 2-column format first
+    try:
+        df = pd.read_csv(path, sep=None, engine="python", header=None, usecols=[0, 1])
+        df.columns = ["raman_shift", "intensity"]
+        df = df.apply(pd.to_numeric, errors="coerce").dropna()
 
-    df = df.sort_values("raman_shift")
-    return df["raman_shift"].to_numpy(), df["intensity"].to_numpy()
+        if not df.empty:
+            df = df.sort_values("raman_shift")
+            x, y = df["raman_shift"].to_numpy(), df["intensity"].to_numpy()
+            vr = validate_spectrum(x, y, label=path.name)
+            if not vr.is_valid:
+                logger.warning(f"Validation issues in {path.name}: {vr.summary()}")
+            return x, y
+    except Exception:
+        pass
+
+    # Fallback: Metrohm handheld key-value format
+    x, y = _read_handheld_csv(path)
+
+    # Validate after reading (both paths end here)
+    vr = validate_spectrum(x, y, label=path.name)
+    if not vr.is_valid:
+        logger.warning(f"Validation issues in {path.name}: {vr.summary()}")
+    return x, y
 
 
 def find_spectra(
@@ -161,6 +206,28 @@ def make_common_grid(
     return np.linspace(x_min, x_max, n_points)
 
 
+def make_fixed_grid(config) -> np.ndarray:
+    """Create fixed wavenumber grid from config.
+
+    Falls back to make_common_grid behaviour if fixed_grid is not configured.
+
+    Parameters
+    ----------
+    config : Config
+        Configuration object. Uses config.preprocessing.fixed_grid dict
+        with keys x_min, x_max, n_points.
+
+    Returns
+    -------
+    np.ndarray
+        Fixed wavenumber grid
+    """
+    fg = getattr(config.preprocessing, "fixed_grid", None)
+    if fg is None:
+        return None
+    return np.linspace(fg["x_min"], fg["x_max"], int(fg["n_points"]))
+
+
 
 @dataclass
 class DatasetResult:
@@ -217,13 +284,75 @@ class DatasetResult:
         ).reset_index()
 
 
+def filter_spectra(
+    files: list[Path],
+    exclude_patterns: list[str] | None = None,
+) -> list[Path]:
+    """Filter out unwanted files (averages, metadata, ADS streams).
+
+    Parameters
+    ----------
+    files : list[Path]
+        File paths to filter
+    exclude_patterns : list[str], optional
+        Glob patterns to exclude (e.g., ["*_ave.txt", "MultiData.txt"])
+
+    Returns
+    -------
+    list[Path]
+        Filtered file paths
+    """
+    if not exclude_patterns:
+        return files
+    return [f for f in files if not any(f.match(pat) for pat in exclude_patterns)]
+
+
+def find_background_file(
+    sample_path: Path,
+    background_subdir: str = "Background",
+) -> Optional[Path]:
+    """Find matching background file for a sample spectrum.
+
+    Looks for sample_path.parent / background_subdir / sample_path.name.
+    """
+    bg_path = sample_path.parent / background_subdir / sample_path.name
+    return bg_path if bg_path.is_file() else None
+
+
+def subtract_background(
+    x: np.ndarray,
+    y: np.ndarray,
+    bg_path: Path,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Subtract background spectrum from sample spectrum.
+
+    If wavenumber grids differ, background is interpolated to sample grid.
+    """
+    x_bg, y_bg = read_spectrum(bg_path)
+
+    if np.array_equal(x, x_bg):
+        return x, y - y_bg
+
+    y_bg_interp = np.interp(x, x_bg, y_bg)
+    return x, y - y_bg_interp
+
+
 def _collect_flat(
     data_dir: Path,
     folder_to_group: Dict[str, str],
     groups: Optional[List[str]],
     pattern: str,
+    exclude_patterns: Optional[List[str]] = None,
+    read_from_subdir: Optional[str] = None,
 ) -> List[Tuple[Path, str, Optional[str]]]:
     """Collect files from flat structure: data_dir/group_folder/files.
+
+    Parameters
+    ----------
+    read_from_subdir : str, optional
+        If set, read files from this subdirectory within each group folder
+        instead of the group folder itself. Used for Medical data where
+        the processed (BG-removed) files are in a subdirectory.
 
     Returns list of (file_path, fallback_group, equipment_or_None).
     """
@@ -239,7 +368,13 @@ def _collect_flat(
     all_files = []
     for folder in folders:
         group = folder_to_group.get(folder.name, "UNK")
-        files = find_spectra(folder, pattern=pattern, recursive=False)
+        source_dir = folder / read_from_subdir if read_from_subdir else folder
+        if not source_dir.is_dir():
+            if read_from_subdir:
+                logger.warning(f"Subdir not found: {source_dir}")
+            continue
+        files = find_spectra(source_dir, pattern=pattern, recursive=False)
+        files = filter_spectra(files, exclude_patterns)
         all_files.extend([(f, group, None) for f in files])
     return all_files
 
@@ -290,6 +425,9 @@ def load_dataset(
     equipment_mapping: Optional[Dict] = None,
     groups: Optional[List[str]] = None,
     pattern: str = "*.csv",
+    exclude_patterns: Optional[List[str]] = None,
+    read_from_subdir: Optional[str] = None,
+    wavenumber_shift: float = 0.0,
     show_progress: bool = True,
 ) -> DatasetResult:
     """
@@ -313,6 +451,12 @@ def load_dataset(
         If provided, only load these groups. None = load all.
     pattern : str
         Glob pattern for spectrum files
+    exclude_patterns : list[str], optional
+        Glob patterns to exclude (e.g., ["*_ave.txt", "MultiData.txt"])
+    read_from_subdir : str, optional
+        If set, read files from this subdirectory within each group folder
+        instead of the group folder itself. For Medical data, the BG-removed
+        spectra are in the "Background" subdirectory.
     show_progress : bool
         Show tqdm progress bar
 
@@ -324,23 +468,36 @@ def load_dataset(
 
     Examples
     --------
-    >>> from sers.config import RAW_DATA_DIR, SERS_EQUIPMENT_TEST_DATA_DIR, load_config
+    >>> from sers.config import RAW_DATA_DIR, RAW_DATA_MEDICAL_DIR, load_config
     >>> config = load_config()
-    >>> # Flat mode (raw data)
+    >>> # Flat mode (Thermo raw data)
     >>> result = load_dataset(RAW_DATA_DIR, folder_to_group=config.folder_to_group)
     >>>
-    >>> # Equipment mode
-    >>> result = load_dataset(SERS_EQUIPMENT_TEST_DATA_DIR, equipment_mapping=config.equipment_folder_to_group)
+    >>> # Flat mode (Medical BG-removed data from Background/ subdir)
+    >>> result = load_dataset(
+    ...     RAW_DATA_MEDICAL_DIR,
+    ...     folder_to_group=config.folder_to_group_medical,
+    ...     pattern="*.txt",
+    ...     exclude_patterns=config.medical.exclude_patterns,
+    ...     read_from_subdir="Background",
+    ... )
     """
     if (folder_to_group is None) == (equipment_mapping is None):
         raise ValueError("Provide exactly one of folder_to_group or equipment_mapping")
 
     if folder_to_group is not None:
-        all_files = _collect_flat(data_dir, folder_to_group, groups, pattern)
+        all_files = _collect_flat(
+            data_dir, folder_to_group, groups, pattern,
+            exclude_patterns, read_from_subdir,
+        )
     else:
         all_files = _collect_equipment(data_dir, equipment_mapping, groups, pattern)
 
     logger.info(f"Loading {len(all_files)} spectra from {data_dir}")
+    if read_from_subdir:
+        logger.info(f"Reading from subdirectory: {read_from_subdir}/")
+    if wavenumber_shift != 0.0:
+        logger.info(f"Applying wavenumber shift: {wavenumber_shift:+.1f} cm⁻¹")
 
     spectra = {}
     metadata = []
@@ -355,6 +512,10 @@ def load_dataset(
             spec_id = parse_filename(file_path, fallback_group=fallback_group)
             x, y = read_spectrum(file_path)
 
+            # Wavenumber alignment shift (e.g., Medical → Thermo reference frame)
+            if wavenumber_shift != 0.0:
+                x = x + wavenumber_shift
+
             key = (spec_id.group, spec_id.sample_id, spec_id.replicate)
             if equipment is not None:
                 key = (equipment, spec_id.group, spec_id.sample_id, spec_id.replicate)
@@ -362,7 +523,7 @@ def load_dataset(
 
             row = {
                 "file": file_path.name,
-                "folder": file_path.parent.name,
+                "folder": file_path.parent.parent.name if read_from_subdir else file_path.parent.name,
                 "group": spec_id.group,
                 "sample_id": spec_id.sample_id,
                 "replicate": spec_id.replicate,

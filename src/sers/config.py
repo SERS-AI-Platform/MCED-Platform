@@ -177,6 +177,9 @@ DATA_ROOT: Path = Path(_normalize_path(
 RAW_DATA_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_RAW_DATA_DIR", str(DATA_ROOT / "raw_data"))
 ))
+RAW_DATA_MEDICAL_DIR: Path = Path(_normalize_path(
+    os.environ.get("SERS_RAW_DATA_MEDICAL_DIR", str(DATA_ROOT / "raw_data_medical"))
+))
 SERS_EQUIPMENT_TEST_DATA_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_EQUIPMENT_TEST_DATA_DIR", str(DATA_ROOT / "equipment_test_data"))
 ))
@@ -197,6 +200,30 @@ FIG_DIR: Path = Path(_normalize_path(
 MODEL_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_MODEL_DIR", str(_PROJECT_ROOT / "models"))
 ))
+
+
+def get_figure_dir(category: str, experiment_name: str) -> Path:
+    """Return centralized figure directory. category: training|analysis|weekend"""
+    d = FIG_DIR / category / experiment_name
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def training_dir_to_figure_slug(train_dir: Path) -> str:
+    """Convert a training result path to a compact figure directory name.
+
+    Example: results/training/fixed_grid_7cancer/logistic_regression/v001
+             → fixed_grid_7cancer_logistic_regression_v001
+    """
+    train_dir = Path(train_dir).resolve()
+    results_training = (RESULTS_DIR / "training").resolve()
+    try:
+        rel = train_dir.relative_to(results_training)
+    except ValueError:
+        # Fallback for paths outside results/training/
+        rel = train_dir
+    parts = [p for p in rel.parts if p not in (".", "..")]
+    return "_".join(parts)
 LOG_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_LOG_DIR", str(_PROJECT_ROOT / "logs"))
 ))
@@ -240,6 +267,11 @@ class PreprocessingConfig:
     smooth_poly: int = 3
     baseline_window: int = 101
     use_snv: bool = True
+    fixed_grid: Optional[Dict[str, float]] = None
+    # Wavenumber calibration (urea reference peak alignment)
+    do_calibration: bool = False
+    calibration_reference_wn: float = 1001.4
+    calibration_window: float = 20.0
 
 
 @dataclass(frozen=True)
@@ -276,6 +308,13 @@ class QCConfig:
     fingerprint_region: Tuple[float, float] = (400.0, 2200.0)
     intensity_gate_ratio: float = 0.1
 
+    # v2 two-stage QC (Phase 7, 2026-04-08) — NOR p5 derived
+    per_spectrum_corr_threshold: float = 0.925
+    min_reps_after_qc: int = 4
+    cosmic_isolation: float = 2.0
+    cosmic_height: float = 0.3
+    saturation_plateau: int = 5
+
     def __post_init__(self) -> None:
         """Validate QC configuration values."""
         if self.rsd_threshold < 0:
@@ -302,6 +341,31 @@ class ModelingConfig:
     use_pca: bool = False
     pca_components: int = 10
     random_state: int = 42
+
+
+@dataclass(frozen=True)
+class MedicalConfig:
+    """Medical Raman instrument specific settings.
+
+    Medical 장비 데이터는 BG 미차감 원본 + Background/ 폴더 구조.
+    BG 차감 후 noise가 매우 낮으므로 SG smoothing 불필요.
+    장비간 SERS enhancement 패턴이 상이하여 calibration skip.
+    """
+
+    file_pattern: str = "*.txt"
+    read_from_subdir: str = "Background"
+    exclude_patterns: List[str] = field(
+        default_factory=lambda: ["*_ave.txt", "MultiData.txt", "*Zone.Identifier*"]
+    )
+    expected_reps: int = 6
+    do_smooth: bool = False
+    do_calibration: bool = False
+    # Wavenumber shift to align Medical with Thermo reference frame.
+    # Physical validation: urea peak (literature: 1001.4 cm⁻¹) appears at
+    # ~1027 cm⁻¹ in Medical → +26 cm⁻¹ instrument offset.
+    # Empirical 2nd-deriv correlation search confirms +28 cm⁻¹ (median across groups).
+    # Applied as: shifted_wn = original_wn + wavenumber_shift
+    wavenumber_shift: float = -28.0
 
 
 @dataclass(frozen=True)
@@ -357,8 +421,10 @@ class Config:
     """Main configuration container."""
 
     folder_to_group: Dict[str, str] = field(default_factory=dict)
+    folder_to_group_medical: Dict[str, str] = field(default_factory=dict)
     equipment_folder_to_group: Dict[str, EquipmentEntry] = field(default_factory=dict)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
+    medical: MedicalConfig = field(default_factory=MedicalConfig)
     qc: QCConfig = field(default_factory=QCConfig)
     modeling: ModelingConfig = field(default_factory=ModelingConfig)
     display: DisplayConfig = field(default_factory=DisplayConfig)
@@ -385,21 +451,30 @@ class Config:
         preprocessing_dict = config_dict.get("preprocessing", {})
         qc_dict = _parse_qc_dict(config_dict.get("qc", {}))
         modeling_dict = config_dict.get("modeling", {})
-        folder_mapping = config_dict.get("dataset", {}).get("folder_to_group", {})
-        equipment_raw = config_dict.get("dataset", {}).get(
-            "equipment_folder_to_group", {}
-        )
+        dataset = config_dict.get("dataset", {})
+        folder_mapping = dataset.get("folder_to_group", {})
+        folder_mapping_medical = dataset.get("folder_to_group_medical", {})
+        equipment_raw = dataset.get("equipment_folder_to_group", {})
         equipment_mapping = {k: EquipmentEntry(**v) for k, v in equipment_raw.items()}
+
+        # Medical config
+        medical_raw = dataset.get("medical", {})
+        medical_config = MedicalConfig(**{
+            k: v for k, v in medical_raw.items()
+            if k in MedicalConfig.__dataclass_fields__
+        }) if medical_raw else MedicalConfig()
 
         # Display: merge display config with group metadata
         display_raw = config_dict.get("display", {})
-        group_metadata = config_dict.get("dataset", {}).get("group_metadata", {})
+        group_metadata = dataset.get("group_metadata", {})
         display_config = _parse_display_dict(display_raw, group_metadata)
 
         return cls(
             folder_to_group=folder_mapping,
+            folder_to_group_medical=folder_mapping_medical,
             equipment_folder_to_group=equipment_mapping,
             preprocessing=PreprocessingConfig(**preprocessing_dict),
+            medical=medical_config,
             qc=QCConfig(**qc_dict),
             modeling=ModelingConfig(**modeling_dict),
             display=display_config,

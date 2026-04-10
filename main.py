@@ -11,9 +11,11 @@ This script coordinates the entire preprocessing workflow:
 7. Save results
 
 Usage:
-    python main.py
+    python main.py                    # Thermo (raw_data) — default
+    python main.py --data-source medical  # Medical (raw_data_medical)
 """
 
+import argparse
 import sys
 import logging
 import os
@@ -22,8 +24,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.sers.config import load_config, RAW_DATA_DIR, RESULTS_DIR, FIG_DIR
-from src.sers.io import read_spectrum, parse_filename, find_spectra, make_common_grid
+from src.sers.config import load_config, RAW_DATA_DIR, RAW_DATA_MEDICAL_DIR, RESULTS_DIR, FIG_DIR
+from src.sers.io import (
+    read_spectrum, parse_filename, find_spectra, make_common_grid,
+    load_dataset, filter_spectra,
+)
 
 # Preprocessing
 from src.sers.preprocessing import (
@@ -80,16 +85,16 @@ class ConfigurationError(PipelineError):
 
 
 # ==================== Helper Functions ====================
-def validate_data_directory(data_dir: Path) -> None:
+def validate_data_directory(data_dir: Path, pattern: str = "*.csv") -> None:
     """Validate that data directory exists and contains spectrum files."""
     if not data_dir.exists():
         msg = f"Data directory {data_dir} does not exist."
         logger.error(msg)
         raise DataNotFoundError(msg)
 
-    files = list(find_spectra(data_dir))
+    files = list(find_spectra(data_dir, pattern=pattern))
     if not files:
-        msg = f"No spectrum files found in {data_dir}."
+        msg = f"No spectrum files ({pattern}) found in {data_dir}."
         logger.error(msg)
         raise DataNotFoundError(msg)
 
@@ -162,40 +167,85 @@ def display_data_statistics(meta_df: pd.DataFrame) -> None:
 
 
 # ==================== Main Pipeline ====================
+def parse_args():
+    parser = argparse.ArgumentParser(description="SERS Preprocessing Pipeline")
+    parser.add_argument(
+        "--data-source",
+        choices=["thermo", "medical"],
+        default="thermo",
+        help="Data source: 'thermo' (raw_data, default) or 'medical' (raw_data_medical)",
+    )
+    return parser.parse_args()
+
+
 def main():
     """Main pipeline orchestration."""
+    args = parse_args()
+    is_medical = args.data_source == "medical"
 
     try:
         # ========== Step 1: Load Configuration ==========
         logger.info("\n" + "="*60)
         logger.info("SERS Preprocessing Pipeline Started")
+        logger.info(f"Data source: {args.data_source}")
         logger.info("="*60)
 
         logger.info("\n[Step 1] Loading configuration...")
         config = load_config("config/config.yaml")
         logger.info("Configuration loaded successfully.")
 
-        logger.info(f"Folder mapping: {len(config.folder_to_group)} entries")
-        for folder, group in list(config.folder_to_group.items())[:3]:
+        # Select data source
+        if is_medical:
+            data_dir = Path(RAW_DATA_MEDICAL_DIR)
+            folder_mapping = config.folder_to_group_medical
+            file_pattern = config.medical.file_pattern
+            exclude_patterns = config.medical.exclude_patterns
+            read_subdir = config.medical.read_from_subdir
+            logger.info(f"Medical mode: read_from={read_subdir}/, "
+                        f"SG smooth={config.medical.do_smooth}, calibration={config.medical.do_calibration}")
+        else:
+            data_dir = Path(RAW_DATA_DIR)
+            folder_mapping = config.folder_to_group
+            file_pattern = "*.csv"
+            exclude_patterns = None
+            read_subdir = None
+
+        logger.info(f"Folder mapping: {len(folder_mapping)} entries")
+        for folder, group in list(folder_mapping.items())[:3]:
             logger.info(f"  {folder} -> {group}")
-        if len(config.folder_to_group) > 3:
-            logger.info(f"  ... and {len(config.folder_to_group) - 3} more")
+        if len(folder_mapping) > 3:
+            logger.info(f"  ... and {len(folder_mapping) - 3} more")
 
         # ========== Step 2: Validate and Load Data ==========
         logger.info("\n[Step 2] Validating data directory...")
-        data_dir = Path(RAW_DATA_DIR)
-        validate_data_directory(data_dir)
+        validate_data_directory(data_dir, pattern=file_pattern)
 
-        files = list(find_spectra(data_dir, pattern="*.csv"))
-        logger.info(f"Found {len(files)} spectrum files")
-        for f in files[:3]:
-            logger.info(f"  {f.name}")
-        if len(files) > 3:
-            logger.info(f"  ... and {len(files) - 3} more")
+        # Use load_dataset for medical (supports BG subtraction + filtering)
+        if is_medical:
+            wn_shift = config.medical.wavenumber_shift
+            logger.info(f"\nLoading medical spectra (pattern={file_pattern}, subdir={read_subdir}, shift={wn_shift:+.1f} cm⁻¹)...")
+            dataset = load_dataset(
+                data_dir,
+                folder_to_group=folder_mapping,
+                pattern=file_pattern,
+                exclude_patterns=exclude_patterns,
+                read_from_subdir=read_subdir,
+                wavenumber_shift=wn_shift,
+            )
+            raw_spectra = dataset.spectra
+            meta_df = dataset.metadata
+            logger.info(f"Loaded {len(raw_spectra)} spectra, {len(dataset.failed_files)} failed")
+        else:
+            files = list(find_spectra(data_dir, pattern=file_pattern))
+            logger.info(f"Found {len(files)} spectrum files")
+            for f in files[:3]:
+                logger.info(f"  {f.name}")
+            if len(files) > 3:
+                logger.info(f"  ... and {len(files) - 3} more")
 
-        logger.info(f"\nLoading raw spectra...")
-        raw_spectra, meta_df = load_raw_spectra(files, config.folder_to_group)
-        logger.info(f"Loaded {len(raw_spectra)} spectra successfully")
+            logger.info(f"\nLoading raw spectra...")
+            raw_spectra, meta_df = load_raw_spectra(files, folder_mapping)
+            logger.info(f"Loaded {len(raw_spectra)} spectra successfully")
 
         # Display statistics
         display_data_statistics(meta_df)
@@ -219,9 +269,10 @@ def main():
         group_stats_csv = RESULTS_DIR / "group_statistics.csv"
         group_stats.to_csv(group_stats_csv, index=False)
 
-        # Check data completeness (5 replicates per sample)
+        # Check data completeness
+        expected_reps = config.medical.expected_reps if is_medical else config.qc.expected_reps
         completeness = check_data_completeness(
-            raw_spectra, expected_replicates=config.qc.expected_reps
+            raw_spectra, expected_replicates=expected_reps
         )
         if len(completeness) > 0:
             logger.warning(f"\nFound {len(completeness)} samples with incomplete data:")
@@ -255,10 +306,23 @@ def main():
         common_grid = make_common_grid(x_arrays)
         logger.info(f"Common grid: {len(common_grid)} points from {common_grid[0]:.2f} to {common_grid[-1]:.2f} cm-1")
 
+        # Medical mode: override preprocessing params (no smoothing, no calibration)
+        preprocess_config = config
+        if is_medical:
+            from dataclasses import replace
+            from src.sers.config import PreprocessingConfig
+            medical_prep = replace(
+                config.preprocessing,
+                do_smooth=config.medical.do_smooth,
+                do_calibration=config.medical.do_calibration,
+            )
+            preprocess_config = replace(config, preprocessing=medical_prep)
+            logger.info("  Medical overrides: do_smooth=False, do_calibration=False")
+
         processed_spectra, prep_stats_df, proc_grid = preprocess_spectra(
             raw_spectra,
             common_grid,
-            config
+            preprocess_config
         )
         logger.info(f"Preprocessed {len(processed_spectra)} spectra")
 

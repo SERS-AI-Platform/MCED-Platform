@@ -1,7 +1,7 @@
 """
 SERS Cancer Detection — Training Pipeline (ResNet18-1D)
 
-Two-stage hierarchical: Binary + Cancer Type (7: incl CPAN, SPAN separate)
+Two-stage hierarchical: Binary + Cancer Type (8: incl CPAN, SPAN separate, BLC)
 
 Usage:
     python train.py
@@ -45,6 +45,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import (
     accuracy_score, f1_score, roc_auc_score,
     confusion_matrix, classification_report,
+    average_precision_score,
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
@@ -291,11 +292,19 @@ def apply_class_selection(config, cancer_types=None, non_cancer_groups=None):
     if not selected_non_cancer:
         raise ValueError("At least one non-cancer group must be selected")
 
+    # Expand cancer_groups_raw: include alias members for selected types
+    raw_groups = []
+    for ct in selected_cancer:
+        if ct in config.group_aliases:
+            raw_groups.extend(config.group_aliases[ct])
+        else:
+            raw_groups.append(ct)
+
     return ModelConfig(
         **{
             **config.__dict__,
             "cancer_types": selected_cancer,
-            "cancer_groups_raw": selected_cancer,
+            "cancer_groups_raw": tuple(raw_groups),
             "non_cancer_groups": selected_non_cancer,
         }
     )
@@ -313,6 +322,22 @@ def resolve_aliases(df, config):
     else:
         logger.info("  No aliases (CPAN/SPAN kept separate)")
     return df
+
+
+def apply_patient_exclusions(df, exclude_csv):
+    """Drop specific patients listed in an exclusion CSV.
+
+    The CSV must have 'group' and 'sample_id' columns matching the spectral data.
+    """
+    excl = pd.read_csv(exclude_csv)
+    excl_keys = set(zip(excl["group"].astype(str), excl["sample_id"].astype(str)))
+    mask = df.apply(
+        lambda r: (str(r["group"]), str(r["sample_id"])) in excl_keys, axis=1
+    )
+    n_patients = len(set(zip(df[mask]["group"], df[mask]["sample_id"])))
+    n_spectra = mask.sum()
+    logger.info(f"  Excluded {n_patients} patients ({n_spectra} spectra) from {exclude_csv}")
+    return df[~mask].reset_index(drop=True)
 
 
 def resolve_version_name(model_root: Path, explicit_version: str | None = None) -> str:
@@ -523,6 +548,7 @@ def evaluate(model, loader, criterion, device, runtime):
     emb = np.concatenate(all_emb)
 
     auc_s1 = roc_auc_score(bt, bp) if len(np.unique(bt)) > 1 else float("nan")
+    pr_auc_s1 = average_precision_score(bt, bp) if len(np.unique(bt)) > 1 else float("nan")
     pred_s1 = (bp > 0.5).astype(int)
     acc_s1 = accuracy_score(bt, pred_s1)
 
@@ -530,6 +556,7 @@ def evaluate(model, loader, criterion, device, runtime):
     auc_s2 = float("nan")
     acc_s2 = float("nan")
     f1_macro_s2 = float("nan")
+    pr_auc_s2 = float("nan")
     if cm.sum() > 0 and len(np.unique(ct[cm])) > 1:
         cp = torch.softmax(torch.tensor(cl[cm]), dim=-1).numpy()
         cpred = cp.argmax(axis=1)
@@ -539,11 +566,21 @@ def evaluate(model, loader, criterion, device, runtime):
             auc_s2 = roc_auc_score(ct[cm], cp, multi_class="ovr", average="macro")
         except ValueError:
             pass
+        try:
+            per_class_ap = []
+            for cls_idx in np.unique(ct[cm]):
+                cls_bg = (ct[cm] == cls_idx).astype(int)
+                per_class_ap.append(average_precision_score(cls_bg, cp[:, int(cls_idx)]))
+            pr_auc_s2 = float(np.mean(per_class_ap))
+        except (ValueError, IndexError):
+            pass
 
     return {
         "loss": total / max(n, 1),
         "auc_s1": auc_s1,
+        "pr_auc_s1": pr_auc_s1,
         "auc_s2": auc_s2,
+        "pr_auc_s2": pr_auc_s2,
         "acc_s1": acc_s1,
         "acc_s2": acc_s2,
         "f1_macro_s2": f1_macro_s2,
@@ -687,6 +724,7 @@ def _compute_overall_metrics(
 
     overall = {
         "val_s1_auc": float(roc_auc_score(bt_v, bp_v)),
+        "val_s1_pr_auc": float(average_precision_score(bt_v, bp_v)),
         "val_s1_accuracy": float(accuracy_score(bt_v, bpred)),
         "val_s1_sensitivity": float(tp / (tp + fn)) if (tp + fn) > 0 else 0,
         "val_s1_specificity": float(tn / (tn + fp)) if (tn + fp) > 0 else 0,
@@ -707,11 +745,20 @@ def _compute_overall_metrics(
             )
         except ValueError:
             overall["val_s2_auc"] = float("nan")
+        try:
+            per_class_ap = []
+            for cls_idx in np.unique(ct_v[cancer_mask]):
+                cls_bg = (ct_v[cancer_mask] == cls_idx).astype(int)
+                per_class_ap.append(average_precision_score(cls_bg, cancer_prob[:, int(cls_idx)]))
+            overall["val_s2_pr_auc"] = float(np.mean(per_class_ap))
+        except (ValueError, IndexError):
+            overall["val_s2_pr_auc"] = float("nan")
 
     if train_last:
         tbp = train_last["binary_prob"]
         tbt = train_last["binary_true"]
         overall["train_s1_auc"] = float(roc_auc_score(tbt, tbp))
+        overall["train_s1_pr_auc"] = float(average_precision_score(tbt, tbp))
         train_cancer_mask = train_last["cancer_true"] >= 0
         if train_cancer_mask.sum() > 0:
             train_prob = torch.softmax(
@@ -738,6 +785,14 @@ def _compute_overall_metrics(
                 )
             except ValueError:
                 overall["train_s2_auc"] = float("nan")
+            try:
+                per_class_ap = []
+                for cls_idx in np.unique(train_last["cancer_true"][train_cancer_mask]):
+                    cls_bg = (train_last["cancer_true"][train_cancer_mask] == cls_idx).astype(int)
+                    per_class_ap.append(average_precision_score(cls_bg, train_prob[:, int(cls_idx)]))
+                overall["train_s2_pr_auc"] = float(np.mean(per_class_ap))
+            except (ValueError, IndexError):
+                overall["train_s2_pr_auc"] = float("nan")
 
     return overall
 
@@ -1276,6 +1331,7 @@ def run_torch_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
 
     overall = {
         "val_s1_auc": float(roc_auc_score(bt_v, bp_v)),
+        "val_s1_pr_auc": float(average_precision_score(bt_v, bp_v)),
         "val_s1_accuracy": float(accuracy_score(bt_v, bpred)),
         "val_s1_sensitivity": float(tp / (tp + fn)) if (tp + fn) > 0 else 0,
         "val_s1_specificity": float(tn / (tn + fp)) if (tn + fp) > 0 else 0,
@@ -1292,10 +1348,19 @@ def run_torch_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
         except ValueError:
             overall["val_s2_auc"] = float("nan")
         overall["val_s2_f1_macro"] = float(f1_score(ct_v[cm], cpred, average="macro", zero_division=0))
+        try:
+            per_class_ap = []
+            for cls_idx in np.unique(ct_v[cm]):
+                cls_bg = (ct_v[cm] == cls_idx).astype(int)
+                per_class_ap.append(average_precision_score(cls_bg, cp[:, int(cls_idx)]))
+            overall["val_s2_pr_auc"] = float(np.mean(per_class_ap))
+        except (ValueError, IndexError):
+            overall["val_s2_pr_auc"] = float("nan")
 
     if train_last:
         tbp, tbt = train_last["binary_prob"], train_last["binary_true"]
         overall["train_s1_auc"] = float(roc_auc_score(tbt, tbp))
+        overall["train_s1_pr_auc"] = float(average_precision_score(tbt, tbp))
         tcm = train_last["cancer_true"] >= 0
         if tcm.sum() > 0:
             tcp = torch.softmax(torch.tensor(train_last["cancer_logits"][tcm]), dim=-1).numpy()
@@ -1303,6 +1368,14 @@ def run_torch_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
                 overall["train_s2_auc"] = float(roc_auc_score(train_last["cancer_true"][tcm], tcp, multi_class="ovr", average="macro"))
             except ValueError:
                 overall["train_s2_auc"] = float("nan")
+            try:
+                per_class_ap = []
+                for cls_idx in np.unique(train_last["cancer_true"][tcm]):
+                    cls_bg = (train_last["cancer_true"][tcm] == cls_idx).astype(int)
+                    per_class_ap.append(average_precision_score(cls_bg, tcp[:, int(cls_idx)]))
+                overall["train_s2_pr_auc"] = float(np.mean(per_class_ap))
+            except (ValueError, IndexError):
+                overall["train_s2_pr_auc"] = float("nan")
 
     logger.info("\n" + "=" * 64)
     logger.info("  CV Results (ResNet18-1D)")
@@ -1454,7 +1527,7 @@ def run_xgboost_cv(X, binary_labels, cancer_type_labels, sample_ids, groups_arr,
 def log_mlflow(results, config, args, model_name, model_display_name):
     try:
         import mlflow
-        mlflow.set_tracking_uri((PROJECT_ROOT / "mlruns").resolve().as_uri())
+        mlflow.set_tracking_uri(f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}")
         mlflow.set_experiment("sers-cancer-detection")
         with mlflow.start_run(run_name=f"{model_name}_{args.aggregate}_{args.n_splits}fold"):
             mlflow.log_params({
@@ -1630,6 +1703,13 @@ def write_experiment_logs(out_dir, model_name, args, results, summary, extra=Non
         "cancer_types": summary["cancer_types"],
         "non_cancer_groups": summary["non_cancer_groups"],
         "metrics": results["overall"],
+        "metadata": {
+            "hypothesis": getattr(args, "hypothesis", None),
+            "variable": getattr(args, "variable", None),
+            "baseline": getattr(args, "baseline", None),
+            "tags": getattr(args, "tags", None),
+            "phase": getattr(args, "phase", None),
+        },
     }
     if extra:
         record.update(extra)
@@ -1641,6 +1721,45 @@ def write_experiment_logs(out_dir, model_name, args, results, summary, extra=Non
     run_log_dir.mkdir(parents=True, exist_ok=True)
     with open(run_log_dir / "experiment_runs.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(record, default=str) + "\n")
+
+
+def update_experiment_registry(experiment_name, args, cancer_types, non_cancer_groups,
+                               n_samples, model_names, metrics_summary, artifacts_dir):
+    """Append or update experiment entry in logs/experiment_registry.json."""
+    registry_path = PROJECT_ROOT / "logs" / "experiment_registry.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    if registry_path.exists():
+        with open(registry_path, encoding="utf-8") as f:
+            registry = json.load(f)
+    else:
+        registry = {"experiments": []}
+
+    entry = {
+        "name": experiment_name,
+        "phase": getattr(args, "phase", None),
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "hypothesis": getattr(args, "hypothesis", None),
+        "variable": getattr(args, "variable", None),
+        "baseline": getattr(args, "baseline", None),
+        "cancer_types": list(cancer_types),
+        "non_cancer_groups": list(non_cancer_groups),
+        "aggregation": args.aggregate,
+        "models": model_names,
+        "n_samples": n_samples,
+        "tags": getattr(args, "tags", None),
+        "result_summary": metrics_summary,
+        "artifacts_dir": str(artifacts_dir),
+    }
+
+    # Update existing or append
+    existing_idx = next((i for i, e in enumerate(registry["experiments"]) if e["name"] == experiment_name), None)
+    if existing_idx is not None:
+        registry["experiments"][existing_idx] = entry
+    else:
+        registry["experiments"].append(entry)
+
+    with open(registry_path, "w", encoding="utf-8") as f:
+        json.dump(registry, f, indent=2, ensure_ascii=False, default=str)
 
 
 def save_experiment_manifest(experiment_dir, experiment_name, args, model_rows, started_at, elapsed):
@@ -1745,6 +1864,13 @@ def build_training_summary(results, config, args, model_name, model_display_name
             "selected_non_cancer_groups": list(config.non_cancer_groups),
         },
         "model_params": model_params or build_model_params_summary(model_name, config, args),
+        "metadata": {
+            "hypothesis": getattr(args, "hypothesis", None),
+            "variable": getattr(args, "variable", None),
+            "baseline": getattr(args, "baseline", None),
+            "tags": getattr(args, "tags", None),
+            "phase": getattr(args, "phase", None),
+        },
     }
 
 
@@ -1762,10 +1888,14 @@ def save_fold_metrics(results, out_dir):
             "epochs": fr["epochs"],
             "best_loss": fr["best_val_loss"],
             "train_auc_s1": tm.get("auc_s1", np.nan),
+            "train_pr_auc_s1": tm.get("pr_auc_s1", np.nan),
             "train_auc_s2": tm.get("auc_s2", np.nan),
+            "train_pr_auc_s2": tm.get("pr_auc_s2", np.nan),
             "train_f1_macro_s2": tm.get("f1_macro_s2", np.nan),
             "val_auc_s1": vm.get("auc_s1", np.nan),
+            "val_pr_auc_s1": vm.get("pr_auc_s1", np.nan),
             "val_auc_s2": vm.get("auc_s2", np.nan),
+            "val_pr_auc_s2": vm.get("pr_auc_s2", np.nan),
             "val_f1_macro_s2": vm.get("f1_macro_s2", np.nan),
         })
     pd.DataFrame(rows).to_csv(out_dir / "fold_metrics.csv", index=False)
@@ -1797,8 +1927,12 @@ def save_run_artifacts(results, summary, config, args, out_dir, df_valid, binary
     save_fold_metrics(results, out_dir)
     save_epoch_histories(results, out_dir)
     save_classification_reports(results, binary_labels, cancer_type_labels, config, out_dir)
-    save_training_visualizations(results, out_dir)
-    save_stage1_difference_artifacts(df_valid, out_dir)
+    # Save figures to centralized directory
+    from src.sers.config import FIG_DIR, training_dir_to_figure_slug
+    fig_dir = FIG_DIR / "training" / training_dir_to_figure_slug(out_dir)
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    save_training_visualizations(results, fig_dir)
+    save_stage1_difference_artifacts(df_valid, fig_dir)
     write_experiment_logs(
         out_dir,
         summary["model_name"],
@@ -1930,6 +2064,19 @@ def parse_args():
     p.add_argument("--prefetch-factor", type=int, default=2)
     p.add_argument("--no-amp", action="store_true")
     p.add_argument("--no-mlflow", action="store_true")
+    # ── Experiment metadata ──
+    p.add_argument("--hypothesis", default=None,
+                   help="What this experiment tests, e.g. 'Adding BRE maintains detection AUC'")
+    p.add_argument("--variable", default=None,
+                   help="Independent variable, e.g. 'cancer_set', 'aggregation', 'model_type'")
+    p.add_argument("--baseline", default=None,
+                   help="Reference experiment to compare against, e.g. 'V-6cancer'")
+    p.add_argument("--tags", nargs="+", default=None,
+                   help="Searchable tags, e.g. 'ablation', 'production', 'exploratory'")
+    p.add_argument("--phase", default=None,
+                   help="Phase letter for milestone experiments, e.g. 'U'")
+    p.add_argument("--exclude-patients", default=None,
+                   help="CSV file with (group, sample_id) columns to exclude from training")
     return p.parse_args()
 
 
@@ -1990,6 +2137,10 @@ def main():
 
     logger.info("\n[Step 2] Resolving aliases...")
     df = resolve_aliases(df, mc)
+
+    if args.exclude_patients:
+        logger.info("\n[Step 2b] Applying patient exclusions...")
+        df = apply_patient_exclusions(df, args.exclude_patients)
 
     logger.info("\n[Step 3] Aggregating replicates...")
     df_agg = aggregate_replicates(df, feat_cols, args.aggregate)
@@ -2064,6 +2215,19 @@ def main():
 
     elapsed = datetime.now() - t0
     save_experiment_manifest(experiment_dir, experiment_name, args, benchmark_rows, t0.isoformat(), elapsed)
+
+    # Update experiment registry
+    metrics_summary = ""
+    if benchmark_rows:
+        best = benchmark_rows[0]
+        metrics_summary = f"Det AUC {best.get('val_s1_auc', 'N/A')}, Id F1 {best.get('val_s2_f1_macro', 'N/A')}"
+    update_experiment_registry(
+        experiment_name=experiment_name, args=args,
+        cancer_types=mc.cancer_types, non_cancer_groups=mc.non_cancer_groups,
+        n_samples=len(X), model_names=model_names,
+        metrics_summary=metrics_summary, artifacts_dir=experiment_dir,
+    )
+
     logger.info(f"\n{'=' * 64}")
     logger.info(f"  Training complete! ({elapsed})")
     logger.info(f"  Output: {experiment_dir}/")
@@ -2154,7 +2318,10 @@ def main():
         with open(out_dir / "report_stage2.txt", "w") as f:
             f.write(classification_report(ct_v[cm], cpred, labels=present, target_names=names))
 
-    save_training_visualizations(results, out_dir)
+    from src.sers.config import FIG_DIR, training_dir_to_figure_slug
+    fig_dir = FIG_DIR / "training" / training_dir_to_figure_slug(out_dir)
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    save_training_visualizations(results, fig_dir)
 
     if not args.no_mlflow:
         log_mlflow(results, mc, args)

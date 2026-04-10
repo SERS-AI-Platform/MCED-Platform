@@ -37,6 +37,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
+from sers.logging_config import setup_logging
+setup_logging()
+
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
@@ -827,6 +830,213 @@ def run_qc_pipeline(
 
     return gate_df, qc_stats, failures, group_summary
 
+# =============================================================================
+# v2 — Two-Stage QC (2026-04-08)
+# =============================================================================
+# Stage 1 (raw):
+#     - Intensity gate (existing)
+#     - Cosmic ray spike detection
+#     - Detector saturation detection
+# Stage 2 (post-preprocessing):
+#     - Per-spectrum correlation-to-mean filter (per-replicate drop)
+#     - Min replicates per subject enforcement
+#
+# Compared to v1 (calculate_replicate_qc → identify_qc_failures), v2 drops
+# individual bad replicates instead of dropping entire subjects, which avoids
+# the catastrophic ~67% loss observed for BLC under v1.
+
+DEFAULT_COSMIC_PROMINENCE = 15.0  # (legacy) unused — now uses isolation criteria
+DEFAULT_SAT_PLATEAU = 5
+# v2 thresholds derived from NOR+YNOR replicate corr-to-mean distribution
+# (Phase 7, 2026-04-08): p5 = 0.925 → per_spec_corr; min_reps=4 keeps NOR ≥95%
+DEFAULT_PER_SPEC_CORR = 0.925
+DEFAULT_MIN_REPS_AFTER_QC = 4
+
+
+def detect_cosmic_ray(
+    y: np.ndarray,
+    isolation_ratio: float = 2.0,
+    height_ratio: float = 0.3,
+) -> bool:
+    """Return True if the global max appears as an isolated single-pixel spike.
+
+    A cosmic ray on a CCD is a *single* pixel that is dramatically higher
+    than its immediate neighbors AND constitutes a large fraction of the
+    spectrum's dynamic range.  Real Raman peaks have shoulders — even 2-px
+    peaks have at least one supporting neighbor.
+
+    Criteria (BOTH must hold):
+        (peak - neighbor_avg) / max(neighbor_avg, ε)  > isolation_ratio
+        (peak - neighbor_avg) / (max(y) - min(y))    > height_ratio
+
+    Defaults are intentionally conservative — modern Raman CCDs with
+    multi-replicate averaging rarely produce cosmic rays, and false positives
+    here would discard genuine sharp metabolite peaks.
+    """
+    if len(y) < 5:
+        return False
+    yf = y.astype(float)
+    imax = int(np.argmax(yf))
+    if imax == 0 or imax == len(yf) - 1:
+        return False
+    peak = yf[imax]
+    neighbor_avg = 0.5 * (yf[imax - 1] + yf[imax + 1])
+    spectrum_range = float(np.max(yf) - np.min(yf))
+    if spectrum_range <= 0 or neighbor_avg <= 0:
+        return False
+    isolation = (peak - neighbor_avg) / max(neighbor_avg, 1e-9)
+    height_frac = (peak - neighbor_avg) / spectrum_range
+    return isolation > isolation_ratio and height_frac > height_ratio
+
+
+def detect_saturation(y: np.ndarray, plateau_min: int = DEFAULT_SAT_PLATEAU) -> bool:
+    """Return True if a flat plateau at maximum intensity suggests saturation.
+
+    Counts the longest consecutive run of points within 0.1% of max(y);
+    if >= ``plateau_min``, the detector is likely clipping.
+    """
+    if len(y) < plateau_min:
+        return False
+    ymax = float(np.max(y))
+    if ymax <= 0:
+        return False
+    tol = max(abs(ymax) * 1e-3, 1e-9)
+    near_max = np.abs(y - ymax) < tol
+    longest = current = 0
+    for v in near_max:
+        if v:
+            current += 1
+            if current > longest:
+                longest = current
+        else:
+            current = 0
+    return longest >= plateau_min
+
+
+def apply_stage1_qc(
+    raw_spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    fingerprint_region: Tuple[float, float] = FINGERPRINT_REGION,
+    intensity_gate_ratio: float = DEFAULT_INTENSITY_GATE_RATIO,
+    cosmic_isolation: float = 2.0,
+    cosmic_height: float = 0.3,
+    sat_plateau: int = DEFAULT_SAT_PLATEAU,
+) -> Tuple[set, pd.DataFrame]:
+    """Stage 1 QC on raw spectra: intensity gate + cosmic + saturation.
+
+    Returns (passed_keys, drop_log_df).  drop_log_df has one row per dropped
+    spectrum with a ``reason`` column.
+    """
+    gate_df = calculate_intensity_gate(
+        raw_spectra, fingerprint_region, intensity_gate_ratio
+    )
+    gate_pass = {
+        (r["group"], r["sample_id"], r["replicate"])
+        for _, r in gate_df.iterrows() if r["gate_pass"]
+    }
+
+    drops = []
+    passed = set()
+    for key, (x, y) in raw_spectra.items():
+        reasons = []
+        if key not in gate_pass:
+            reasons.append("intensity_gate")
+        if detect_cosmic_ray(y, cosmic_isolation, cosmic_height):
+            reasons.append("cosmic_ray")
+        if detect_saturation(y, sat_plateau):
+            reasons.append("saturation")
+        if reasons:
+            g, s, r = key
+            drops.append({
+                "group": g, "sample_id": s, "replicate": r,
+                "reason": ";".join(reasons),
+            })
+        else:
+            passed.add(key)
+
+    drop_df = pd.DataFrame(drops)
+    logger.info(
+        f"Stage 1 QC: {len(passed)}/{len(raw_spectra)} spectra passed "
+        f"({len(drop_df)} dropped)"
+    )
+    return passed, drop_df
+
+
+def apply_per_spectrum_corr_qc(
+    processed_spectra: Dict[Tuple, np.ndarray],
+    corr_threshold: float = DEFAULT_PER_SPEC_CORR,
+) -> Tuple[set, pd.DataFrame]:
+    """Stage 2a — drop individual replicates whose corr-to-mean-of-others < threshold.
+
+    Unlike v1 (which fails the whole subject on RSD/corr breach), this only
+    drops the offending replicate, leaving the rest of the subject intact.
+
+    ``processed_spectra`` should already be on a common grid (so vstack works
+    directly).  If a subject has only 1 replicate it is passed through.
+    """
+    # Group by (group, sample_id)
+    groups: Dict[Tuple[str, str], List[Tuple[str, np.ndarray]]] = {}
+    for (g, s, r), y in processed_spectra.items():
+        groups.setdefault((g, s), []).append((r, y))
+
+    drops = []
+    passed: set = set()
+    for (g, s), reps in groups.items():
+        if len(reps) < 2:
+            for r, _ in reps:
+                passed.add((g, s, r))
+            continue
+        names = [r for r, _ in reps]
+        mat = np.vstack([y for _, y in reps])
+        for i, r in enumerate(names):
+            mask = np.arange(len(reps)) != i
+            mean_other = mat[mask].mean(axis=0)
+            with np.errstate(invalid="ignore"):
+                corr = float(np.corrcoef(mat[i], mean_other)[0, 1])
+            if not np.isfinite(corr) or corr < corr_threshold:
+                drops.append({
+                    "group": g, "sample_id": s, "replicate": r,
+                    "corr_to_others": corr if np.isfinite(corr) else None,
+                    "reason": "low_corr_to_mean",
+                })
+            else:
+                passed.add((g, s, r))
+
+    drop_df = pd.DataFrame(drops)
+    logger.info(
+        f"Stage 2a (per-spec corr): {len(passed)}/{len(processed_spectra)} "
+        f"replicates kept ({len(drop_df)} dropped)"
+    )
+    return passed, drop_df
+
+
+def enforce_min_replicates(
+    passed_keys: set,
+    min_n: int = DEFAULT_MIN_REPS_AFTER_QC,
+) -> Tuple[set, pd.DataFrame]:
+    """Stage 2b — drop entire subjects whose surviving replicate count < min_n.
+
+    Returns (final_keys, dropped_subjects_df).
+    """
+    counts: Dict[Tuple[str, str], int] = {}
+    for g, s, _ in passed_keys:
+        counts[(g, s)] = counts.get((g, s), 0) + 1
+
+    dropped_subjects = [
+        {"group": g, "sample_id": s, "n_reps_remaining": n, "reason": "min_reps"}
+        for (g, s), n in counts.items() if n < min_n
+    ]
+    bad_subj = {(d["group"], d["sample_id"]) for d in dropped_subjects}
+    final = {k for k in passed_keys if (k[0], k[1]) not in bad_subj}
+
+    df = pd.DataFrame(dropped_subjects)
+    logger.info(
+        f"Stage 2b (min_reps={min_n}): "
+        f"{len(final)}/{len(passed_keys)} replicates kept "
+        f"({len(df)} subjects dropped)"
+    )
+    return final, df
+
+
 __all__ = [
     "calculate_intensity_gate",
     "filter_by_intensity_gate",
@@ -839,4 +1049,10 @@ __all__ = [
     "select_medoid_spectra",
     "detect_outliers",
     "run_qc_pipeline",
+    # v2 — two-stage QC
+    "detect_cosmic_ray",
+    "detect_saturation",
+    "apply_stage1_qc",
+    "apply_per_spectrum_corr_qc",
+    "enforce_min_replicates",
 ]

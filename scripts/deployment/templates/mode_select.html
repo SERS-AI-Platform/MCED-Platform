@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block page_title %}{{ s.mode_title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-title">{{ s.mode_title }}</h2>
+    <form method="POST" action="/mode">
+        <div class="mode-cards">
+            {% for mode_key, mode_info in modes.items() %}
+            <label class="mode-card" id="card-{{ mode_key }}" onclick="selectMode('{{ mode_key }}')">
+                <input type="radio" name="mode" value="{{ mode_key }}" style="display:none"
+                       {% if mode_key == current_mode %}checked{% endif %}>
+                <div class="mode-card-title">
+                    {% if mode_key == 'screening' %}{{ s.mode_screening }}
+                    {% elif mode_key == 'balanced' %}{{ s.mode_balanced }}
+                    {% elif mode_key == 'confirmatory' %}{{ s.mode_confirmatory }}
+                    {% endif %}
+                </div>
+                <div class="mode-card-desc">
+                    {% if mode_key == 'screening' %}{{ s.mode_screening_desc }}
+                    {% elif mode_key == 'balanced' %}{{ s.mode_balanced_desc }}
+                    {% elif mode_key == 'confirmatory' %}{{ s.mode_confirmatory_desc }}
+                    {% endif %}
+                </div>
+                <div class="mode-card-stats">
+                    <div>
+                        <span class="mode-stat-label">{{ s.sensitivity }}</span>
+                        <span class="mode-stat-value">{{ "%.1f"|format(mode_info.cv_sensitivity * 100) }}%</span>
+                    </div>
+                    <div>
+                        <span class="mode-stat-label">{{ s.specificity }}</span>
+                        <span class="mode-stat-value">{{ "%.1f"|format(mode_info.cv_specificity * 100) }}%</span>
+                    </div>
+                    <div>
+                        <span class="mode-stat-label">Threshold</span>
+                        <span class="mode-stat-value">{{ "%.4f"|format(mode_info.threshold) }}</span>
+                    </div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+        <div style="margin-top: 24px;">
+            <button type="submit" class="btn btn-primary" id="modeSubmit" disabled>{{ s.select }}</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function selectMode(key) {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('card-' + key).classList.add('selected');
+    document.getElementById('modeSubmit').disabled = false;
+}
+// Restore selection on page load
+const checked = document.querySelector('input[name="mode"]:checked');
+if (checked) selectMode(checked.value);
+</script>
+{% endblock %}

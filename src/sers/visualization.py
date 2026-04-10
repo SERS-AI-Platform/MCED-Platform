@@ -17,7 +17,7 @@ from scipy.signal import find_peaks
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CANCER_GROUPS = ("PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN")
+DEFAULT_CANCER_GROUPS = ("PRO", "OVA", "LUN", "CRC", "PAN", "BLC", 'BRE')
 PAPER_TITLE_SIZE = 18
 PAPER_LABEL_SIZE = 15
 PAPER_TICK_SIZE = 12
@@ -62,11 +62,11 @@ def _apply_publication_style(
         axis="both",
         which="major",
         labelsize=PAPER_TICK_SIZE,
-        width=1.1,
+        width=1.5,
         length=5,
     )
     for spine in ax.spines.values():
-        spine.set_linewidth(1.1)
+        spine.set_linewidth(1.5)
         spine.set_alpha(0.85)
 
 
@@ -85,7 +85,7 @@ def _annotate_peak_labels(
     color: str = "#111111",
 ) -> None:
     for idx, row in enumerate(peak_df.itertuples(index=False)):
-        y_offset = 12 + (idx % 2) * 12
+        y_offset = 16 + (idx % 2) * 12
         ax.annotate(
             f"{row.wavenumber:.0f}",
             xy=(row.wavenumber, getattr(row, value_col)),
@@ -156,7 +156,7 @@ def visualize_raw_spectra(
             output_path = output_dir / f"raw_spectra_allgroups_rep{rep}.png"
 
         ax.set_title(title, fontsize=16, fontweight='bold')
-        ax.set_xlabel("Raman Shift (cm⁻¹)", fontsize=14)
+        ax.set_xlabel("Wavenumber (cm⁻¹)", fontsize=14)
         ax.set_ylabel("Intensity (a.u.)", fontsize=14)
         ncol = 5 if len(spectra_list) ==5 else 1
         ax.legend(loc='upper right', fontsize=12)
@@ -218,7 +218,7 @@ def visualize_preprocessed_spectra_by_replicate(
             filename = f"preprocessed_spectra_all_replicate_{rep}.png"
         
         ax.set_title(title, fontsize=16, fontweight='bold')
-        ax.set_xlabel("Raman Shift (cm⁻¹)", fontsize=14)
+        ax.set_xlabel("Wavenumber (cm⁻¹)", fontsize=14)
         ax.set_ylabel("Intensity (a.u.)", fontsize=14)
         
         ncol = 3 if len(spectra_list) > 10 else 1

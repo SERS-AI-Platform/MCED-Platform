@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-modal Integration Performance</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .figure-container {
+    width: 900px;
+    background: #ffffff;
+    padding: 48px 56px;
+    border-radius: 2px;
+  }
+
+  .figure-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+
+  .figure-subtitle {
+    font-size: 12.5px;
+    font-weight: 400;
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 44px;
+  }
+
+  .staircase-wrapper {
+    position: relative;
+    height: 380px;
+    margin: 0 auto;
+    width: 780px;
+  }
+
+  /* Y-axis */
+  .y-axis {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 40px;
+    width: 50px;
+  }
+
+  .y-axis-label {
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: rotate(-90deg) translateX(50%);
+    transform-origin: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .y-tick {
+    position: absolute;
+    right: 0;
+    font-size: 10px;
+    color: #9ca3af;
+    font-weight: 400;
+    transform: translateY(-50%);
+  }
+
+  .y-gridline {
+    position: absolute;
+    left: 50px;
+    right: 0;
+    height: 1px;
+    background: #f0f0f0;
+  }
+
+  /* Steps */
+  .chart-area {
+    position: absolute;
+    left: 60px;
+    right: 20px;
+    top: 0;
+    bottom: 40px;
+  }
+
+  .step-group {
+    position: absolute;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .step-bar {
+    width: 140px;
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .step-1 .step-bar {
+    background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+    box-shadow: 0 -2px 12px rgba(59, 130, 246, 0.2);
+  }
+
+  .step-2 .step-bar {
+    background: linear-gradient(180deg, #818cf8 0%, #6366f1 100%);
+    box-shadow: 0 -2px 12px rgba(99, 102, 241, 0.2);
+  }
+
+  .step-3 .step-bar {
+    background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
+    box-shadow: 0 -2px 12px rgba(124, 58, 237, 0.25);
+  }
+
+  .step-3 .step-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 6px 6px 0 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      rgba(255,255,255,0.07) 4px,
+      rgba(255,255,255,0.07) 8px
+    );
+  }
+
+  .auc-value {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+
+  .auc-delta {
+    position: absolute;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #059669;
+    white-space: nowrap;
+    background: #ecfdf5;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #a7f3d0;
+  }
+
+  .projected-badge {
+    position: absolute;
+    top: -52px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 600;
+    color: #7c3aed;
+    white-space: nowrap;
+    background: #f5f3ff;
+    padding: 2px 10px;
+    border-radius: 10px;
+    border: 1px solid #ddd6fe;
+    letter-spacing: 0.3px;
+  }
+
+  .step-label-area {
+    position: absolute;
+    bottom: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 160px;
+  }
+
+  .step-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+  }
+
+  .step-detail {
+    font-size: 10.5px;
+    color: #6b7280;
+    line-height: 1.45;
+  }
+
+  .step-layer-tag {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 500;
+    padding: 1px 7px;
+    border-radius: 8px;
+    margin-top: 4px;
+  }
+
+  .tag-metabolomic {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  .tag-phenotypic {
+    background: #e0e7ff;
+    color: #4338ca;
+  }
+
+  .tag-genomic {
+    background: #ede9fe;
+    color: #6d28d9;
+  }
+
+  /* Arrows between steps */
+  .arrow-connector {
+    position: absolute;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .arrow-connector svg {
+    overflow: visible;
+  }
+
+  /* Bottom axis label */
+  .x-axis-label {
+    position: absolute;
+    bottom: -115px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    letter-spacing: 0.5px;
+  }
+
+  /* Reference note */
+  .reference-note {
+    margin-top: 100px;
+    padding: 14px 20px;
+    background: #f9fafb;
+    border-left: 3px solid #d1d5db;
+    border-radius: 0 6px 6px 0;
+    font-size: 10.5px;
+    color: #6b7280;
+    line-height: 1.7;
+  }
+
+  .reference-note strong {
+    color: #374151;
+    font-weight: 600;
+  }
+
+  .figure-number {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 400;
+  }
+
+  /* Arrow animation hint */
+  .gain-arrow {
+    position: absolute;
+    z-index: 10;
+  }
+
+  .gain-arrow-path {
+    fill: none;
+    stroke: #059669;
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+  }
+
+  .gain-arrow-head {
+    fill: #059669;
+  }
+</style>
+</head>
+<body>
+
+<div class="figure-container">
+  <div class="figure-title">Multi-modal Biomarker Integration Strategy</div>
+  <div class="figure-subtitle">Stepwise performance gain by integrating orthogonal biological layers (7-cancer, n=1,628)</div>
+
+  <div class="staircase-wrapper">
+    <!-- Y-axis -->
+    <div class="y-axis">
+      <div class="y-axis-label">Detection AUC</div>
+    </div>
+
+    <!-- Gridlines & ticks — chart area maps 0.90 to 1.00 -->
+    <div class="y-gridline" style="top: 0%;">
+      <span class="y-tick" style="position:absolute; left:-50px;">1.00</span>
+    </div>
+    <div class="y-gridline" style="top: 20%;">
+      <span class="y-tick" style="position:absolute; left:-50px;">0.98</span>
+    </div>
+    <div class="y-gridline" style="top: 40%;">
+      <span class="y-tick" style="position:absolute; left:-50px;">0.96</span>
+    </div>
+    <div class="y-gridline" style="top: 60%;">
+      <span class="y-tick" style="position:absolute; left:-50px;">0.94</span>
+    </div>
+    <div class="y-gridline" style="top: 80%;">
+      <span class="y-tick" style="position:absolute; left:-50px;">0.92</span>
+    </div>
+    <div class="y-gridline" style="top: 100%;">
+      <span class="y-tick" style="position:absolute; left:-50px;">0.90</span>
+    </div>
+
+    <!-- Chart area -->
+    <div class="chart-area">
+
+      <!-- Step 1: SERS Only — AUC 0.929 → height = (0.929-0.90)/0.10 = 29% of 340px = ~99px, bottom offset -->
+      <div class="step-group step-1" style="left: 50px;">
+        <div class="step-bar" style="height: 98px; width: 140px; position: relative;">
+          <div class="auc-value">0.929</div>
+        </div>
+        <div class="step-label-area">
+          <div class="step-name">SERS Alone</div>
+          <div class="step-detail">Urine SERS spectrum<br>metabolic fingerprint</div>
+          <span class="step-layer-tag tag-metabolomic">Metabolomic</span>
+        </div>
+      </div>
+
+      <!-- Step 2: + Clinical — AUC 0.956 → height = 56% of 340 = ~190px -->
+      <div class="step-group step-2" style="left: 260px;">
+        <div class="step-bar" style="height: 190px; width: 140px; position: relative;">
+          <div class="auc-delta">+0.027</div>
+          <div class="auc-value">0.956</div>
+        </div>
+        <div class="step-label-area">
+          <div class="step-name">+ Clinical Info</div>
+          <div class="step-detail">Age, Sex, BMI<br>phenotypic context</div>
+          <span class="step-layer-tag tag-phenotypic">Phenotypic</span>
+        </div>
+      </div>
+
+      <!-- Step 3: + ctDNA — AUC 0.98 → height = 80% of 340 = ~272px -->
+      <div class="step-group step-3" style="left: 470px;">
+        <div class="step-bar" style="height: 272px; width: 140px; position: relative;">
+          <div class="projected-badge">Projected</div>
+          <div class="auc-delta">+0.024</div>
+          <div class="auc-value">0.980</div>
+        </div>
+        <div class="step-label-area">
+          <div class="step-name">+ ctDNA</div>
+          <div class="step-detail">Tumor-derived mutations<br>& methylation markers</div>
+          <span class="step-layer-tag tag-genomic">Genomic</span>
+        </div>
+      </div>
+
+      <!-- Curved arrows between steps -->
+      <svg class="gain-arrow" style="left: 190px; bottom: 98px; width: 70px; height: 100px;" viewBox="0 0 70 100">
+        <path class="gain-arrow-path" d="M 0,90 C 35,90 35,10 70,10" />
+        <polygon class="gain-arrow-head" points="65,4 70,10 63,13" />
+      </svg>
+
+      <svg class="gain-arrow" style="left: 400px; bottom: 190px; width: 70px; height: 90px;" viewBox="0 0 70 90">
+        <path class="gain-arrow-path" d="M 0,80 C 35,80 35,10 70,10" />
+        <polygon class="gain-arrow-head" points="65,4 70,10 63,13" />
+      </svg>
+
+      <!-- X-axis label -->
+      <div class="x-axis-label">Integration Level</div>
+
+    </div>
+  </div>
+
+  <div class="reference-note">
+    <strong>Note:</strong> SERS and Clinical results are from held-out test evaluation (Phase W-fus, 7-cancer, n=1,628).
+    ctDNA projection is based on expected complementary gain from orthogonal genomic information,
+    supported by multi-analyte liquid biopsy literature
+    (Cohen et al., <em>Science</em> 2018; Liu et al., <em>Ann. Oncol.</em> 2020).<br>
+    <strong>Rationale:</strong> SERS captures metabolomic alterations; ctDNA captures somatic mutations and aberrant methylation —
+    independent biological layers that reduce false negatives when combined.
+  </div>
+
+  <div class="figure-number">Figure X. Projected performance of tri-modal biomarker integration for multi-cancer screening.</div>
+</div>
+
+</body>
+</html>

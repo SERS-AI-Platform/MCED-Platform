@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block page_title %}{{ s.results_title }}{% endblock %}
+
+{% block content %}
+<!-- Patient Info Bar -->
+<div class="patient-bar">
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.patient_id }}:</span>
+        <span class="patient-bar-value">{{ session.patient_id }}</span>
+    </div>
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.age }}:</span>
+        <span class="patient-bar-value">{{ session.age|int }}</span>
+    </div>
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.sex }}:</span>
+        <span class="patient-bar-value">{{ s.male if session.sex == 'M' else s.female }}</span>
+    </div>
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">Model:</span>
+        <span class="patient-bar-value">{{ s.model_fusion if session.model_variant == 'fusion' else s.model_sers_only }}</span>
+    </div>
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">Mode:</span>
+        <span class="mode-badge {{ session.operating_mode }}">
+            {% if session.operating_mode == 'screening' %}{{ s.mode_screening }}
+            {% elif session.operating_mode == 'balanced' %}{{ s.mode_balanced }}
+            {% else %}{{ s.mode_confirmatory }}{% endif %}
+        </span>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="card-title">{{ s.results_title }}</h2>
+
+    <!-- Primary Result -->
+    <div class="result-primary {{ 'positive' if prediction.cancer_detected else 'negative' }}">
+        <div class="result-icon">
+            {% if prediction.cancer_detected %}&#9888;{% else %}&#10003;{% endif %}
+        </div>
+        <div class="result-label">
+            {{ s.positive if prediction.cancer_detected else s.negative }}
+        </div>
+        <div class="result-sub">
+            {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
+            {% if prediction.majority_vote %} &middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
+        </div>
+    </div>
+
+    <!-- Screening Index Gauge -->
+    <div style="margin-bottom: 32px;">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">{{ s.screening_index }}</div>
+        <div class="gauge-container">
+            <div class="gauge-threshold" style="left: {{ (session.threshold * 100)|round }}%;"></div>
+            <div class="gauge-marker" style="left: {{ (prediction.screening_index * 100)|round }}%;">
+                <div class="gauge-value">{{ "%.2f"|format(prediction.screening_index) }}</div>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            <span>0.0</span>
+            <span>Threshold: {{ "%.4f"|format(session.threshold) }}</span>
+            <span>1.0</span>
+        </div>
+    </div>
+
+    {% if prediction.cancer_detected %}
+    <!-- Cancer Type Section -->
+    <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">{{ s.estimated_type }}</div>
+
+        <div style="padding: 16px; background: #FEF2F2; border-radius: var(--radius); margin-bottom: 16px;">
+            <div style="font-size: 20px; font-weight: 700; color: var(--positive-bg);">
+                {{ s['cancer_' + prediction.cancer_type_prediction] }}
+                ({{ prediction.cancer_type_prediction }})
+            </div>
+            <div style="font-size: 14px; color: var(--text-secondary); margin-top: 4px;">
+                {{ s.confidence }}:
+                {% if prediction.cancer_type_confidence >= 0.7 %}
+                    <strong style="color: var(--positive-bg);">{{ s.confidence_high }}</strong>
+                {% elif prediction.cancer_type_confidence >= 0.4 %}
+                    <strong style="color: var(--warning-bg);">{{ s.confidence_medium }}</strong>
+                {% else %}
+                    <strong style="color: var(--text-muted);">{{ s.confidence_low }}</strong>
+                {% endif %}
+                ({{ "%.1f"|format(prediction.cancer_type_confidence * 100) }}%)
+            </div>
+        </div>
+
+        <!-- All Cancer Type Probabilities -->
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+            {{ s.type_probabilities }}
+        </div>
+        <div class="type-list">
+            {% for ct in cancer_types_sorted %}
+            <div class="type-item">
+                <div class="type-rank">{{ loop.index }}</div>
+                <div class="type-name">{{ s['cancer_' + ct.code] }} ({{ ct.code }})</div>
+                <div class="type-bar">
+                    <div class="type-bar-fill" style="width: {{ (ct.prob * 100)|round }}%;"></div>
+                </div>
+                <div class="type-prob">{{ "%.1f"|format(ct.prob * 100) }}%</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- QC Summary (Collapsible) -->
+    <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+        <span class="arrow">&#9654;</span>
+        {{ s.qc_summary_label }} ({{ qc_passed }}/{{ qc_total }})
+    </button>
+    <div class="collapsible-content" id="qcDetail">
+        <table class="qc-table">
+            <thead>
+                <tr><th>File</th><th>{{ s.qc_intensity }}</th><th>{{ s.qc_correlation }}</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for spec in spectra %}
+                <tr>
+                    <td>{{ spec.filename }}</td>
+                    <td>{{ "%.2f"|format(spec.fp_mean) if spec.fp_mean else "—" }}</td>
+                    <td>{{ "%.4f"|format(spec.replicate_correlation) if spec.replicate_correlation else "—" }}</td>
+                    <td><span class="qc-badge {{ 'pass' if spec.qc_pass else 'fail' }}">
+                        {{ s.qc_pass if spec.qc_pass else s.qc_fail }}
+                    </span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Replicate Details (Collapsible) -->
+    {% if per_replicate %}
+    <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+        <span class="arrow">&#9654;</span>
+        {{ s.replicate_details }}
+    </button>
+    <div class="collapsible-content">
+        <table class="qc-table">
+            <thead>
+                <tr><th>File</th><th>Cancer Prob</th><th>Detected</th><th>Correlation</th></tr>
+            </thead>
+            <tbody>
+                {% for rep in per_replicate %}
+                <tr>
+                    <td>{{ rep.file }}</td>
+                    <td>{{ "%.4f"|format(rep.cancer_probability) }}</td>
+                    <td>{{ s.positive if rep.cancer_detected else s.negative }}</td>
+                    <td>{{ "%.4f"|format(rep.replicate_correlation) if rep.replicate_correlation else "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+        <span class="disclaimer-icon">&#9888;</span>
+        <span>{{ s.disclaimer }}</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-row">
+        <a href="/patient/{{ session.id }}/report" class="btn btn-primary" style="text-decoration:none;">
+            &#128196; {{ s.generate_report }}
+        </a>
+        <a href="/patient/new" class="btn btn-secondary" style="text-decoration:none;">
+            {{ s.new_patient }}
+        </a>
+    </div>
+</div>
+
+<script>
+function toggleCollapsible(btn) {
+    btn.classList.toggle('open');
+    const content = btn.nextElementSibling;
+    content.classList.toggle('open');
+}
+</script>
+{% endblock %}

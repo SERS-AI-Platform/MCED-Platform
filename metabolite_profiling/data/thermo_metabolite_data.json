@@ -1,0 +1,4554 @@
+{
+  "metabolites": [
+    {
+      "name": "1,2,4,-Trimethylbenzene",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.706
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.561
+        },
+        {
+          "wn": 845.4,
+          "intensity": 0.425
+        },
+        {
+          "wn": 934.1,
+          "intensity": 0.405
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 565.8,
+          "intensity": 0.276,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.343,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.706,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1657.3,
+          "intensity": 0.186,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 15
+    },
+    {
+      "name": "1-Hydroxylpyrene",
+      "top_peaks": [
+        {
+          "wn": 602.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1235.0,
+          "intensity": 0.878
+        },
+        {
+          "wn": 1624.5,
+          "intensity": 0.526
+        },
+        {
+          "wn": 1398.9,
+          "intensity": 0.521
+        },
+        {
+          "wn": 1593.7,
+          "intensity": 0.489
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 548.4,
+          "intensity": 0.225,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 793.4,
+          "intensity": 0.163,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 0.293,
+          "label": "Phe ring breathing"
+        }
+      },
+      "total_peaks": 13
+    },
+    {
+      "name": "1-Octanol",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.64
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.52
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.454
+        },
+        {
+          "wn": 847.4,
+          "intensity": 0.394
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 563.9,
+          "intensity": 0.278,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.303,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.64,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 21
+    },
+    {
+      "name": "2-Naphthol",
+      "top_peaks": [
+        {
+          "wn": 1377.7,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1065.3,
+          "intensity": 0.585
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.55
+        },
+        {
+          "wn": 760.6,
+          "intensity": 0.533
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.497
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 614.0,
+          "intensity": 0.236,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 797.2,
+          "intensity": 0.338,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.55,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.497,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 21
+    },
+    {
+      "name": "2-Phenylacetamide",
+      "top_peaks": [
+        {
+          "wn": 999.7,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1028.6,
+          "intensity": 0.238
+        },
+        {
+          "wn": 1352.6,
+          "intensity": 0.227
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.204
+        },
+        {
+          "wn": 745.1,
+          "intensity": 0.187
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 999.7,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1352.6,
+          "intensity": 0.227,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.204,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 10
+    },
+    {
+      "name": "3-Hepatanone",
+      "top_peaks": [
+        {
+          "wn": 1447.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.784
+        },
+        {
+          "wn": 1013.2,
+          "intensity": 0.72
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.612
+        },
+        {
+          "wn": 1227.3,
+          "intensity": 0.342
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 546.5,
+          "intensity": 0.297,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 804.9,
+          "intensity": 0.258,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.275,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.784,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.209,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 22
+    },
+    {
+      "name": "4-Methoxyphenol",
+      "top_peaks": [
+        {
+          "wn": 1582.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1445.2,
+          "intensity": 0.856
+        },
+        {
+          "wn": 1155.9,
+          "intensity": 0.829
+        },
+        {
+          "wn": 831.9,
+          "intensity": 0.804
+        },
+        {
+          "wn": 1256.2,
+          "intensity": 0.773
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 563.9,
+          "intensity": 0.406,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 803.0,
+          "intensity": 0.221,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.188,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.45,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1350.7,
+          "intensity": 0.157,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 0.856,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.154,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 16
+    },
+    {
+      "name": "4-Pyridoxic acid",
+      "top_peaks": [
+        {
+          "wn": 1217.6,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1441.3,
+          "intensity": 0.957
+        },
+        {
+          "wn": 1366.1,
+          "intensity": 0.738
+        },
+        {
+          "wn": 1607.2,
+          "intensity": 0.666
+        },
+        {
+          "wn": 747.1,
+          "intensity": 0.657
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 561.9,
+          "intensity": 0.197,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 631.4,
+          "intensity": 0.203,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 791.4,
+          "intensity": 0.521,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.503,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1350.7,
+          "intensity": 0.622,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 0.957,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 29
+    },
+    {
+      "name": "8-Hydroxy-2-deoxyguanosine",
+      "top_peaks": [
+        {
+          "wn": 673.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 722.0,
+          "intensity": 0.51
+        },
+        {
+          "wn": 1597.5,
+          "intensity": 0.332
+        },
+        {
+          "wn": 1686.2,
+          "intensity": 0.296
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.282
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 610.1,
+          "intensity": 0.272,
+          "label": "Purine derivatives"
+        },
+        "1003": {
+          "wn": 1015.1,
+          "intensity": 0.282,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1431.7,
+          "intensity": 0.279,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 12
+    },
+    {
+      "name": "Acrylic acid",
+      "top_peaks": [
+        {
+          "wn": 1443.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.76
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.746
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.65
+        },
+        {
+          "wn": 932.2,
+          "intensity": 0.518
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 552.3,
+          "intensity": 0.359,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.421,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.76,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1638.0,
+          "intensity": 0.257,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 23
+    },
+    {
+      "name": "Adenine",
+      "top_peaks": [
+        {
+          "wn": 729.7,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1402.7,
+          "intensity": 0.415
+        },
+        {
+          "wn": 1314.0,
+          "intensity": 0.387
+        },
+        {
+          "wn": 961.1,
+          "intensity": 0.239
+        },
+        {
+          "wn": 1449.0,
+          "intensity": 0.224
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 614.0,
+          "intensity": 0.159,
+          "label": "Purine derivatives"
+        },
+        "1450": {
+          "wn": 1449.0,
+          "intensity": 0.224,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 9
+    },
+    {
+      "name": "Adenosine",
+      "top_peaks": [
+        {
+          "wn": 995.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1348.8,
+          "intensity": 0.676
+        },
+        {
+          "wn": 1468.3,
+          "intensity": 0.446
+        },
+        {
+          "wn": 1317.9,
+          "intensity": 0.416
+        },
+        {
+          "wn": 733.6,
+          "intensity": 0.202
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 627.5,
+          "intensity": 0.18,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 795.3,
+          "intensity": 0.189,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1348.8,
+          "intensity": 0.676,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1468.3,
+          "intensity": 0.446,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 11
+    },
+    {
+      "name": "Alanine",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.604
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.584
+        },
+        {
+          "wn": 847.4,
+          "intensity": 0.568
+        },
+        {
+          "wn": 934.1,
+          "intensity": 0.451
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 558.1,
+          "intensity": 0.288,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.424,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.604,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1643.8,
+          "intensity": 0.231,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 14
+    },
+    {
+      "name": "Anisole",
+      "top_peaks": [
+        {
+          "wn": 1443.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 747.1,
+          "intensity": 0.67
+        },
+        {
+          "wn": 1001.6,
+          "intensity": 0.664
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.649
+        },
+        {
+          "wn": 550.4,
+          "intensity": 0.6
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 550.4,
+          "intensity": 0.6,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 779.9,
+          "intensity": 0.351,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.242,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.664,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1665.0,
+          "intensity": 0.246,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 23
+    },
+    {
+      "name": "Arginine",
+      "top_peaks": [
+        {
+          "wn": 1441.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.552
+        },
+        {
+          "wn": 843.5,
+          "intensity": 0.41
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.4
+        },
+        {
+          "wn": 1640.0,
+          "intensity": 0.375
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 546.5,
+          "intensity": 0.212,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.317,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.552,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1346.8,
+          "intensity": 0.193,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1640.0,
+          "intensity": 0.375,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 25
+    },
+    {
+      "name": "Ascorbic acid",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.846
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.773
+        },
+        {
+          "wn": 1063.3,
+          "intensity": 0.529
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.49
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 548.4,
+          "intensity": 0.276,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 787.6,
+          "intensity": 0.175,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.217,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1015.1,
+          "intensity": 0.846,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1665.0,
+          "intensity": 0.259,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 24
+    },
+    {
+      "name": "Aspartic acid",
+      "top_peaks": [
+        {
+          "wn": 675.7,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.858
+        },
+        {
+          "wn": 995.8,
+          "intensity": 0.814
+        },
+        {
+          "wn": 735.5,
+          "intensity": 0.441
+        },
+        {
+          "wn": 934.1,
+          "intensity": 0.412
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 565.8,
+          "intensity": 0.297,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 610.1,
+          "intensity": 0.206,
+          "label": "Purine derivatives"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.382,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 0.814,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1348.8,
+          "intensity": 0.318,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.858,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.19,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 25
+    },
+    {
+      "name": "Benzoic acid",
+      "top_peaks": [
+        {
+          "wn": 1003.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1450.8,
+          "intensity": 0.713
+        },
+        {
+          "wn": 1466.2,
+          "intensity": 0.592
+        },
+        {
+          "wn": 1429.6,
+          "intensity": 0.541
+        },
+        {
+          "wn": 745.0,
+          "intensity": 0.459
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 565.6,
+          "intensity": 0.198,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 789.3,
+          "intensity": 0.213,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 1003.4,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1450.8,
+          "intensity": 0.713,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1657.1,
+          "intensity": 0.175,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 26
+    },
+    {
+      "name": "Betaine",
+      "top_peaks": [
+        {
+          "wn": 1448.9,
+          "intensity": 1.0
+        },
+        {
+          "wn": 781.6,
+          "intensity": 0.763
+        },
+        {
+          "wn": 1437.3,
+          "intensity": 0.761
+        },
+        {
+          "wn": 746.9,
+          "intensity": 0.702
+        },
+        {
+          "wn": 1429.6,
+          "intensity": 0.667
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 540.5,
+          "intensity": 0.329,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 781.6,
+          "intensity": 0.763,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 1003.4,
+          "intensity": 0.406,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1323.5,
+          "intensity": 0.252,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1448.9,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1662.9,
+          "intensity": 0.252,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 50
+    },
+    {
+      "name": "Cholesterol",
+      "top_peaks": [
+        {
+          "wn": 995.8,
+          "intensity": 0.929
+        },
+        {
+          "wn": 1449.0,
+          "intensity": 0.726
+        },
+        {
+          "wn": 1013.2,
+          "intensity": 0.679
+        },
+        {
+          "wn": 1458.7,
+          "intensity": 0.561
+        },
+        {
+          "wn": 795.3,
+          "intensity": 0.552
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 548.4,
+          "intensity": 0.26,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 615.9,
+          "intensity": 0.34,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 795.3,
+          "intensity": 0.552,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.294,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 0.929,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1449.0,
+          "intensity": 0.726,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1659.2,
+          "intensity": 0.364,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 76
+    },
+    {
+      "name": "Choline",
+      "top_peaks": [
+        {
+          "wn": 718.0,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1448.9,
+          "intensity": 0.904
+        },
+        {
+          "wn": 1437.3,
+          "intensity": 0.666
+        },
+        {
+          "wn": 746.9,
+          "intensity": 0.505
+        },
+        {
+          "wn": 1018.8,
+          "intensity": 0.338
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 565.6,
+          "intensity": 0.234,
+          "label": "S-S / Kynurenine"
+        },
+        "1003": {
+          "wn": 1018.8,
+          "intensity": 0.338,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1448.9,
+          "intensity": 0.904,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.5,
+          "intensity": 0.189,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 30
+    },
+    {
+      "name": "Creatine",
+      "top_peaks": [
+        {
+          "wn": 843.5,
+          "intensity": 1.0
+        },
+        {
+          "wn": 870.5,
+          "intensity": 0.965
+        },
+        {
+          "wn": 1441.3,
+          "intensity": 0.81
+        },
+        {
+          "wn": 733.6,
+          "intensity": 0.803
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.662
+        }
+      ],
+      "target_matches": {
+        "875": {
+          "wn": 870.5,
+          "intensity": 0.965,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.662,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 0.81,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1636.1,
+          "intensity": 0.406,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 16
+    },
+    {
+      "name": "Creatinine",
+      "top_peaks": [
+        {
+          "wn": 1427.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 934.1,
+          "intensity": 0.895
+        },
+        {
+          "wn": 872.4,
+          "intensity": 0.86
+        },
+        {
+          "wn": 673.8,
+          "intensity": 0.85
+        },
+        {
+          "wn": 604.4,
+          "intensity": 0.8
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 621.7,
+          "intensity": 0.767,
+          "label": "Purine derivatives"
+        },
+        "875": {
+          "wn": 872.4,
+          "intensity": 0.86,
+          "label": "Creatine region"
+        },
+        "1650": {
+          "wn": 1634.2,
+          "intensity": 0.39,
+          "label": "Amide I / C=C"
+        },
+        "1740": {
+          "wn": 1747.9,
+          "intensity": 0.184,
+          "label": "C=O ester"
+        }
+      },
+      "total_peaks": 17
+    },
+    {
+      "name": "Cysteine",
+      "top_peaks": [
+        {
+          "wn": 1601.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1609.1,
+          "intensity": 0.993
+        },
+        {
+          "wn": 1630.3,
+          "intensity": 0.974
+        },
+        {
+          "wn": 1416.2,
+          "intensity": 0.787
+        },
+        {
+          "wn": 1437.5,
+          "intensity": 0.753
+        }
+      ],
+      "target_matches": {
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.507,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 0.423,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1346.8,
+          "intensity": 0.404,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1437.5,
+          "intensity": 0.753,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1630.3,
+          "intensity": 0.974,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 29
+    },
+    {
+      "name": "Fucose",
+      "top_peaks": [
+        {
+          "wn": 1443.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.974
+        },
+        {
+          "wn": 847.4,
+          "intensity": 0.678
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.613
+        },
+        {
+          "wn": 887.8,
+          "intensity": 0.475
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 554.2,
+          "intensity": 0.416,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 791.4,
+          "intensity": 0.259,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.475,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.974,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 17
+    },
+    {
+      "name": "Galactosamine",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.863
+        },
+        {
+          "wn": 887.8,
+          "intensity": 0.549
+        },
+        {
+          "wn": 1352.6,
+          "intensity": 0.544
+        },
+        {
+          "wn": 1601.4,
+          "intensity": 0.542
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 546.5,
+          "intensity": 0.279,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 799.1,
+          "intensity": 0.305,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.549,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.863,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1352.6,
+          "intensity": 0.544,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1645.7,
+          "intensity": 0.497,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 35
+    },
+    {
+      "name": "Glucose",
+      "top_peaks": [
+        {
+          "wn": 997.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1441.3,
+          "intensity": 0.933
+        },
+        {
+          "wn": 741.3,
+          "intensity": 0.71
+        },
+        {
+          "wn": 851.2,
+          "intensity": 0.68
+        },
+        {
+          "wn": 1591.7,
+          "intensity": 0.632
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 538.8,
+          "intensity": 0.29,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 627.5,
+          "intensity": 0.213,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 789.5,
+          "intensity": 0.323,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.594,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1354.5,
+          "intensity": 0.455,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 0.933,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 22
+    },
+    {
+      "name": "Glutamic acid",
+      "top_peaks": [
+        {
+          "wn": 1601.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1443.2,
+          "intensity": 0.442
+        },
+        {
+          "wn": 887.8,
+          "intensity": 0.336
+        },
+        {
+          "wn": 995.8,
+          "intensity": 0.323
+        },
+        {
+          "wn": 741.3,
+          "intensity": 0.32
+        }
+      ],
+      "target_matches": {
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.336,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 0.323,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 0.442,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 18
+    },
+    {
+      "name": "Glycine",
+      "top_peaks": [
+        {
+          "wn": 1441.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 889.8,
+          "intensity": 0.679
+        },
+        {
+          "wn": 849.3,
+          "intensity": 0.641
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.529
+        },
+        {
+          "wn": 1022.8,
+          "intensity": 0.473
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.389,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.679,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1022.8,
+          "intensity": 0.473,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 17
+    },
+    {
+      "name": "Glycocholic acid",
+      "top_peaks": [
+        {
+          "wn": 673.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1019.0,
+          "intensity": 0.309
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.25
+        },
+        {
+          "wn": 1308.3,
+          "intensity": 0.173
+        },
+        {
+          "wn": 934.1,
+          "intensity": 0.13
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 1019.0,
+          "intensity": 0.309,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.25,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 6
+    },
+    {
+      "name": "Glycogen",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 750.9,
+          "intensity": 0.516
+        },
+        {
+          "wn": 887.8,
+          "intensity": 0.481
+        },
+        {
+          "wn": 936.1,
+          "intensity": 0.378
+        },
+        {
+          "wn": 1030.6,
+          "intensity": 0.347
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 550.4,
+          "intensity": 0.157,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.481,
+          "label": "Creatine region"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.231,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 21
+    },
+    {
+      "name": "Guanine",
+      "top_peaks": [
+        {
+          "wn": 1464.5,
+          "intensity": 1.0
+        },
+        {
+          "wn": 648.7,
+          "intensity": 0.991
+        },
+        {
+          "wn": 1383.5,
+          "intensity": 0.686
+        },
+        {
+          "wn": 1420.1,
+          "intensity": 0.493
+        },
+        {
+          "wn": 963.1,
+          "intensity": 0.425
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 560.0,
+          "intensity": 0.224,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 648.7,
+          "intensity": 0.991,
+          "label": "Purine derivatives"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.211,
+          "label": "Creatine region"
+        },
+        "1450": {
+          "wn": 1464.5,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 20
+    },
+    {
+      "name": "Hippuric acid",
+      "top_peaks": [
+        {
+          "wn": 997.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 673.8,
+          "intensity": 0.292
+        },
+        {
+          "wn": 1449.0,
+          "intensity": 0.233
+        },
+        {
+          "wn": 801.1,
+          "intensity": 0.206
+        },
+        {
+          "wn": 615.9,
+          "intensity": 0.184
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 615.9,
+          "intensity": 0.184,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 801.1,
+          "intensity": 0.206,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1449.0,
+          "intensity": 0.233,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 12
+    },
+    {
+      "name": "Histidine",
+      "top_peaks": [
+        {
+          "wn": 1651.5,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1576.3,
+          "intensity": 0.726
+        },
+        {
+          "wn": 1296.7,
+          "intensity": 0.611
+        },
+        {
+          "wn": 1439.4,
+          "intensity": 0.576
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.573
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 610.1,
+          "intensity": 0.324,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 791.4,
+          "intensity": 0.394,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.573,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1358.4,
+          "intensity": 0.189,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1439.4,
+          "intensity": 0.576,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1651.5,
+          "intensity": 1.0,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 14
+    },
+    {
+      "name": "Hypoxanthine",
+      "top_peaks": [
+        {
+          "wn": 720.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 673.8,
+          "intensity": 0.649
+        },
+        {
+          "wn": 1730.6,
+          "intensity": 0.352
+        },
+        {
+          "wn": 1452.9,
+          "intensity": 0.345
+        },
+        {
+          "wn": 1362.3,
+          "intensity": 0.296
+        }
+      ],
+      "target_matches": {
+        "630": {
+          "wn": 617.9,
+          "intensity": 0.156,
+          "label": "Purine derivatives"
+        },
+        "1003": {
+          "wn": 993.9,
+          "intensity": 0.189,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1329.5,
+          "intensity": 0.232,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1452.9,
+          "intensity": 0.345,
+          "label": "CH₂ bending"
+        },
+        "1740": {
+          "wn": 1730.6,
+          "intensity": 0.352,
+          "label": "C=O ester"
+        }
+      },
+      "total_peaks": 14
+    },
+    {
+      "name": "Inosine",
+      "top_peaks": [
+        {
+          "wn": 1464.5,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1314.0,
+          "intensity": 0.864
+        },
+        {
+          "wn": 733.6,
+          "intensity": 0.695
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.543
+        },
+        {
+          "wn": 849.3,
+          "intensity": 0.535
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 561.9,
+          "intensity": 0.364,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.384,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.543,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1464.5,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 17
+    },
+    {
+      "name": "Isoleucine",
+      "top_peaks": [
+        {
+          "wn": 1441.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.625
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.622
+        },
+        {
+          "wn": 1019.0,
+          "intensity": 0.515
+        },
+        {
+          "wn": 934.1,
+          "intensity": 0.438
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 563.9,
+          "intensity": 0.272,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.315,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.625,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1638.0,
+          "intensity": 0.182,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 19
+    },
+    {
+      "name": "Kaempferol",
+      "top_peaks": [
+        {
+          "wn": 675.6,
+          "intensity": 1.0
+        },
+        {
+          "wn": 2125.8,
+          "intensity": 0.408
+        },
+        {
+          "wn": 1423.9,
+          "intensity": 0.354
+        },
+        {
+          "wn": 1603.2,
+          "intensity": 0.341
+        },
+        {
+          "wn": 1018.9,
+          "intensity": 0.333
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 1018.9,
+          "intensity": 0.333,
+          "label": "Phe ring breathing"
+        }
+      },
+      "total_peaks": 13
+    },
+    {
+      "name": "Kynurenine",
+      "top_peaks": [
+        {
+          "wn": 561.9,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1044.1,
+          "intensity": 0.888
+        },
+        {
+          "wn": 1451.0,
+          "intensity": 0.859
+        },
+        {
+          "wn": 725.9,
+          "intensity": 0.749
+        },
+        {
+          "wn": 1223.4,
+          "intensity": 0.715
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 561.9,
+          "intensity": 1.0,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 795.3,
+          "intensity": 0.285,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.204,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.32,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1451.0,
+          "intensity": 0.859,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1668.9,
+          "intensity": 0.569,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 25
+    },
+    {
+      "name": "Leucine",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.71
+        },
+        {
+          "wn": 745.1,
+          "intensity": 0.575
+        },
+        {
+          "wn": 841.6,
+          "intensity": 0.449
+        },
+        {
+          "wn": 932.2,
+          "intensity": 0.436
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 552.3,
+          "intensity": 0.272,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 797.2,
+          "intensity": 0.211,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.359,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.71,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1641.9,
+          "intensity": 0.161,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 17
+    },
+    {
+      "name": "Maleic acid",
+      "top_peaks": [
+        {
+          "wn": 1448.9,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1437.3,
+          "intensity": 0.761
+        },
+        {
+          "wn": 1429.6,
+          "intensity": 0.753
+        },
+        {
+          "wn": 746.9,
+          "intensity": 0.698
+        },
+        {
+          "wn": 935.9,
+          "intensity": 0.541
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.0,
+          "intensity": 0.301,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 856.8,
+          "intensity": 0.464,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1003.4,
+          "intensity": 0.395,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1323.5,
+          "intensity": 0.173,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1448.9,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1659.1,
+          "intensity": 0.297,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 57
+    },
+    {
+      "name": "Malic acid",
+      "top_peaks": [
+        {
+          "wn": 1017.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1061.4,
+          "intensity": 0.812
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.722
+        },
+        {
+          "wn": 1580.2,
+          "intensity": 0.581
+        },
+        {
+          "wn": 1599.5,
+          "intensity": 0.539
+        }
+      ],
+      "target_matches": {
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.356,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1017.1,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.722,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1645.7,
+          "intensity": 0.359,
+          "label": "Amide I / C=C"
+        },
+        "1740": {
+          "wn": 1757.6,
+          "intensity": 0.188,
+          "label": "C=O ester"
+        }
+      },
+      "total_peaks": 36
+    },
+    {
+      "name": "Methyl 2-Hydroxyisobutyrate",
+      "top_peaks": [
+        {
+          "wn": 1447.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.795
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.596
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.55
+        },
+        {
+          "wn": 839.6,
+          "intensity": 0.459
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.358,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.342,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.795,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1638.0,
+          "intensity": 0.181,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 18
+    },
+    {
+      "name": "Methyl DL-2-Aminobutyrate",
+      "top_peaks": [
+        {
+          "wn": 1443.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 749.0,
+          "intensity": 0.756
+        },
+        {
+          "wn": 851.2,
+          "intensity": 0.754
+        },
+        {
+          "wn": 1424.0,
+          "intensity": 0.745
+        },
+        {
+          "wn": 932.2,
+          "intensity": 0.632
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.271,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 614.0,
+          "intensity": 0.221,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 799.1,
+          "intensity": 0.189,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.565,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.343,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1634.2,
+          "intensity": 0.452,
+          "label": "Amide I / C=C"
+        },
+        "1740": {
+          "wn": 1746.0,
+          "intensity": 0.231,
+          "label": "C=O ester"
+        }
+      },
+      "total_peaks": 68
+    },
+    {
+      "name": "Methyl alfa-D-Glucopyranoside",
+      "top_peaks": [
+        {
+          "wn": 997.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1443.2,
+          "intensity": 0.947
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.655
+        },
+        {
+          "wn": 841.6,
+          "intensity": 0.584
+        },
+        {
+          "wn": 885.9,
+          "intensity": 0.531
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.485,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 793.4,
+          "intensity": 0.228,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 885.9,
+          "intensity": 0.531,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1352.6,
+          "intensity": 0.354,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 0.947,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 20
+    },
+    {
+      "name": "Methyl-beta-D-Ribofuranoside",
+      "top_peaks": [
+        {
+          "wn": 1447.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.803
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.688
+        },
+        {
+          "wn": 1013.2,
+          "intensity": 0.626
+        },
+        {
+          "wn": 932.2,
+          "intensity": 0.545
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 560.0,
+          "intensity": 0.427,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 612.1,
+          "intensity": 0.199,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 785.6,
+          "intensity": 0.187,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.472,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.803,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.386,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 29
+    },
+    {
+      "name": "N-Acetylneuraminic acid",
+      "top_peaks": [
+        {
+          "wn": 1015.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.983
+        },
+        {
+          "wn": 1061.4,
+          "intensity": 0.963
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.68
+        },
+        {
+          "wn": 1597.5,
+          "intensity": 0.671
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 558.1,
+          "intensity": 0.499,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.644,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1015.1,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.983,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1645.7,
+          "intensity": 0.528,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 26
+    },
+    {
+      "name": "NADH",
+      "top_peaks": [
+        {
+          "wn": 1028.6,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1439.4,
+          "intensity": 0.507
+        },
+        {
+          "wn": 1462.5,
+          "intensity": 0.488
+        },
+        {
+          "wn": 1582.1,
+          "intensity": 0.312
+        },
+        {
+          "wn": 737.4,
+          "intensity": 0.297
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.233,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1323.7,
+          "intensity": 0.246,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1439.4,
+          "intensity": 0.507,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 13
+    },
+    {
+      "name": "O-Acetylcarnitine",
+      "top_peaks": [
+        {
+          "wn": 1015.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.849
+        },
+        {
+          "wn": 1061.4,
+          "intensity": 0.843
+        },
+        {
+          "wn": 1580.2,
+          "intensity": 0.438
+        },
+        {
+          "wn": 745.1,
+          "intensity": 0.432
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.154,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 637.1,
+          "intensity": 0.284,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 799.1,
+          "intensity": 0.198,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 1015.1,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1451.0,
+          "intensity": 0.425,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1632.2,
+          "intensity": 0.307,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 24
+    },
+    {
+      "name": "Palmitic acid",
+      "top_peaks": [
+        {
+          "wn": 997.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 797.2,
+          "intensity": 0.756
+        },
+        {
+          "wn": 1017.1,
+          "intensity": 0.706
+        },
+        {
+          "wn": 1452.9,
+          "intensity": 0.581
+        },
+        {
+          "wn": 614.0,
+          "intensity": 0.433
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.168,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 614.0,
+          "intensity": 0.433,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 797.2,
+          "intensity": 0.756,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1452.9,
+          "intensity": 0.581,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1640.0,
+          "intensity": 0.237,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 37
+    },
+    {
+      "name": "Phenylalanine",
+      "top_peaks": [
+        {
+          "wn": 999.7,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1026.7,
+          "intensity": 0.323
+        },
+        {
+          "wn": 1445.2,
+          "intensity": 0.307
+        },
+        {
+          "wn": 745.1,
+          "intensity": 0.302
+        },
+        {
+          "wn": 1595.6,
+          "intensity": 0.236
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 999.7,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 0.307,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1643.8,
+          "intensity": 0.156,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 13
+    },
+    {
+      "name": "Proline",
+      "top_peaks": [
+        {
+          "wn": 1443.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.727
+        },
+        {
+          "wn": 845.4,
+          "intensity": 0.657
+        },
+        {
+          "wn": 745.1,
+          "intensity": 0.648
+        },
+        {
+          "wn": 891.7,
+          "intensity": 0.555
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 552.3,
+          "intensity": 0.329,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 791.4,
+          "intensity": 0.258,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.555,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.727,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1666.9,
+          "intensity": 0.235,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 24
+    },
+    {
+      "name": "Pseudouridine",
+      "top_peaks": [
+        {
+          "wn": 789.5,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1647.7,
+          "intensity": 0.773
+        },
+        {
+          "wn": 1445.2,
+          "intensity": 0.724
+        },
+        {
+          "wn": 882.1,
+          "intensity": 0.607
+        },
+        {
+          "wn": 1209.9,
+          "intensity": 0.579
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 567.7,
+          "intensity": 0.443,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 789.5,
+          "intensity": 1.0,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 882.1,
+          "intensity": 0.607,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.517,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 0.724,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.773,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 16
+    },
+    {
+      "name": "Purine",
+      "top_peaks": [
+        {
+          "wn": 810.7,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1107.7,
+          "intensity": 0.275
+        },
+        {
+          "wn": 1265.8,
+          "intensity": 0.223
+        },
+        {
+          "wn": 1292.8,
+          "intensity": 0.221
+        },
+        {
+          "wn": 1605.2,
+          "intensity": 0.109
+        }
+      ],
+      "target_matches": {},
+      "total_peaks": 5
+    },
+    {
+      "name": "Pyrimidine",
+      "top_peaks": [
+        {
+          "wn": 1063.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1013.2,
+          "intensity": 0.921
+        },
+        {
+          "wn": 1445.2,
+          "intensity": 0.468
+        },
+        {
+          "wn": 1582.1,
+          "intensity": 0.386
+        },
+        {
+          "wn": 887.8,
+          "intensity": 0.279
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 567.7,
+          "intensity": 0.168,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.279,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1013.2,
+          "intensity": 0.921,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 0.468,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 14
+    },
+    {
+      "name": "Serine",
+      "top_peaks": [
+        {
+          "wn": 1009.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1445.2,
+          "intensity": 0.892
+        },
+        {
+          "wn": 1063.3,
+          "intensity": 0.877
+        },
+        {
+          "wn": 849.3,
+          "intensity": 0.566
+        },
+        {
+          "wn": 741.3,
+          "intensity": 0.516
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 560.0,
+          "intensity": 0.281,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 862.8,
+          "intensity": 0.483,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1009.3,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 0.892,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1632.2,
+          "intensity": 0.388,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 19
+    },
+    {
+      "name": "Spermidine",
+      "top_peaks": [
+        {
+          "wn": 2112.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1441.3,
+          "intensity": 0.536
+        },
+        {
+          "wn": 995.8,
+          "intensity": 0.388
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.353
+        },
+        {
+          "wn": 1620.7,
+          "intensity": 0.307
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.163,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 789.5,
+          "intensity": 0.157,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.253,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 0.388,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 0.536,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 14
+    },
+    {
+      "name": "Sphinganine",
+      "top_peaks": [
+        {
+          "wn": 671.9,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1433.6,
+          "intensity": 0.381
+        },
+        {
+          "wn": 2120.1,
+          "intensity": 0.342
+        },
+        {
+          "wn": 1017.1,
+          "intensity": 0.259
+        },
+        {
+          "wn": 1304.4,
+          "intensity": 0.198
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 1017.1,
+          "intensity": 0.259,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1433.6,
+          "intensity": 0.381,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 9
+    },
+    {
+      "name": "Stearic acid",
+      "top_peaks": [
+        {
+          "wn": 995.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.688
+        },
+        {
+          "wn": 797.2,
+          "intensity": 0.629
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.604
+        },
+        {
+          "wn": 749.0,
+          "intensity": 0.522
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 552.3,
+          "intensity": 0.205,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 614.0,
+          "intensity": 0.408,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 797.2,
+          "intensity": 0.629,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.248,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 995.8,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.604,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1666.9,
+          "intensity": 0.178,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 47
+    },
+    {
+      "name": "Taurine",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.836
+        },
+        {
+          "wn": 1019.0,
+          "intensity": 0.696
+        },
+        {
+          "wn": 1036.3,
+          "intensity": 0.682
+        },
+        {
+          "wn": 997.8,
+          "intensity": 0.668
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 540.7,
+          "intensity": 0.41,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 791.4,
+          "intensity": 0.231,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.629,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1019.0,
+          "intensity": 0.696,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 22
+    },
+    {
+      "name": "Threonine",
+      "top_peaks": [
+        {
+          "wn": 1441.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1013.2,
+          "intensity": 0.992
+        },
+        {
+          "wn": 1063.3,
+          "intensity": 0.96
+        },
+        {
+          "wn": 889.8,
+          "intensity": 0.681
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.614
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.4,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 627.5,
+          "intensity": 0.157,
+          "label": "Purine derivatives"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.681,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1013.2,
+          "intensity": 0.992,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1632.2,
+          "intensity": 0.392,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 26
+    },
+    {
+      "name": "Trimethylamine-N-oxide",
+      "top_peaks": [
+        {
+          "wn": 2120.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.396
+        },
+        {
+          "wn": 1441.3,
+          "intensity": 0.348
+        },
+        {
+          "wn": 758.6,
+          "intensity": 0.344
+        },
+        {
+          "wn": 1063.3,
+          "intensity": 0.291
+        }
+      ],
+      "target_matches": {
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.396,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1441.3,
+          "intensity": 0.348,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 9
+    },
+    {
+      "name": "Tryptophan",
+      "top_peaks": [
+        {
+          "wn": 754.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1354.5,
+          "intensity": 0.747
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.737
+        },
+        {
+          "wn": 1541.6,
+          "intensity": 0.66
+        },
+        {
+          "wn": 1443.2,
+          "intensity": 0.543
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 563.9,
+          "intensity": 0.294,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 874.3,
+          "intensity": 0.305,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.737,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1354.5,
+          "intensity": 0.747,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 0.543,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1647.7,
+          "intensity": 0.215,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 18
+    },
+    {
+      "name": "Tyrosine",
+      "top_peaks": [
+        {
+          "wn": 403.8,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1209.9,
+          "intensity": 0.975
+        },
+        {
+          "wn": 1246.5,
+          "intensity": 0.889
+        },
+        {
+          "wn": 851.2,
+          "intensity": 0.863
+        },
+        {
+          "wn": 1053.7,
+          "intensity": 0.76
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 561.9,
+          "intensity": 0.348,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 641.0,
+          "intensity": 0.282,
+          "label": "Purine derivatives"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.684,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1017.1,
+          "intensity": 0.199,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1449.0,
+          "intensity": 0.703,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 31
+    },
+    {
+      "name": "Uracil",
+      "top_peaks": [
+        {
+          "wn": 791.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1213.8,
+          "intensity": 0.816
+        },
+        {
+          "wn": 1368.0,
+          "intensity": 0.566
+        },
+        {
+          "wn": 1630.3,
+          "intensity": 0.498
+        },
+        {
+          "wn": 552.3,
+          "intensity": 0.277
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 552.3,
+          "intensity": 0.277,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 612.1,
+          "intensity": 0.217,
+          "label": "Purine derivatives"
+        },
+        "785": {
+          "wn": 791.4,
+          "intensity": 1.0,
+          "label": "Nucleoside / Betaine"
+        },
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.202,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.27,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1630.3,
+          "intensity": 0.498,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 9
+    },
+    {
+      "name": "Uric acid",
+      "top_peaks": [
+        {
+          "wn": 660.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1443.2,
+          "intensity": 0.895
+        },
+        {
+          "wn": 1427.8,
+          "intensity": 0.811
+        },
+        {
+          "wn": 1370.0,
+          "intensity": 0.703
+        },
+        {
+          "wn": 685.4,
+          "intensity": 0.68
+        }
+      ],
+      "target_matches": {
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.271,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1001.6,
+          "intensity": 0.47,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1354.5,
+          "intensity": 0.626,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1443.2,
+          "intensity": 0.895,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1665.0,
+          "intensity": 0.35,
+          "label": "Amide I / C=C"
+        },
+        "1740": {
+          "wn": 1722.9,
+          "intensity": 0.227,
+          "label": "C=O ester"
+        }
+      },
+      "total_peaks": 45
+    },
+    {
+      "name": "Valine",
+      "top_peaks": [
+        {
+          "wn": 1447.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.762
+        },
+        {
+          "wn": 889.8,
+          "intensity": 0.607
+        },
+        {
+          "wn": 932.2,
+          "intensity": 0.561
+        },
+        {
+          "wn": 1013.2,
+          "intensity": 0.543
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 548.4,
+          "intensity": 0.373,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.607,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1013.2,
+          "intensity": 0.543,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1638.0,
+          "intensity": 0.387,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 21
+    },
+    {
+      "name": "Xanthine",
+      "top_peaks": [
+        {
+          "wn": 644.9,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1316.0,
+          "intensity": 0.962
+        },
+        {
+          "wn": 1246.5,
+          "intensity": 0.68
+        },
+        {
+          "wn": 1711.3,
+          "intensity": 0.618
+        },
+        {
+          "wn": 961.1,
+          "intensity": 0.605
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 569.7,
+          "intensity": 0.254,
+          "label": "S-S / Kynurenine"
+        },
+        "630": {
+          "wn": 644.9,
+          "intensity": 1.0,
+          "label": "Purine derivatives"
+        },
+        "1003": {
+          "wn": 997.8,
+          "intensity": 0.27,
+          "label": "Phe ring breathing"
+        },
+        "1340": {
+          "wn": 1356.5,
+          "intensity": 0.225,
+          "label": "CH₃CH₂ wagging"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.414,
+          "label": "CH₂ bending"
+        }
+      },
+      "total_peaks": 15
+    },
+    {
+      "name": "Xylonic acid",
+      "top_peaks": [
+        {
+          "wn": 1445.2,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1011.3,
+          "intensity": 0.907
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.869
+        },
+        {
+          "wn": 745.1,
+          "intensity": 0.709
+        },
+        {
+          "wn": 1599.5,
+          "intensity": 0.635
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 561.9,
+          "intensity": 0.315,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 795.3,
+          "intensity": 0.219,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.411,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1011.3,
+          "intensity": 0.907,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1634.2,
+          "intensity": 0.466,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 31
+    },
+    {
+      "name": "Xylose",
+      "top_peaks": [
+        {
+          "wn": 1011.3,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1447.1,
+          "intensity": 0.994
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.895
+        },
+        {
+          "wn": 1063.3,
+          "intensity": 0.827
+        },
+        {
+          "wn": 739.4,
+          "intensity": 0.707
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 534.9,
+          "intensity": 0.447,
+          "label": "S-S / Kynurenine"
+        },
+        "785": {
+          "wn": 787.6,
+          "intensity": 0.181,
+          "label": "Nucleoside / Betaine"
+        },
+        "875": {
+          "wn": 891.7,
+          "intensity": 0.589,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1011.3,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 0.994,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1643.8,
+          "intensity": 0.494,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 23
+    },
+    {
+      "name": "cis-Aconitic acid",
+      "top_peaks": [
+        {
+          "wn": 1015.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1061.4,
+          "intensity": 0.927
+        },
+        {
+          "wn": 1449.0,
+          "intensity": 0.572
+        },
+        {
+          "wn": 1584.0,
+          "intensity": 0.495
+        },
+        {
+          "wn": 887.8,
+          "intensity": 0.459
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 561.9,
+          "intensity": 0.28,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 887.8,
+          "intensity": 0.459,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1015.1,
+          "intensity": 1.0,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1449.0,
+          "intensity": 0.572,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1640.0,
+          "intensity": 0.37,
+          "label": "Amide I / C=C"
+        },
+        "1740": {
+          "wn": 1730.6,
+          "intensity": 0.207,
+          "label": "C=O ester"
+        }
+      },
+      "total_peaks": 30
+    },
+    {
+      "name": "p-Cymene",
+      "top_peaks": [
+        {
+          "wn": 1447.1,
+          "intensity": 1.0
+        },
+        {
+          "wn": 999.7,
+          "intensity": 0.623
+        },
+        {
+          "wn": 743.2,
+          "intensity": 0.506
+        },
+        {
+          "wn": 560.0,
+          "intensity": 0.477
+        },
+        {
+          "wn": 841.6,
+          "intensity": 0.458
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 560.0,
+          "intensity": 0.477,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 889.8,
+          "intensity": 0.357,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 999.7,
+          "intensity": 0.623,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1447.1,
+          "intensity": 1.0,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1663.1,
+          "intensity": 0.195,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 19
+    },
+    {
+      "name": "trans-Aconitic acid",
+      "top_peaks": [
+        {
+          "wn": 1061.4,
+          "intensity": 1.0
+        },
+        {
+          "wn": 1015.1,
+          "intensity": 0.814
+        },
+        {
+          "wn": 1584.0,
+          "intensity": 0.592
+        },
+        {
+          "wn": 1645.7,
+          "intensity": 0.518
+        },
+        {
+          "wn": 1445.2,
+          "intensity": 0.361
+        }
+      ],
+      "target_matches": {
+        "550": {
+          "wn": 556.2,
+          "intensity": 0.173,
+          "label": "S-S / Kynurenine"
+        },
+        "875": {
+          "wn": 893.6,
+          "intensity": 0.241,
+          "label": "Creatine region"
+        },
+        "1003": {
+          "wn": 1015.1,
+          "intensity": 0.814,
+          "label": "Phe ring breathing"
+        },
+        "1450": {
+          "wn": 1445.2,
+          "intensity": 0.361,
+          "label": "CH₂ bending"
+        },
+        "1650": {
+          "wn": 1645.7,
+          "intensity": 0.518,
+          "label": "Amide I / C=C"
+        }
+      },
+      "total_peaks": 23
+    }
+  ],
+  "target_peaks": {
+    "550": "S-S / Kynurenine",
+    "630": "Purine derivatives",
+    "785": "Nucleoside / Betaine",
+    "875": "Creatine region",
+    "1003": "Phe ring breathing",
+    "1340": "CH₃CH₂ wagging",
+    "1450": "CH₂ bending",
+    "1650": "Amide I / C=C",
+    "1740": "C=O ester"
+  },
+  "total_metabolites": 73,
+  "chemical_list": {
+    "Xylose": {
+      "label": "XYL",
+      "product": "D-(+)-Xylose",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 150.13,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Xanthine": {
+      "label": "XT",
+      "product": "Xanthine",
+      "company": "Sigma",
+      "solvent": "DI (hot,sonicate) / 1 M NaOH",
+      "mw": 152.11,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Valine": {
+      "label": "VAL",
+      "product": "L-Valine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 117.15,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Uric acid": {
+      "label": "UA",
+      "product": "Uric acid",
+      "company": "Sigma",
+      "solvent": "DI / 1 M NaOH",
+      "mw": 168.11,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Uracil": {
+      "label": "URC",
+      "product": "Uracil",
+      "company": "Sigma",
+      "solvent": "DI (hot,sonicate) /1 M NaOH",
+      "mw": 112.09,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Tyrosine": {
+      "label": "TYR",
+      "product": "L-Tyrosine",
+      "company": "Sigma",
+      "solvent": "1 M HCl",
+      "mw": 181.19,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Tryptophan": {
+      "label": "TRYP",
+      "product": "L-Tryptophan",
+      "company": "Sigma",
+      "solvent": "DI (hot,sonicate)/ 0.5 M HCl",
+      "mw": 204.23,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Trimethylamine-N-oxide": {
+      "label": "TMA",
+      "product": "Trimethylamine N-oxide",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 75.11,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "trans-Aconitate": {
+      "label": "t-ACON",
+      "product": "trans-Aconitic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 174.11,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Threonine": {
+      "label": "TN",
+      "product": "L-Threonine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 119.12,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Taurine": {
+      "label": "TAU",
+      "product": "Taurine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 125.15,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Stearic acid": {
+      "label": "SA",
+      "product": "Stearic acid",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 284.48,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Spermidine": {
+      "label": "SPMD",
+      "product": "Spermidine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 145.25,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "sn-Glycerol-3-phosphate": {
+      "label": "GLYP",
+      "product": "sn-Glycerol 3-phosphate lithium salt",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 172.07,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Serine": {
+      "label": "SR",
+      "product": "L-Serine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 105.09,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Pyrimidine": {
+      "label": "PRMD",
+      "product": "Pyrimidine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 80.09,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Purine": {
+      "label": "PUR",
+      "product": "Purine",
+      "company": "Sigma",
+      "solvent": "DI / DMSO",
+      "mw": 120.11,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Pseudouridine": {
+      "label": "PDRD",
+      "product": "Pseudouridine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 244.2,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Proline": {
+      "label": "PRO",
+      "product": "D-Proline",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 115.13,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Phenylalanine": {
+      "label": "PHE",
+      "product": "D-Phenylalanine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 165.19,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "p-Cymene": {
+      "label": "CYM",
+      "product": "p-Cymene",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 134.22,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Palmitic acid": {
+      "label": "PA",
+      "product": "Palmitic acid",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 256.42,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "O-Acetylcarnitine": {
+      "label": "OAC",
+      "product": "O-Acetyl-L-carnitine hydrochloride",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 239.7,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "N-Acetylneuraminic Acid": {
+      "label": "ANRM",
+      "product": "N-Acetylneuraminic Acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 309.27,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Methyl β-D-Ribofuranoside": {
+      "label": "RFO",
+      "product": "Methyl β-D-Ribofuranoside",
+      "company": "TCI",
+      "solvent": "DI",
+      "mw": "164.16 ",
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Methyl 2-Hydroxyisobutyrate": {
+      "label": "HIBT",
+      "product": "Methyl 2-Hydroxyisobutyrate",
+      "company": "TCI",
+      "solvent": "DI / EtoH",
+      "mw": " 118.13 ",
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Methyl DL-2-Aminobutyrate": {
+      "label": "ABT",
+      "product": "Methyl DL-2-Aminobutyrate Hydrochloride",
+      "company": "TCI",
+      "solvent": "DI",
+      "mw": "153.61 ",
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Malic acid": {
+      "label": "MA",
+      "product": "DL-Malic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 134.09,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "L-Xylonic acid": {
+      "label": "XA",
+      "product": "L-Xylonic acid lithium salt",
+      "company": "Sigma",
+      "solvent": "DI?",
+      "mw": 166.13,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "L-Kynurenine": {
+      "label": "KYN",
+      "product": "L-Kynurenine",
+      "company": "Sigma",
+      "solvent": "HCl / DI, DMSO (<2mg/mL)",
+      "mw": 208.21,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Leucine": {
+      "label": "LEU",
+      "product": "L-Leucine",
+      "company": "Sigma",
+      "solvent": "DI (hot,sonicate)",
+      "mw": 131.17,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "L-aspartic acid": {
+      "label": "APA",
+      "product": "L-aspartic acid",
+      "company": "Sigma",
+      "solvent": "1 M HCl / DI (hot,sonicate)",
+      "mw": 133.1,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Isoleucine": {
+      "label": "ILEU",
+      "product": "L-Isoleucine",
+      "company": "Sigma",
+      "solvent": "1 M NH4OH / DI (hot, sonicate)",
+      "mw": 131.17,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Hypoxanthine": {
+      "label": "HXT",
+      "product": "Hypoxanthine",
+      "company": "Sigma",
+      "solvent": "DMSO",
+      "mw": 136.11,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Histidine": {
+      "label": "HIS",
+      "product": "Histidine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 155.15,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Hippuric acid": {
+      "label": "HPA",
+      "product": "Hippuric acid",
+      "company": "Sigma",
+      "solvent": "DI (hot,sonicate)",
+      "mw": 179.17,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Guanine": {
+      "label": "GUA",
+      "product": "Guanine",
+      "company": "Sigma",
+      "solvent": "HCl / DSMO",
+      "mw": 151.13,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Glycine": {
+      "label": "GLY",
+      "product": "Glycine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 75.07,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Glutamic acid": {
+      "label": "GA",
+      "product": "Glutamic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 147.13,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Glucose": {
+      "label": "GLU",
+      "product": "D-(+)-Glucose",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 180.16,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Glucopyranoside": {
+      "label": "GPRO",
+      "product": "Methyl α-D-glucopyranoside",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 194.18,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Fucose": {
+      "label": "FC",
+      "product": "L-(−)-Fucose",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 164.16,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "D-Galactosamine": {
+      "label": "GAM",
+      "product": "D-(+)-Galactosamine Hydrochloride",
+      "company": "TCI",
+      "solvent": "DI",
+      "mw": "215.63 ",
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "D-2-Aminobutric acid": {
+      "label": "ABA",
+      "product": "D-2-Aminobutric acid",
+      "company": "Sigma",
+      "solvent": "1 M HCl / DI (hot,sonicate)",
+      "mw": 161.16,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Cysteine": {
+      "label": "CYS",
+      "product": "Cysteine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 121.16,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Creatinine": {
+      "label": "CTN",
+      "product": "Creatinine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 113.12,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Creatine": {
+      "label": "CT",
+      "product": "Creatine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 131.13,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Citric acid": {
+      "label": "CA",
+      "product": "Citric acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 192.12,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "cis-Aconitate": {
+      "label": "c-ACON",
+      "product": "cis-Aconitate",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 174.11,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Benzoic acid": {
+      "label": "BA",
+      "product": "Benzoic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 122.12,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Aspartic acid": {
+      "label": "nan",
+      "product": "Aspartic acid",
+      "company": "Sigma",
+      "solvent": "nan",
+      "mw": NaN,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Ascorbic acid": {
+      "label": "ACA",
+      "product": "Ascorbic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 176.12,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Arginine": {
+      "label": "AGN ",
+      "product": "Arginine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 174.2,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Anisole": {
+      "label": "AS",
+      "product": "Anisole",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 108.14,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Ammonia": {
+      "label": "AM",
+      "product": "Ammonia",
+      "company": "Sigma",
+      "solvent": "nan",
+      "mw": NaN,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Alanine": {
+      "label": "ALA",
+      "product": "Alanine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 89.09,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Adenosine": {
+      "label": "ADNS",
+      "product": "Adenosine",
+      "company": "Sigma",
+      "solvent": "DI (hot,sonicate) / DMSO",
+      "mw": 267.24,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Adenine": {
+      "label": "ADN ",
+      "product": "Adenine",
+      "company": "Sigma",
+      "solvent": "1 M HCl / DI (hot,sonicate)",
+      "mw": 135.13,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Acrylic acid": {
+      "label": "ACRA",
+      "product": "Acrylic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 72.06,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "8-Hydroxydeoxyguanosine": {
+      "label": "HDGNS",
+      "product": "8-Hydroxy-2′-deoxyguanosine",
+      "company": "Sigma",
+      "solvent": "DMSO",
+      "mw": 283.24,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "4-Pyridoxate": {
+      "label": "PDA",
+      "product": "4-Pyridoxic acid",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 183.16,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "4-Methoxyphenol": {
+      "label": "MP",
+      "product": "4-Methoxyphenol",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 124.14,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "3-Hepatanone": {
+      "label": "HTN",
+      "product": "3-Hepatanone",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 114.19,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "2-Phenylacetamide": {
+      "label": "PAM",
+      "product": "2-Phenylacetamide",
+      "company": "TCI",
+      "solvent": "EtoH / DI (hot,sonicate)",
+      "mw": "135.17 ",
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "2-Naphthol": {
+      "label": "NT",
+      "product": "2-Naphthol",
+      "company": "Sigma",
+      "solvent": "EtoH / DI (hot,sonicate)",
+      "mw": 144.17,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "2 Hydroxyisobutyrate": {
+      "label": "nan",
+      "product": "Methyl 2-Hydroxyisobutyrate",
+      "company": "TCI",
+      "solvent": "nan",
+      "mw": NaN,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "1-Octanol": {
+      "label": "OT",
+      "product": "1-Octanol",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 130.23,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "1-Hydroxylpyrene": {
+      "label": "HPR",
+      "product": "1-Hydroxypyrene",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 218.25,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "1,2,4-Trimetylbenzene": {
+      "label": "TMB",
+      "product": "1,2,4-Trimetylbenzene",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 120.19,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Glycogen": {
+      "label": "GCG",
+      "product": "Glycogen",
+      "company": "Sigma",
+      "solvent": "nan",
+      "mw": NaN,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Cholesterol": {
+      "label": "CLTR",
+      "product": "Cholesterol",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 386.65,
+      "raman": "ü",
+      "detectable": "X"
+    },
+    "Porphyrin": {
+      "label": "PPR",
+      "product": "Porphyrin 1",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 704.8,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "nicotinamide-adenine dinucleotide hydrogen": {
+      "label": "NADH",
+      "product": "NADH",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 709.4,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Glycocholic acid": {
+      "label": "GCA",
+      "product": "Glycocholic acid hydrate",
+      "company": "Sigma",
+      "solvent": "DMSO",
+      "mw": 465.62,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "Sphinganine": {
+      "label": "SGN",
+      "product": "Sphinganine (d18:0)",
+      "company": "Sigma",
+      "solvent": "EtoH/DMSO",
+      "mw": 301.51,
+      "raman": "ü",
+      "detectable": "nan"
+    },
+    "β-Sitosterol": {
+      "label": "STR",
+      "product": "β-Sitosterol",
+      "company": "Sigma",
+      "solvent": "EtoH",
+      "mw": 414.71,
+      "raman": "nan",
+      "detectable": "nan"
+    },
+    "Inosine": {
+      "label": "INS",
+      "product": "Inosine",
+      "company": "Sigma",
+      "solvent": "DI",
+      "mw": 268.23,
+      "raman": "ü",
+      "detectable": "nan"
+    }
+  }
+}

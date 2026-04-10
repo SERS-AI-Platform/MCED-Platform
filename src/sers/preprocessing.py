@@ -36,10 +36,15 @@ from typing import Dict, Tuple, Optional, Literal
 
 import numpy as np
 import pandas as pd
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, find_peaks
 from scipy.interpolate import interp1d
 
 import logging
+
+from sers.logging_config import setup_logging
+from sers.validation import validate_processed_spectrum
+
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +58,170 @@ FINGERPRINT_REGION = (400, 2200)  # Default trim region (cm⁻¹)
 class PreprocessingError(Exception):
     """Exception raised during preprocessing."""
     pass
+
+
+# =============================================================================
+# 0. Wavenumber Calibration
+# =============================================================================
+# Reference peak: 1001.4 cm⁻¹ (urea symmetric C-N stretch)
+# Urine SERS spectra always contain urea, making this a reliable calibration anchor.
+# Instrument drift causes the observed peak position to shift by a few cm⁻¹.
+# Per-spectrum calibration shifts the x-axis so the reference peak aligns exactly.
+
+DEFAULT_REFERENCE_PEAK_WN = 1001.4
+DEFAULT_CALIBRATION_WINDOW = 10.0
+DEFAULT_CALIBRATION_SIGMA = 3.0   # cm⁻¹, gaussian distance penalty
+DEFAULT_CALIBRATION_MIN_SCORE = 1.0  # min score to accept; else skip (shift=0)
+
+
+def find_reference_peak(
+    x: np.ndarray,
+    y: np.ndarray,
+    target_wn: float = DEFAULT_REFERENCE_PEAK_WN,
+    window: float = DEFAULT_CALIBRATION_WINDOW,
+) -> Optional[float]:
+    """
+    Find the position of the reference peak nearest to target_wn.
+
+    Uses light Savitzky-Golay smoothing + peak detection in a local window,
+    with parabolic interpolation for sub-pixel accuracy.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Wavenumber values (cm⁻¹)
+    y : np.ndarray
+        Intensity values
+    target_wn : float
+        Expected reference peak position (cm⁻¹)
+    window : float
+        ± search range around target_wn (cm⁻¹)
+
+    Returns
+    -------
+    float or None
+        Detected peak position in cm⁻¹, or None if not found.
+    """
+    mask = (x >= target_wn - window) & (x <= target_wn + window)
+    x_win = x[mask]
+    y_win = y[mask]
+    if len(x_win) < 5:
+        return None
+
+    if len(y_win) >= 7:
+        y_smooth = savgol_filter(y_win, window_length=7, polyorder=2)
+    else:
+        y_smooth = y_win
+
+    peaks, _ = find_peaks(y_smooth, distance=5)
+    if len(peaks) == 0:
+        # Fail-safe: no peak found → skip calibration
+        return None
+
+    # Distance-weighted scoring: score = prominence × gaussian(dist_to_target)
+    # This avoids picking strong adjacent metabolite peaks (e.g., 1007.4, 995.9)
+    # when they outshine the genuine but weaker urea peak.
+    from scipy.signal import peak_prominences
+    proms, _, _ = peak_prominences(y_smooth, peaks)
+    sigma = DEFAULT_CALIBRATION_SIGMA
+    dists = x_win[peaks] - target_wn
+    weights = np.exp(-(dists / sigma) ** 2)
+    scores = proms * weights
+
+    best_arg = int(np.argmax(scores))
+    best_score = float(scores[best_arg])
+
+    # Fail-safe: if no candidate has a meaningful score, skip calibration
+    if best_score < DEFAULT_CALIBRATION_MIN_SCORE:
+        return None
+
+    best = int(peaks[best_arg])
+    # Sub-pixel refinement: parabolic interpolation
+    if 1 <= best < len(x_win) - 1:
+        y0, y1, y2 = y_smooth[best - 1], y_smooth[best], y_smooth[best + 1]
+        denom = 2 * (2 * y1 - y0 - y2)
+        if abs(denom) > 1e-10:
+            offset = (y0 - y2) / denom
+            return x_win[best] + offset * (x_win[1] - x_win[0])
+    return float(x_win[best])
+
+
+def calibrate_spectrum(
+    x: np.ndarray,
+    y: np.ndarray,
+    target_wn: float = DEFAULT_REFERENCE_PEAK_WN,
+    window: float = DEFAULT_CALIBRATION_WINDOW,
+) -> Tuple[np.ndarray, np.ndarray, float]:
+    """
+    Shift x-axis so that the reference peak aligns to target_wn.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Wavenumber values
+    y : np.ndarray
+        Intensity values
+    target_wn : float
+        Target reference peak position
+    window : float
+        Search window around target
+
+    Returns
+    -------
+    x_shifted : np.ndarray
+        Calibrated wavenumber values
+    y : np.ndarray
+        Unchanged intensity values
+    shift : float
+        Applied shift in cm⁻¹ (positive = shifted right)
+    """
+    detected = find_reference_peak(x, y, target_wn, window)
+    if detected is None:
+        return x, y, 0.0
+    shift = target_wn - detected
+    return x + shift, y, shift
+
+
+def calibrate_spectra_batch(
+    raw_spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
+    target_wn: float = DEFAULT_REFERENCE_PEAK_WN,
+    window: float = DEFAULT_CALIBRATION_WINDOW,
+) -> Tuple[Dict[Tuple, Tuple[np.ndarray, np.ndarray]], pd.DataFrame]:
+    """
+    Apply wavenumber calibration to all spectra.
+
+    Parameters
+    ----------
+    raw_spectra : dict
+        (group, sample_id, replicate) -> (x, y)
+    target_wn : float
+        Reference peak target position
+    window : float
+        Search window
+
+    Returns
+    -------
+    calibrated : dict
+        Same structure as input with calibrated x-arrays
+    shift_df : pd.DataFrame
+        Calibration statistics per spectrum
+    """
+    calibrated = {}
+    shift_records = []
+
+    for key, (x, y) in raw_spectra.items():
+        x_cal, y_cal, shift = calibrate_spectrum(x, y, target_wn, window)
+        calibrated[key] = (x_cal, y_cal)
+        group, sid, rep = key
+        shift_records.append({
+            "group": group,
+            "sample_id": sid,
+            "replicate": rep,
+            "shift_cm1": shift,
+        })
+
+    shift_df = pd.DataFrame(shift_records)
+    return calibrated, shift_df
 
 
 # =============================================================================
@@ -608,6 +777,11 @@ def preprocess_spectra(
             )
 
             processed[key] = y_grid
+
+            # Post-preprocessing validation
+            vr = validate_processed_spectrum(y_grid, proc_grid, label=str(key))
+            if not vr.is_valid:
+                logger.warning(f"Post-preprocessing validation failed for {key}: {vr.summary()}")
 
             # Collect statistics
             stats.append({

@@ -181,6 +181,100 @@ def safe_float(val):
         return None
 
 
+def parse_tnm_from_pathology(text):
+    """Extract T/N/M stage components from pathology text.
+
+    Handles formats like: "pT1cN0M0", "T3N0MX", "pTisN0", "T2aN1bMX"
+    Returns dict with keys: t_stage, n_stage, m_stage, tnm, stage
+    """
+    if pd.isna(text):
+        return {}
+    s = str(text).strip()
+    if not s or s in ("안함", ".", "-"):
+        return {}
+
+    # Match TNM pattern (with optional 'p' prefix)
+    m = re.search(
+        r'p?(?P<T>T(?:is|\d[a-c]?))[\s,]*(?P<N>N[X0-3][a-c]?)[\s,]*(?P<M>M[X01])?',
+        s, re.IGNORECASE
+    )
+    if not m:
+        return {}
+
+    t = m.group("T").upper()
+    n = m.group("N").upper()
+    mstage = m.group("M").upper() if m.group("M") else None
+    tnm_str = f"{t}{n}{mstage or ''}"
+
+    result = {"t_stage": t, "n_stage": n, "tnm": tnm_str}
+    if mstage:
+        result["m_stage"] = mstage
+
+    # Compute overall stage
+    stage = compute_overall_stage(t, n, mstage)
+    if stage:
+        result["stage"] = stage
+
+    return result
+
+
+def compute_overall_stage(t_raw, n_raw, m_raw):
+    """Compute simplified overall stage (I/II/III/IV) from TNM components.
+
+    AJCC simplified rules:
+    - M1 → IV
+    - TX or NX (unknown) → None
+    - Tis → 0 (mapped to I for simplicity)
+    - T1-2 + N0 → I
+    - T1-2 + N1+ → II, or T3 + N0 → II
+    - T3 + N1+ → III, or T4 + any → III
+    - T4 + N2+ → III (could be IVA in some cancers)
+    """
+    if not t_raw:
+        return None
+
+    t = str(t_raw).strip().upper()
+    n = str(n_raw).strip().upper() if n_raw and str(n_raw).strip().upper() != "NAN" else "NX"
+    m = str(m_raw).strip().upper() if m_raw and str(m_raw).strip().upper() != "NAN" else "MX"
+
+    # M1 → Stage IV
+    if m == "M1":
+        return "IV"
+
+    # Extract numeric T value
+    t_match = re.match(r'T(\d)', t)
+    if t == "TIS":
+        t_num = 0
+    elif t_match:
+        t_num = int(t_match.group(1))
+    else:
+        return None  # TX or unrecognized
+
+    # N unknown → can still estimate if T is clear and M0/MX
+    n_match = re.match(r'N(\d)', n)
+    n_num = int(n_match.group(1)) if n_match else None
+
+    if n_num is None:
+        # NX: rough estimate from T alone
+        if t_num <= 2:
+            return "I"
+        elif t_num == 3:
+            return "II"
+        else:
+            return "III"
+
+    # Standard mapping
+    if t_num <= 2 and n_num == 0:
+        return "I"
+    elif (t_num <= 2 and n_num >= 1) or (t_num == 3 and n_num == 0):
+        return "II"
+    elif t_num == 3 and n_num >= 1:
+        return "III"
+    elif t_num >= 4:
+        return "III"
+    return "II"  # fallback
+
+
 def parse_blood_test_text(text):
     """Parse free-text blood test results into structured values.
 
@@ -382,6 +476,11 @@ def load_smcxd01_compact(filepath, sheet, disease_group):
         ])
         if patho_col and pd.notna(r.get(patho_col)):
             row["pathology"] = str(r[patho_col]).strip()
+            # Parse TNM from pathology text (BRE: pT1cN0, OVA: T3N0MX, etc.)
+            tnm = parse_tnm_from_pathology(row["pathology"])
+            for k in ("t_stage", "n_stage", "m_stage", "tnm", "stage"):
+                if tnm.get(k) and not row.get(k):
+                    row[k] = tnm[k]
 
         rows.append(row)
     return pd.DataFrame(rows)
@@ -419,12 +518,12 @@ def load_smcxd06_cancer(filepath, sheet, disease_group, header_row=0):
             "surgery_date": normalize_date(r.get(get_col(df, ["암 수술일", "수술일"]))),
             "sample_date": normalize_date(r.get(get_col(df, ["검체수집일", "검사 날짜"]))),
             "fasting": str(r.get("공복여부")).strip() if pd.notna(r.get("공복여부")) else None,
-            "t_stage": str(r.get(get_col(df, ["인체자원그룹:T STAGE"]))).strip()
-                if get_col(df, ["인체자원그룹:T STAGE"]) and pd.notna(r.get(get_col(df, ["인체자원그룹:T STAGE"]))) else None,
-            "n_stage": str(r.get(get_col(df, ["인체자원그룹:N_STAGE2"]))).strip()
-                if get_col(df, ["인체자원그룹:N_STAGE2"]) and pd.notna(r.get(get_col(df, ["인체자원그룹:N_STAGE2"]))) else None,
-            "m_stage": str(r.get(get_col(df, ["인체자원그룹:M_STAGE"]))).strip()
-                if get_col(df, ["인체자원그룹:M_STAGE"]) and pd.notna(r.get(get_col(df, ["인체자원그룹:M_STAGE"]))) else None,
+            "t_stage": str(r.get(get_col(df, ["인체자원그룹:T STAGE", "T STAGE"]))).strip()
+                if get_col(df, ["인체자원그룹:T STAGE", "T STAGE"]) and pd.notna(r.get(get_col(df, ["인체자원그룹:T STAGE", "T STAGE"]))) else None,
+            "n_stage": str(r.get(get_col(df, ["인체자원그룹:N_STAGE2", "N_STAGE2"]))).strip()
+                if get_col(df, ["인체자원그룹:N_STAGE2", "N_STAGE2"]) and pd.notna(r.get(get_col(df, ["인체자원그룹:N_STAGE2", "N_STAGE2"]))) else None,
+            "m_stage": str(r.get(get_col(df, ["인체자원그룹:M_STAGE", "M_STAGE"]))).strip()
+                if get_col(df, ["인체자원그룹:M_STAGE", "M_STAGE"]) and pd.notna(r.get(get_col(df, ["인체자원그룹:M_STAGE", "M_STAGE"]))) else None,
             "stage": str(r.get(get_col(df, ["Overall stage"]))).strip()
                 if get_col(df, ["Overall stage"]) and pd.notna(r.get(get_col(df, ["Overall stage"]))) else None,
             "pathology": str(r.get(get_col(df, ["병리결과", "병리결과 "]))).strip()
@@ -478,18 +577,44 @@ def load_smcxd06_cancer(filepath, sheet, disease_group, header_row=0):
             "ua_blood": str(r.get(get_col(df, ["R.UA-Blood"]))).strip()
                 if get_col(df, ["R.UA-Blood"]) and pd.notna(r.get(get_col(df, ["R.UA-Blood"]))) else None,
         }
+        # Compute overall stage from TNM if missing
+        if not row.get("stage") and row.get("t_stage"):
+            computed = compute_overall_stage(row["t_stage"], row.get("n_stage"), row.get("m_stage"))
+            if computed:
+                row["stage"] = computed
         rows.append(row)
     return pd.DataFrame(rows)
 
 
 def load_lung2(filepath):
-    """폐암2 (SMCXD06_폐암 2)."""
+    """폐암2 (SMCXD06_폐암 2).
+
+    banking no 컬럼(format: "S YYYYMMDD NNN URN")에서 검체채취일(sample_date)을
+    추출하고, 수술일과 비교하여 sample_timing을 설정한다.
+    - banking_date <= surgery_date → "pre-op" (수술 당일 수술 전 채취)
+    - banking_date > surgery_date  → "peri-op" (수술 다음 날 채취)
+    """
     df = pd.read_excel(filepath, sheet_name="Sheet1", header=0, engine="openpyxl")
     rows = []
     for _, r in df.iterrows():
         pid = str(r.get("Unnamed: 0", "")).strip()
         if not pid or pid == "nan":
             continue
+        # Extract sample_date from banking no (format: "S YYYYMMDD NNN URN")
+        banking_no = str(r.get("banking no", ""))
+        sample_date = None
+        sample_timing = None
+        match = re.search(r"(\d{8})", banking_no)
+        if match:
+            try:
+                sample_date = pd.to_datetime(match.group(1), format="%Y%m%d").strftime("%Y-%m-%d")
+                surgery_dt = pd.to_datetime(r.get("수술일"), errors="coerce")
+                banking_dt = pd.to_datetime(sample_date)
+                if pd.notna(surgery_dt):
+                    diff_days = (banking_dt - surgery_dt).days
+                    sample_timing = "pre-op" if diff_days <= 0 else "peri-op"
+            except Exception:
+                pass
         rows.append({
             "patient_id": pid,
             "disease_group": "LUN",
@@ -500,6 +625,8 @@ def load_lung2(filepath):
             "weight_kg": safe_float(r.get("체중")),
             "surgery_date": normalize_date(r.get("수술일")),
             "diagnosis_date": normalize_date(r.get("조직검사 결과 진단일")),
+            "sample_date": sample_date,
+            "sample_timing": sample_timing,
             "tnm": str(r.get("pTNM")).strip() if pd.notna(r.get("pTNM")) else None,
             "diagnosis": str(r.get("병리검사 진단명")).strip() if pd.notna(r.get("병리검사 진단명")) else None,
             "stage": str(r.get("stage")).strip() if pd.notna(r.get("stage")) else None,
@@ -509,22 +636,37 @@ def load_lung2(filepath):
 
 
 def load_lung3(filepath):
-    """폐암3 (SMCXD06_폐암 3) - 3 sheets merged by 제공자:제공자bCODE."""
+    """폐암3 (SMCXD06_폐암 3) - 4 sheets merged by 제공자:제공자bCODE.
+
+    자원리스트 sheet col 0 ('LUN N') is the canonical patient_id.
+    The other 3 sheets only carry 병원번호 (제공자bCODE), so we use it as
+    the join key but rename to 'LUN N' for patient_id.
+    """
+    res = pd.read_excel(filepath, sheet_name="자원리스트", header=0, engine="openpyxl")
     demo = pd.read_excel(filepath, sheet_name="인구학적정보 및 암 관련 정보", header=0, engine="openpyxl")
     patho = pd.read_excel(filepath, sheet_name="병리검사", header=0, engine="openpyxl")
     lab = pd.read_excel(filepath, sheet_name="진단검사", header=0, engine="openpyxl")
 
     # Normalize join key to string across all sheets
     join_col = "제공자:제공자bCODE"
-    for sheet_df in [demo, patho, lab]:
+    for sheet_df in [res, demo, patho, lab]:
         if join_col in sheet_df.columns:
             sheet_df[join_col] = sheet_df[join_col].astype(str).str.strip()
 
+    # Build 병원번호 -> "LUN N" map from 자원리스트 (col 0 = Sample number = "LUN 201"...)
+    label_col = res.columns[0]  # 'Unnamed: 0'
+    lun_label_map = {
+        str(r[join_col]).strip(): str(r[label_col]).strip()
+        for _, r in res.iterrows()
+        if pd.notna(r.get(join_col)) and pd.notna(r.get(label_col))
+    }
+
     rows = []
     for i, r in demo.iterrows():
-        pid = str(r.get("제공자:제공자bCODE", "")).strip()
-        if not pid or pid == "nan":
+        bcode = str(r.get("제공자:제공자bCODE", "")).strip()
+        if not bcode or bcode == "nan":
             continue
+        pid = lun_label_map.get(bcode, bcode)  # fallback to 병원번호 if missing
 
         # Parse 성별/나이 from combined column
         sex_age = str(r.get("성별/나이", ""))
@@ -554,8 +696,8 @@ def load_lung3(filepath):
                 if pd.notna(r.get("암 치료 정보")) and str(r.get("암 치료 정보")).strip() != "." else None,
         }
 
-        # Merge pathology
-        p_row = patho[patho["제공자:제공자bCODE"] == pid] if "제공자:제공자bCODE" in patho.columns else pd.DataFrame()
+        # Merge pathology (joined by 병원번호, not LUN label)
+        p_row = patho[patho["제공자:제공자bCODE"] == bcode] if "제공자:제공자bCODE" in patho.columns else pd.DataFrame()
         if len(p_row) > 0:
             p = p_row.iloc[0]
             row["diagnosis"] = str(p.get("Histologic")).strip() if pd.notna(p.get("Histologic")) else None
@@ -563,8 +705,8 @@ def load_lung3(filepath):
             row["tnm"] = str(p.get("TNM")).strip() if pd.notna(p.get("TNM")) else None
             row["metastasis"] = str(p.get("Metastasis")).strip() if pd.notna(p.get("Metastasis")) else None
 
-        # Merge lab
-        l_row = lab[lab["제공자:제공자bCODE"] == pid] if "제공자:제공자bCODE" in lab.columns else pd.DataFrame()
+        # Merge lab (joined by 병원번호, not LUN label)
+        l_row = lab[lab["제공자:제공자bCODE"] == bcode] if "제공자:제공자bCODE" in lab.columns else pd.DataFrame()
         if len(l_row) > 0:
             l = l_row.iloc[0]
             row["wbc"] = safe_float(l.get("WBC"))
@@ -666,6 +808,21 @@ def main():
         all_dfs.append(df)
         print(f"    -> {len(df)} rows")
 
+    # ── Append pre-existing external CSVs (SPAN, YPAN, YNOR) ────────────
+    existing_groups = set()
+    for df_i in all_dfs:
+        if "disease_group" in df_i.columns:
+            existing_groups.update(df_i["disease_group"].unique())
+
+    EXTRA_GROUPS = ["SPAN", "YNOR", "YPAN", "YPAN_BENIGN", "YPAN_CP", "YPAN_CYST", "YPAN_NOR"]
+    for eg in EXTRA_GROUPS:
+        eg_path = out_dir / f"{eg}_clinical_standardized.csv"
+        if eg_path.exists() and eg not in existing_groups:
+            edf = pd.read_csv(eg_path)
+            if len(edf) > 0:
+                all_dfs.append(edf)
+                print(f"  [EXTRA] {eg}: {len(edf)} rows from {eg_path.name}")
+
     # ── Merge all ─────────────────────────────────────────────────────────
     merged = pd.concat(all_dfs, ignore_index=True)
 
@@ -700,9 +857,15 @@ def main():
     # For BLA: parse surgery date from treatment text.
     print("  [TIMING] Computing sample_timing...")
 
-    merged["sample_timing"] = None
+    # Preserve pre-set sample_timing from loaders (e.g., load_lung2 banking_no)
+    if "sample_timing" not in merged.columns:
+        merged["sample_timing"] = None
+    else:
+        merged["sample_timing"] = merged["sample_timing"].where(merged["sample_timing"].notna(), None)
 
     for idx, row in merged.iterrows():
+        if row.get("sample_timing") is not None:
+            continue  # Already set by loader
         sample_dt = pd.to_datetime(row.get("sample_date"), errors="coerce")
         if pd.isna(sample_dt):
             continue

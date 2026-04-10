@@ -14,7 +14,15 @@
       "Bash(head:*)",
       "Bash(du:*)",
       "Bash(ls:*)",
-      "Bash(\"C:/Program Files/PostgreSQL/15/bin/psql.exe\":*)"
+      "Bash(\"C:/Program Files/PostgreSQL/15/bin/psql.exe\":*)",
+      "Bash(pip show:*)",
+      "Bash(dpkg -l)",
+      "Bash(apt list:*)",
+      "Bash(sudo apt-get:*)",
+      "Bash(/home/user/.claude/plans/floating-skipping-salamander-agent-ae58572e4b4128060.md:*)",
+      "Read(//c/Users/user/.config/**)",
+      "Read(//c/Users/user/.claude/**)",
+      "Bash(find /c/Users/user/.claude/plugins -name \"*.json\" | xargs grep -l \"supabase\" 2>/dev/null | head -5)"
     ]
   }
 }

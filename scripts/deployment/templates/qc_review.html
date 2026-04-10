@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block page_title %}{{ s.qc_title }}{% endblock %}
+
+{% block content %}
+<!-- Patient Info Bar -->
+<div class="patient-bar">
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.patient_id }}:</span>
+        <span class="patient-bar-value">{{ session.patient_id }}</span>
+    </div>
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.age }}:</span>
+        <span class="patient-bar-value">{{ session.age|int }}</span>
+    </div>
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.sex }}:</span>
+        <span class="patient-bar-value">{{ s.male if session.sex == 'M' else s.female }}</span>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="card-title">{{ s.qc_title }}</h2>
+
+    <!-- QC Summary -->
+    <div style="margin-bottom: 20px; padding: 16px; background: {% if qc_passed == 0 %}#FEF2F2{% else %}var(--bg-secondary){% endif %}; border-radius: var(--radius);">
+        <strong>{{ s.qc_summary|format(passed=qc_passed, total=qc_total) }}</strong>
+    </div>
+
+    {% if qc_passed == 0 %}
+    <div class="disclaimer" style="background: #FEF2F2; border-color: #FECACA; color: #991B1B;">
+        <span class="disclaimer-icon">&#9888;</span>
+        <span>{{ s.qc_all_fail }}</span>
+    </div>
+    {% else %}
+
+    <!-- QC Detail Table -->
+    <table class="qc-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>File</th>
+                <th>{{ s.qc_intensity }}</th>
+                <th>{{ s.qc_correlation }}</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for spec in spectra %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ spec.filename }}</td>
+                <td>{{ "%.2f"|format(spec.fp_mean) if spec.fp_mean else "—" }}</td>
+                <td>{{ "%.4f"|format(spec.replicate_correlation) if spec.replicate_correlation else "—" }}</td>
+                <td>
+                    {% if spec.qc_pass %}
+                    <span class="qc-badge pass">&#10003; {{ s.qc_pass }}</span>
+                    {% else %}
+                    <span class="qc-badge fail">&#10005; {{ s.qc_fail }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 24px;">
+        <a href="/patient/{{ session.id }}/results" class="btn btn-primary" style="text-decoration:none; display:flex;">
+            {{ s.view_results }} &#8594;
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

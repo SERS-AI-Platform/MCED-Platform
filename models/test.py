@@ -1,7 +1,7 @@
 ﻿"""
 SERS Cancer Detection ??Evaluation & Visualization (ResNet18-1D)
 
-Two-stage: Binary + Cancer Type (7: PRO, BRE, OVA, LUN, CRC, CPAN, SPAN)
+Two-stage: Binary + Cancer Type (8: PRO, BRE, OVA, LUN, CRC, CPAN, SPAN, BLC)
 
 Usage:
     python test.py
@@ -38,6 +38,7 @@ from sklearn.metrics import (
     accuracy_score, f1_score, precision_score, recall_score,
     roc_auc_score, roc_curve, auc,
     confusion_matrix,
+    precision_recall_curve, average_precision_score,
 )
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import f_classif, mutual_info_classif
@@ -118,6 +119,7 @@ def binary_metrics(y_true, y_prob, threshold=0.5, prefix=""):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     return {
         f"{prefix}auc": roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else np.nan,
+        f"{prefix}pr_auc": average_precision_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else np.nan,
         f"{prefix}accuracy": accuracy_score(y_true, y_pred),
         f"{prefix}sensitivity": tp / (tp + fn) if (tp + fn) > 0 else 0,
         f"{prefix}specificity": tn / (tn + fp) if (tn + fp) > 0 else 0,
@@ -139,6 +141,16 @@ def multiclass_metrics(y_true, y_logits, names, prefix=""):
     except ValueError:
         m[f"{prefix}auc_macro"] = np.nan
 
+    try:
+        per_class_ap = []
+        for idx in sorted(set(y_true)):
+            bg = (y_true == idx).astype(int)
+            if bg.sum() > 0:
+                per_class_ap.append(average_precision_score(bg, y_prob[:, idx]))
+        m[f"{prefix}pr_auc_macro"] = float(np.mean(per_class_ap)) if per_class_ap else np.nan
+    except ValueError:
+        m[f"{prefix}pr_auc_macro"] = np.nan
+
     for idx in sorted(set(y_true)):
         name = names[idx] if idx < len(names) else f"cls_{idx}"
         bg = (y_true == idx).astype(int)
@@ -149,6 +161,10 @@ def multiclass_metrics(y_true, y_logits, names, prefix=""):
             m[f"{prefix}{name}_auc"] = roc_auc_score(bg, y_prob[:, idx])
         except ValueError:
             m[f"{prefix}{name}_auc"] = np.nan
+        try:
+            m[f"{prefix}{name}_pr_auc"] = average_precision_score(bg, y_prob[:, idx])
+        except ValueError:
+            m[f"{prefix}{name}_pr_auc"] = np.nan
         m[f"{prefix}{name}_n"] = int(bg.sum())
     return m
 
@@ -199,6 +215,21 @@ def plot_roc_s1(yt, yp, path):
             bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.9))
     plt.tight_layout(); fig.savefig(path); plt.close()
     return opt_t
+
+
+def plot_pr_s1(yt, yp, path):
+    precision, recall, _ = precision_recall_curve(yt, yp)
+    ap = average_precision_score(yt, yp)
+    prevalence = yt.sum() / len(yt)
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.plot(recall, precision, color="#c0392b", lw=2.5, label=f"PR (AP = {ap:.4f})")
+    ax.axhline(prevalence, color="k", ls="--", alpha=0.3, label=f"Baseline (prev={prevalence:.3f})")
+    ax.set(xlabel="Recall", ylabel="Precision",
+           title="Stage 1: Cancer vs Non-cancer — Precision-Recall")
+    ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.02, 1.02)
+    ax.legend(loc="lower left", fontsize=11); ax.grid(True, alpha=0.3)
+    plt.tight_layout(); fig.savefig(path); plt.close()
 
 
 def plot_tsne_3d(emb, groups, bl, path):
@@ -293,6 +324,28 @@ def plot_roc_s2(yt, yl, names, path):
     plt.tight_layout(); fig.savefig(path); plt.close()
 
 
+def plot_pr_s2(yt, yl, names, path):
+    yp = torch.softmax(torch.tensor(yl), dim=-1).numpy()
+    present = sorted(set(yt))
+    fig, ax = plt.subplots(figsize=(8, 7))
+    for idx in present:
+        name = names[idx] if idx < len(names) else f"Type {idx}"
+        bg = (yt == idx).astype(int)
+        if bg.sum() == 0: continue
+        prec_arr, rec_arr, _ = precision_recall_curve(bg, yp[:, idx])
+        try:
+            ap = average_precision_score(bg, yp[:, idx])
+        except ValueError:
+            ap = np.nan
+        ax.plot(rec_arr, prec_arr, lw=2, color=GROUP_COLORS.get(name),
+                label=f"{name} (n={bg.sum()}, AP={ap:.3f})")
+    ax.set(xlabel="Recall", ylabel="Precision",
+           title="Stage 2 — Per-Cancer PR Curves (OvR)")
+    ax.legend(fontsize=9, loc="lower left"); ax.grid(True, alpha=0.3)
+    ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.02, 1.02)
+    plt.tight_layout(); fig.savefig(path); plt.close()
+
+
 def plot_cm_s2(yt, yl, names, path):
     yp = torch.softmax(torch.tensor(yl), dim=-1).numpy()
     ypred = yp.argmax(axis=1)
@@ -307,7 +360,7 @@ def plot_cm_s2(yt, yl, names, path):
     sns.heatmap(cn, annot=True, fmt=".1%", cmap="Oranges", ax=axes[1],
                 xticklabels=ns, yticklabels=ns, cbar=False, annot_kws={"size": 11}, vmin=0, vmax=1)
     axes[1].set(xlabel="Predicted", ylabel="True", title="Normalized")
-    plt.suptitle("Stage 2 ??Cancer Type Confusion (7-class)", fontsize=14, fontweight="bold")
+    plt.suptitle("Stage 2 ??Cancer Type Confusion (8-class)", fontsize=14, fontweight="bold")
     plt.tight_layout(); fig.savefig(path); plt.close()
 
 
@@ -859,12 +912,12 @@ def summary_table(data, summary, opt_t, out_dir):
                 train_m.update(multiclass_metrics(tct[tcm], tcl[tcm], ct, "train_s2_"))
 
     rows = []
-    for m in ["auc", "accuracy", "sensitivity", "specificity", "ppv", "npv", "f1"]:
+    for m in ["auc", "pr_auc", "accuracy", "sensitivity", "specificity", "ppv", "npv", "f1"]:
         rows.append({"stage": "S1", "metric": m, "train": train_m.get(f"train_s1_{m}", np.nan), "val": val_m.get(f"val_s1_{m}", np.nan)})
-    for m in ["accuracy", "f1_macro", "auc_macro"]:
+    for m in ["accuracy", "f1_macro", "auc_macro", "pr_auc_macro"]:
         rows.append({"stage": "S2", "metric": m, "train": train_m.get(f"train_s2_{m}", np.nan), "val": val_m.get(f"val_s2_{m}", np.nan)})
     for name in ct:
-        for m in ["sens", "auc"]:
+        for m in ["sens", "auc", "pr_auc"]:
             rows.append({"stage": f"S2-{name}", "metric": m,
                           "train": train_m.get(f"train_s2_{name}_{m}", np.nan),
                           "val": val_m.get(f"val_s2_{name}_{m}", np.nan)})
@@ -941,6 +994,21 @@ def parse_args():
     p.add_argument("--gradcam-samples", type=int, default=128)
     p.add_argument("--shap-samples", type=int, default=100)
     p.add_argument("--shap-explain", type=int, default=200)
+
+    # ── External group inference ──
+    p.add_argument(
+        "--val-group",
+        type=str,
+        default=None,
+        help="Pass an out-of-training group (e.g. SPAN) through the trained fold models "
+             "and report classification results. Requires fold checkpoints.",
+    )
+    p.add_argument(
+        "--aggregate", "-a",
+        choices=["medoid", "mean", "none"],
+        default="mean",
+        help="Replicate aggregation for --val-group samples (default: mean).",
+    )
     return p.parse_args()
 
 
@@ -966,6 +1034,7 @@ def run_stage1(vbt, vbp, vgrp, s1_dir, met_dir, tbp=None, tbt=None):
     logger.info("\n[Stage 1] Binary classification...")
     opt_t = plot_roc_s1(vbt, vbp, s1_dir / "roc_curve.png")
     logger.info(f"  Optimal threshold: {opt_t:.4f}")
+    plot_pr_s1(vbt, vbp, s1_dir / "pr_curve.png")
     plot_cm_s1(vbt, vbp, opt_t, s1_dir / "confusion_matrix.png")
     plot_dist(vbt, vbp, opt_t, s1_dir / "prob_distribution.png")
 
@@ -986,12 +1055,13 @@ def run_stage1(vbt, vbp, vgrp, s1_dir, met_dir, tbp=None, tbt=None):
 
 
 def run_stage2(vct, vcl, vX, tct, tcl, cancer_types, s2_dir, met_dir, feature_names):
-    logger.info("\n[Stage 2] Cancer type (7-class)...")
+    logger.info("\n[Stage 2] Cancer type (8-class)...")
     cm = vct >= 0
     if cm.sum() == 0:
         return cm
 
     plot_roc_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "roc_curves_per_type.png")
+    plot_pr_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "pr_curves_per_type.png")
     plot_cm_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "confusion_matrix.png")
     type_df = plot_bars_s2(vct[cm], vcl[cm], cancer_types, s2_dir / "per_type_metrics.png")
     type_df.to_csv(met_dir / "per_cancer_type_metrics.csv", index=False)
@@ -1084,13 +1154,263 @@ def run_shap_analysis(args, train_dir, device, X, valid_mask, ctl, s1_dir, s2_di
     )
 
 
+def _aggregate_group(df, feature_cols, method):
+    """Aggregate replicates for val-group inference."""
+    if method == "none":
+        return df
+    if method == "mean":
+        agg = df.groupby(["group", "sample_id"])[feature_cols].mean().reset_index()
+        logger.info(f"  Mean aggregation: {len(df)} spectra → {len(agg)} samples")
+        return agg
+    # medoid
+    rows = []
+    for (group, sid), sub in df.groupby(["group", "sample_id"]):
+        if len(sub) == 1:
+            rows.append(sub.iloc[0])
+            continue
+        spectra = sub[feature_cols].values
+        medoid_idx = np.corrcoef(spectra).mean(axis=1).argmax()
+        rows.append(sub.iloc[medoid_idx])
+    result = pd.DataFrame(rows).reset_index(drop=True)
+    logger.info(f"  Medoid aggregation: {len(df)} spectra → {len(result)} samples")
+    return result
+
+
+def run_val_group_inference(args):
+    """Load fold checkpoints and run inference on an out-of-training group."""
+    t0 = datetime.now()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s │ %(levelname)-7s │ %(message)s", datefmt="%H:%M:%S",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+
+    group_name = args.val_group.upper()
+    logger.info("=" * 64)
+    logger.info(f"  Val-Group Inference: {group_name}")
+    logger.info("=" * 64)
+
+    # ── 1. Resolve training dir & load summary ──
+    train_dir = resolve_train_dir(args.input)
+    with open(train_dir / "training_summary.json") as f:
+        summary = json.load(f)
+    cancer_types = summary["cancer_types"]
+    model_name = summary.get("model_name", "unknown")
+    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Cancer types: {cancer_types}")
+    logger.info(f"  Train dir: {train_dir}")
+
+    # ── 2. Load processed spectra for the target group ──
+    csv_path = Path(args.processed_csv)
+    if not csv_path.is_absolute():
+        csv_path = PROJECT_ROOT / csv_path
+    df_all = pd.read_csv(csv_path)
+    feature_cols = [c for c in df_all.columns if c.startswith("x_")]
+
+    # Support group aliases (e.g., PAN → CPAN + YPAN)
+    group_aliases = summary.get("group_aliases", {})
+    raw_groups = [group_name]
+    if group_name in group_aliases:
+        raw_groups = group_aliases[group_name]
+        logger.info(f"  Expanded alias {group_name} → {raw_groups}")
+
+    df_group = df_all[df_all["group"].isin(raw_groups)].copy()
+    if df_group.empty:
+        logger.error(f"  No spectra found for group(s) {raw_groups} in {csv_path}")
+        return 1
+
+    logger.info(f"  Found {len(df_group)} spectra, "
+                f"{df_group['sample_id'].nunique()} samples for {raw_groups}")
+
+    # ── 3. Aggregate replicates ──
+    df_agg = _aggregate_group(df_group, feature_cols, args.aggregate)
+    X = df_agg[feature_cols].values.astype(np.float32)
+    sample_ids = df_agg["sample_id"].values
+    groups = df_agg["group"].values if "group" in df_agg.columns else np.array([group_name] * len(X))
+    n_samples, n_features = X.shape
+    logger.info(f"  Inference matrix: {n_samples} samples × {n_features} features")
+
+    # ── 4. Load fold checkpoints ──
+    ckpt_dir = train_dir / "checkpoints"
+    if not ckpt_dir.exists():
+        logger.error(f"  Checkpoint dir not found: {ckpt_dir}")
+        return 1
+
+    binary_models = sorted(ckpt_dir.glob("fold_*_binary.joblib"))
+    stage2_models = sorted(ckpt_dir.glob("fold_*_stage2.joblib"))
+    torch_models = sorted(ckpt_dir.glob("fold_*.pt"))
+
+    is_classical = len(binary_models) > 0
+    is_torch = len(torch_models) > 0 and not is_classical
+
+    if not is_classical and not is_torch:
+        logger.error("  No fold checkpoints found (need fold_*_binary.joblib or fold_*.pt)")
+        return 1
+
+    # ── 5. Run inference ──
+    all_binary_probs = []
+    all_stage2_logits = []
+
+    if is_classical:
+        logger.info(f"\n  Loading {len(binary_models)} classical fold models...")
+        # StandardScaler: train.py wraps LR in make_pipeline(StandardScaler(), LR)
+        for i, bp in enumerate(binary_models):
+            bm = joblib.load(bp)
+            if hasattr(bm, "predict_proba"):
+                prob = bm.predict_proba(X)[:, 1]
+            else:
+                prob = bm.decision_function(X)
+            all_binary_probs.append(prob)
+
+            sp = ckpt_dir / f"fold_{i}_stage2.joblib"
+            if sp.exists():
+                sm = joblib.load(sp)
+                if hasattr(sm, "predict_proba"):
+                    logits = sm.predict_proba(X)
+                else:
+                    logits = sm.decision_function(X)
+                all_stage2_logits.append(logits)
+            logger.info(f"    Fold {i}: S1 mean_prob={prob.mean():.3f}")
+
+    elif is_torch:
+        device = resolve_device(args.device)
+        logger.info(f"\n  Loading {len(torch_models)} torch fold models on {device}...")
+        X_tensor = torch.tensor(X, dtype=torch.float32).unsqueeze(1).to(device)
+
+        for ckpt_path in torch_models:
+            ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+            mc = ModelConfig(**ckpt["config"])
+            ckpt_model_name = str(ckpt.get("model_name", model_name)).lower()
+            model = build_model(ckpt_model_name, mc).to(device)
+            model.load_state_dict(ckpt["model_state_dict"])
+            model.eval()
+
+            with torch.no_grad():
+                out = model(X_tensor)
+                bp = torch.sigmoid(out["binary_logit"]).cpu().numpy().squeeze()
+                cl = out["cancer_logits"].cpu().numpy()
+            all_binary_probs.append(bp)
+            all_stage2_logits.append(cl)
+            logger.info(f"    {ckpt_path.name}: S1 mean_prob={bp.mean():.3f}")
+
+    # ── 6. Ensemble average ──
+    binary_prob = np.mean(all_binary_probs, axis=0)
+    binary_std = np.std(all_binary_probs, axis=0)
+
+    if all_stage2_logits:
+        stage2_logits = np.mean(all_stage2_logits, axis=0)
+        stage2_prob = torch.softmax(torch.tensor(stage2_logits), dim=-1).numpy()
+        stage2_pred = stage2_prob.argmax(axis=1)
+        stage2_pred_names = [cancer_types[i] if i < len(cancer_types) else f"cls_{i}"
+                            for i in stage2_pred]
+    else:
+        stage2_prob = None
+        stage2_pred_names = ["N/A"] * n_samples
+
+    # ── 7. Output ──
+    logger.info(f"\n{'=' * 64}")
+    logger.info(f"  Results: {group_name} ({n_samples} samples) through {model_name}")
+    logger.info(f"{'=' * 64}")
+
+    # Stage 1: Cancer probability
+    logger.info(f"\n[Stage 1] Cancer Screening Probability")
+    logger.info(f"  Mean cancer prob: {binary_prob.mean():.4f} ± {binary_prob.std():.4f}")
+    for thresh in [0.3, 0.5, 0.7]:
+        n_pos = (binary_prob > thresh).sum()
+        logger.info(f"  Threshold {thresh:.1f}: {n_pos}/{n_samples} classified as cancer "
+                    f"({n_pos/n_samples*100:.1f}%)")
+
+    # Stage 2: Cancer type classification
+    if stage2_prob is not None:
+        logger.info(f"\n[Stage 2] Cancer Type Classification")
+        pred_counts = pd.Series(stage2_pred_names).value_counts()
+        for ct, count in pred_counts.items():
+            logger.info(f"  {ct}: {count}/{n_samples} ({count/n_samples*100:.1f}%)")
+
+        # Mean probability per cancer type
+        logger.info(f"\n  Mean class probabilities:")
+        for j, ct in enumerate(cancer_types):
+            if j < stage2_prob.shape[1]:
+                logger.info(f"    {ct}: {stage2_prob[:, j].mean():.4f} ± {stage2_prob[:, j].std():.4f}")
+
+    # ── 8. Save per-sample results ──
+    from src.sers.config import FIG_DIR, training_dir_to_figure_slug
+    fig_slug = training_dir_to_figure_slug(train_dir)
+    eval_dir = FIG_DIR / "training" / fig_slug / f"val_group_{group_name.lower()}"
+    eval_dir.mkdir(parents=True, exist_ok=True)
+
+    result_rows = []
+    for i in range(n_samples):
+        row = {
+            "group": groups[i] if i < len(groups) else group_name,
+            "sample_id": sample_ids[i],
+            "cancer_prob": binary_prob[i],
+            "cancer_prob_std": binary_std[i],
+            "predicted_type": stage2_pred_names[i],
+        }
+        if stage2_prob is not None:
+            for j, ct in enumerate(cancer_types):
+                if j < stage2_prob.shape[1]:
+                    row[f"prob_{ct}"] = stage2_prob[i, j]
+        result_rows.append(row)
+    df_result = pd.DataFrame(result_rows)
+    result_csv = eval_dir / "predictions.csv"
+    df_result.to_csv(result_csv, index=False)
+    logger.info(f"\n  Per-sample predictions saved to: {result_csv}")
+
+    # ── 9. Visualizations ──
+    # Cancer probability distribution
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.hist(binary_prob, bins=30, color="#E53935", alpha=0.7, edgecolor="black")
+    ax.axvline(0.5, color="black", ls="--", lw=1.5, label="Threshold 0.5")
+    ax.set(xlabel="Cancer Probability", ylabel="Count",
+           title=f"{group_name} — Stage 1 Cancer Probability Distribution (n={n_samples})")
+    ax.legend()
+    fig.savefig(eval_dir / "cancer_prob_distribution.png")
+    plt.close(fig)
+
+    # Stage 2 prediction pie chart
+    if stage2_prob is not None:
+        fig, ax = plt.subplots(figsize=(7, 7))
+        pred_counts = pd.Series(stage2_pred_names).value_counts()
+        colors = [GROUP_COLORS.get(ct, "#999999") for ct in pred_counts.index]
+        ax.pie(pred_counts.values, labels=[f"{ct}\n({c})" for ct, c in pred_counts.items()],
+               colors=colors, autopct="%1.1f%%", startangle=90)
+        ax.set_title(f"{group_name} — Predicted Cancer Types (n={n_samples})")
+        fig.savefig(eval_dir / "predicted_types_pie.png")
+        plt.close(fig)
+
+        # Heatmap of per-sample class probabilities
+        fig, ax = plt.subplots(figsize=(max(8, len(cancer_types)*1.2), max(6, n_samples*0.15)))
+        im = ax.imshow(stage2_prob, aspect="auto", cmap="YlOrRd", vmin=0, vmax=1)
+        ax.set_xticks(range(len(cancer_types)))
+        ax.set_xticklabels(cancer_types, rotation=45, ha="right")
+        ax.set_ylabel("Sample")
+        ax.set_title(f"{group_name} — Stage 2 Class Probabilities")
+        fig.colorbar(im, ax=ax, label="Probability")
+        fig.savefig(eval_dir / "class_probability_heatmap.png")
+        plt.close(fig)
+
+    elapsed = datetime.now() - t0
+    logger.info(f"\n{'=' * 64}")
+    logger.info(f"  Val-group inference complete! ({elapsed})")
+    logger.info(f"  Output: {eval_dir}/")
+    logger.info(f"{'=' * 64}")
+    return 0
+
+
 def main():
     args = parse_args()
+
+    # ── Val-group mode: run separate inference pipeline ──
+    if args.val_group:
+        return run_val_group_inference(args)
+
     t0 = datetime.now()
 
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s ??%(levelname)-7s ??%(message)s", datefmt="%H:%M:%S",
+        format="%(asctime)s │ %(levelname)-7s │ %(message)s", datefmt="%H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout),
                   logging.FileHandler("test.log", mode="w", encoding="utf-8")],
     )
@@ -1100,7 +1420,9 @@ def main():
     logger.info("=" * 64)
 
     train_dir = resolve_train_dir(args.input)
-    eval_dir = train_dir / "evaluation"
+    from src.sers.config import FIG_DIR, training_dir_to_figure_slug
+    fig_slug = training_dir_to_figure_slug(train_dir)
+    eval_dir = FIG_DIR / "training" / fig_slug
     s1_dir, s2_dir, emb_dir, met_dir = create_output_dirs(eval_dir)
     device = resolve_device(args.device)
 

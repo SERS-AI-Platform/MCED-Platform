@@ -1,0 +1,74 @@
+{
+  "cancer_colors": {
+    "PRO": "#8B4513",
+    "BRE": "#D4527A",
+    "OVA": "#6A5ACD",
+    "LUN": "#2E8B57",
+    "CRC": "#4682B4",
+    "PAN": "#CD5C5C",
+    "BLC": "#E8960C"
+  },
+  "aacr_labels": {
+    "PRO": "PRC",
+    "BRE": "BRC",
+    "OVA": "OVC",
+    "LUN": "LC",
+    "CRC": "CRC",
+    "PAN": "PAC",
+    "BLC": "BLC"
+  },
+  "aacr_colors": {
+    "PRC": "#8B4513",
+    "BRC": "#D4527A",
+    "OVC": "#6A5ACD",
+    "LC": "#2E8B57",
+    "CRC": "#4682B4",
+    "PAC": "#CD5C5C",
+    "BLC": "#E8960C"
+  },
+  "non_cancer_color": "#808080",
+  "non_cancer_label": "Non-Cancer",
+  "aacr_cancer_order": [
+    "PRC",
+    "OVC",
+    "LC",
+    "PAC",
+    "CRC"
+  ],
+  "aacr_internal_order": [
+    "PRO",
+    "OVA",
+    "LUN",
+    "PAN",
+    "CRC"
+  ],
+  "group_to_aacr": {
+    "PRO": "PRC",
+    "OVA": "OVC",
+    "LUN": "LC",
+    "CRC": "CRC",
+    "PAN": "PAC",
+    "CPAN": "PAC",
+    "NOR": "Non-Cancer",
+    "DIA": "Non-Cancer",
+    "HBP": "Non-Cancer",
+    "H.D.": "Non-Cancer",
+    "YNOR": "Non-Cancer"
+  },
+  "model_colors": {
+    "Logistic Regression": "#2C3E50",
+    "Random Forest": "#8E44AD",
+    "XGBoost": "#2980B9",
+    "CNN1D": "#E67E22",
+    "ResNet18": "#27AE60",
+    "uSERS-Net": "#C0392B"
+  },
+  "model_order": [
+    "Logistic Regression",
+    "Random Forest",
+    "XGBoost",
+    "CNN1D",
+    "ResNet18",
+    "uSERS-Net"
+  ]
+}

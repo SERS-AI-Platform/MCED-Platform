@@ -1,0 +1,479 @@
+{
+  "schema_version": "1.0",
+  "generated": "2026-03-24",
+  "project": "SERS-AI Multi-Cancer Detection Pipeline",
+  "description": "Catalog of all trained model versions with metrics, configs, and file paths",
+
+  "models": [
+    {
+      "phase": "A",
+      "name": "Initial medoid baseline (PAN merged)",
+      "date": "2026-02-26",
+      "model_type": "SERSCancerDetector",
+      "cancer_types": ["PRO", "BRE", "OVA", "LUN", "CRC", "PAN"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "medoid",
+      "n_samples": 1272,
+      "n_features": 933,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.793,
+        "id_accuracy": 0.486,
+        "id_f1_macro": 0.356
+      },
+      "artifacts": [
+        "results/training/training_summary.json"
+      ],
+      "notes": "Older PAN-merged formulation. Performance not competitive."
+    },
+    {
+      "phase": "A-v2",
+      "name": "Improved medoid baseline (CPAN/SPAN separate)",
+      "date": "2026-02-27",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "medoid",
+      "n_samples": 1342,
+      "n_features": 933,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.948,
+        "id_accuracy": 0.670,
+        "id_f1_macro": 0.548
+      },
+      "artifacts": [
+        "models/results/training_v2/training_summary.json"
+      ],
+      "notes": "Separating CPAN and SPAN gave a major jump over merged PAN."
+    },
+    {
+      "phase": "B",
+      "name": "All-spectra training",
+      "date": "2026-02-27",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 6710,
+      "n_features": 933,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.958,
+        "id_accuracy": 0.727,
+        "id_f1_macro": 0.613
+      },
+      "artifacts": [
+        "models/results/training_v2_norep/training_summary.json"
+      ],
+      "notes": "Using all spectra instead of medoid aggregation was one of the biggest beneficial changes."
+    },
+    {
+      "phase": "F",
+      "name": "Full benchmark (5 cancers, classical baselines)",
+      "date": "2026-03-13",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 6200,
+      "n_features": 933,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.981,
+        "id_accuracy": 0.902,
+        "id_auc": 0.985,
+        "id_f1_macro": 0.870
+      },
+      "model_comparison": {
+        "logistic_regression": {"det_auc": 0.981, "id_f1_macro": 0.870},
+        "xgboost": {"det_auc": 0.969, "id_f1_macro": 0.770},
+        "resnet18": {"det_auc": 0.961, "id_f1_macro": 0.710},
+        "random_forest": {"det_auc": 0.931, "id_f1_macro": 0.642},
+        "cnn1d": {"det_auc": 0.890, "id_f1_macro": 0.424}
+      },
+      "artifacts": [
+        "models/results/benchmark_all_models/benchmark_summary.csv",
+        "models/results/overall_comparison/best_per_model.csv"
+      ],
+      "notes": "LR established as strongest baseline. Deep learning does NOT beat classical models."
+    },
+    {
+      "phase": "K",
+      "name": "Ensemble (80% LR + 20% ResNet18)",
+      "date": "2026-03-17",
+      "model_type": "Ensemble (LR + ResNet18 blend)",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 6200,
+      "n_features": 933,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.984,
+        "id_accuracy": 0.904,
+        "id_f1_macro": 0.875,
+        "id_auc": 0.983
+      },
+      "config": {
+        "alpha": 0.8,
+        "blend": "P = 0.8 * P_LR + 0.2 * P_ResNet18"
+      },
+      "artifacts": [
+        "results/training/step5_ensemble/blend_results.csv",
+        "results/training/step5_ensemble/blend_sweep.png"
+      ],
+      "notes": "Marginal +0.3pp F1 over pure LR. Superseded by sex constraint (Phase Q)."
+    },
+    {
+      "phase": "N",
+      "name": "Early fusion (SERS + age/sex/BMI)",
+      "date": "2026-03-18",
+      "model_type": "Logistic Regression (early fusion)",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 5050,
+      "n_features": 936,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.988,
+        "det_accuracy": 0.955,
+        "det_sensitivity": 0.961,
+        "det_specificity": 0.941,
+        "id_f1_macro": 0.877,
+        "id_auc": 0.988
+      },
+      "config": {
+        "clinical_features": ["age", "sex_numeric", "bmi"],
+        "fusion_method": "early (feature concatenation)"
+      },
+      "artifacts": [
+        "results/training/multimodal/multimodal_summary.json",
+        "results/training/multimodal/multimodal_results.png"
+      ],
+      "notes": "Demographics help subtype classification more than ensemble or DL approaches."
+    },
+    {
+      "phase": "P",
+      "name": "Held-out test validation (SERS-only)",
+      "date": "2026-03-18",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 6200,
+      "n_features": 933,
+      "evaluation": "held-out test (60/20/20, 5 repeats)",
+      "metrics": {
+        "det_auc": "0.977 +/- 0.005",
+        "det_sensitivity": "0.926 +/- 0.004",
+        "det_specificity": "0.929 +/- 0.019",
+        "id_f1_macro": "0.852 +/- 0.026"
+      },
+      "artifacts": [
+        "results/training/train_val_test/train_val_test_summary.json",
+        "results/training/train_val_test/train_val_test_results.png"
+      ],
+      "notes": "CV estimates confirmed -- no inflation detected."
+    },
+    {
+      "phase": "P-fusion",
+      "name": "Held-out test validation (Fusion)",
+      "date": "2026-03-18",
+      "model_type": "Logistic Regression (early fusion)",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 5050,
+      "n_features": 936,
+      "evaluation": "held-out test (60/20/20, 5 repeats)",
+      "metrics": {
+        "det_auc": "0.986 +/- 0.004",
+        "det_sensitivity": "0.939 +/- 0.011",
+        "det_specificity": "0.949 +/- 0.019",
+        "id_f1_macro": "0.877 +/- 0.018"
+      },
+      "artifacts": [
+        "results/training/train_val_test/train_val_test_summary.json"
+      ],
+      "notes": "Fusion matches CV exactly (0.877)."
+    },
+    {
+      "phase": "Q",
+      "name": "SERS + sex constraint (BEST 5-cancer result)",
+      "date": "2026-03-19",
+      "model_type": "Logistic Regression + sex-based post-hoc constraint",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 6200,
+      "n_features": 933,
+      "evaluation": "held-out test (60/20/20, 5 repeats)",
+      "metrics": {
+        "det_auc": "0.977 +/- 0.005",
+        "det_sensitivity": "0.926 +/- 0.004",
+        "det_specificity": "0.929 +/- 0.019",
+        "id_f1_macro": "0.892 +/- 0.026"
+      },
+      "per_cancer_f1": {
+        "PRO": 0.93,
+        "LUN": 0.94,
+        "CRC": 0.92,
+        "OVA": 0.89,
+        "CPAN": 0.78
+      },
+      "config": {
+        "constraint": "Males: OVA prob -> 0, Females: PRO prob -> 0, renormalize",
+        "preprocessing": {
+          "trim_region": [400, 2200],
+          "smooth_window": 11,
+          "smooth_poly": 3,
+          "baseline_window": 101,
+          "normalization": "snv"
+        },
+        "split_strategy": "StratifiedGroupKFold (subject-level, no replicate leakage)"
+      },
+      "artifacts": [
+        "results/training/train_val_test/train_val_test_summary.json",
+        "models/run_train_val_test.py"
+      ],
+      "notes": "Best 5-cancer result. +4.0pp F1 from sex constraint alone. Zero model retraining."
+    },
+    {
+      "phase": "Q-fusion",
+      "name": "Fusion + sex constraint",
+      "date": "2026-03-19",
+      "model_type": "Logistic Regression (SERS + age/sex/BMI) + sex constraint",
+      "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 5050,
+      "n_features": 936,
+      "evaluation": "held-out test (60/20/20, 5 repeats)",
+      "metrics": {
+        "det_auc": "0.986 +/- 0.004",
+        "det_sensitivity": "0.939 +/- 0.011",
+        "det_specificity": "0.949 +/- 0.019",
+        "id_f1_macro": "0.884 +/- 0.018"
+      },
+      "config": {
+        "clinical_features": ["age", "sex_numeric", "bmi"],
+        "bmi_fill_median": 24.0
+      },
+      "artifacts": [
+        "results/training/train_val_test/train_val_test_summary.json"
+      ],
+      "notes": "Lower Id F1 than SERS+constraint because fusion already partially learns sex."
+    },
+    {
+      "phase": "T",
+      "name": "BLC added (8-class medoid)",
+      "date": "2026-03-23",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN", "BLC"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "medoid",
+      "n_samples": 1641,
+      "n_features": 933,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.969,
+        "det_accuracy": 0.918,
+        "det_sensitivity": 0.937,
+        "det_specificity": 0.858,
+        "id_accuracy": 0.840,
+        "id_f1_macro": 0.738,
+        "id_auc": 0.973
+      },
+      "artifacts": [
+        "results/training/R_BLC_added/experiment_summary.json",
+        "results/training/R_BLC_added/train.log"
+      ],
+      "notes": "BLC 299 samples from 충북대학교병원. NOT directly comparable to 5-cancer benchmarks."
+    },
+    {
+      "phase": "V-6cancer",
+      "name": "Fixed grid 6-cancer (primary model)",
+      "date": "2026-03-23",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "OVA", "LUN", "CRC", "PAN", "BLC"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 7990,
+      "n_features": 935,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.972,
+        "det_accuracy": 0.921,
+        "det_sensitivity": 0.926,
+        "det_specificity": 0.908,
+        "id_accuracy": 0.905,
+        "id_f1_macro": 0.869,
+        "id_auc": 0.987
+      },
+      "config": {
+        "wavenumber_grid": "935 points, 402-2198 cm-1",
+        "aliases": {"CPAN": "PAN", "YPAN": "PAN", "YNOR": "NOR"},
+        "dropped": ["SPAN", "BRE"],
+        "preprocessing": {
+          "trim_region": [400, 2200],
+          "smooth_window": 11,
+          "smooth_poly": 3,
+          "baseline_window": 101,
+          "normalization": "snv"
+        },
+        "split_strategy": "StratifiedGroupKFold"
+      },
+      "per_cancer_spectra": {
+        "PRO": 500,
+        "OVA": 350,
+        "LUN": 1500,
+        "CRC": 1500,
+        "PAN": 500,
+        "BLC": 1495,
+        "NOR": 645,
+        "DIA": 500,
+        "HBP": 500,
+        "H.D.": 500
+      },
+      "artifacts": [
+        "results/training/fixed_grid_6cancer/experiment_summary.json",
+        "results/training/fixed_grid_6cancer/train.log"
+      ],
+      "notes": "Primary 6-cancer model on fixed 935-point grid. PAN = merged CPAN+SPAN."
+    },
+    {
+      "phase": "V-7cancer",
+      "name": "Fixed grid 7-cancer",
+      "date": "2026-03-23",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "OVA", "LUN", "CRC", "CPAN", "SPAN", "BLC"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 8055,
+      "n_features": 935,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.980,
+        "det_accuracy": 0.935,
+        "det_sensitivity": 0.939,
+        "det_specificity": 0.923,
+        "id_accuracy": 0.893,
+        "id_f1_macro": 0.844,
+        "id_auc": 0.987
+      },
+      "artifacts": [
+        "results/training/fixed_grid_7cancer/experiment_summary.json"
+      ],
+      "notes": "CPAN and SPAN kept separate. BRE dropped."
+    },
+    {
+      "phase": "V-8cancer",
+      "name": "Fixed grid 8-cancer (full retrain)",
+      "date": "2026-03-23",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN", "BLC"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 8205,
+      "n_features": 935,
+      "n_splits": 5,
+      "evaluation": "5-fold CV",
+      "metrics": {
+        "det_auc": 0.980,
+        "det_accuracy": 0.938,
+        "det_sensitivity": 0.943,
+        "det_specificity": 0.923,
+        "id_accuracy": 0.882,
+        "id_f1_macro": 0.813,
+        "id_auc": 0.986
+      },
+      "artifacts": [
+        "results/training/fixed_grid_retrain/experiment_summary.json"
+      ],
+      "notes": "All 8 cancer types including BRE (n=30). Lowest Id F1 due to class fragmentation."
+    },
+    {
+      "phase": "V-test",
+      "name": "Fixed grid 6-cancer held-out test",
+      "date": "2026-03-23",
+      "model_type": "Logistic Regression",
+      "cancer_types": ["PRO", "OVA", "LUN", "CRC", "PAN", "BLC"],
+      "non_cancer_groups": ["NOR", "DIA", "HBP", "H.D."],
+      "aggregation": "none",
+      "n_samples": 7990,
+      "n_features": 935,
+      "evaluation": "held-out test (60/20/20, 5 repeats)",
+      "metrics": {
+        "test_repeat_1": {
+          "det_auc": 0.969,
+          "id_f1_macro": 0.888,
+          "per_cancer_id_f1": {
+            "PRO": 0.885,
+            "OVA": 0.869,
+            "LUN": 0.920,
+            "CRC": 0.917,
+            "PAN": 0.747,
+            "BLC": 0.987
+          }
+        }
+      },
+      "artifacts": [
+        "results/training/train_val_test/train_val_test_summary.json"
+      ],
+      "notes": "6-cancer model on fixed grid with held-out test. BLC achieves highest per-class F1 (0.987)."
+    }
+  ],
+
+  "production_model": {
+    "version": "1.0",
+    "date": "2026-03-18",
+    "path": "models/production/",
+    "cancer_types": ["PRO", "LUN", "CRC", "CPAN", "OVA"],
+    "n_training_samples": 6200,
+    "n_spectral_features": 933,
+    "files": {
+      "manifest.json": "Training metadata, class names, config",
+      "preprocessing.json": "Frozen preprocessing parameters",
+      "common_grid.npy": "Wavenumber grid (933 points)",
+      "stage1_sers.joblib": "Binary cancer detector (SERS only)",
+      "stage2_sers.joblib": "Cancer type classifier (SERS only)",
+      "stage1_fusion.joblib": "Binary cancer detector (SERS + age/sex/BMI)",
+      "stage2_fusion.joblib": "Cancer type classifier (SERS + age/sex/BMI)"
+    },
+    "operating_modes": {
+      "screening": {"threshold": 0.3854, "sensitivity": 0.950, "specificity": 0.906},
+      "balanced": {"threshold": 0.7777, "sensitivity": 0.905, "specificity": 0.964},
+      "confirmatory": {"threshold": 0.6993, "sensitivity": 0.915, "specificity": 0.951}
+    },
+    "preprocessing": {
+      "trim_region": [400, 2200],
+      "smooth_window": 11,
+      "smooth_poly": 3,
+      "baseline_window": 101,
+      "normalization": "snv"
+    },
+    "inference_script": "scripts/sers_predict.py",
+    "build_script": "models/build_production_model.py",
+    "notes": "5-cancer model. Does NOT yet include BLC or fixed 935-point grid. Update pending."
+  },
+
+  "recommended_model": {
+    "phase": "Q",
+    "name": "LR (SERS-only) + sex constraint",
+    "reason": "Highest held-out test Id F1 (0.892) among 5-cancer models. Simplest, most explainable. Zero GPU dependency. Sex constraint is transparent and clinically obvious.",
+    "fallback_without_sex": "Phase P SERS-only (Id F1: 0.852)",
+    "fallback_with_demographics": "Phase Q-fusion (Id F1: 0.884)",
+    "next_recommended_update": "Retrain production model on fixed 935-point grid with 6-cancer set (Phase V-6cancer) including BLC and sex constraint"
+  }
+}

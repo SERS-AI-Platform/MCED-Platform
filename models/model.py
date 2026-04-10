@@ -18,9 +18,9 @@ Architecture (v2 — regularized, smaller encoder):
     └──────────────┬──────────────────────────────────────────┘
                    │ if P(cancer) > threshold
     ┌──────────────▼──────────────────────────────────────────┐
-    │ Stage 2: Cancer Type (7 classes)                        │
-    │   Dropout(0.5) → Linear(256→64) + ReLU → Linear(64→7)  │
-    │   PRO, BRE, OVA, LUN, CRC, CPAN, SPAN                 │
+    │ Stage 2: Cancer Type (8 classes)                        │
+    │   Dropout(0.5) → Linear(256→64) + ReLU → Linear(64→8)  │
+    │   PRO, BRE, OVA, LUN, CRC, CPAN, SPAN, BLC            │
     └─────────────────────────────────────────────────────────┘
 
 v2 changes (anti-overfitting):
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 class ModelConfig:
     """Configuration for ResNet18-1D two-stage model.
 
-    Cancer types (7): PRO, BRE, OVA, LUN, CRC, CPAN, SPAN
+    Cancer types (8): PRO, BRE, OVA, LUN, CRC, CPAN, SPAN, BLC
     Non-cancer (4):   NOR, DIA, HBP, H.D.  (binary label=0, no subtype)
     """
 
@@ -63,9 +63,9 @@ class ModelConfig:
     n_spectral_features: int = 1800
 
     # --- Label scheme (CPAN/SPAN separate, no PAN alias) ---
-    cancer_types: Tuple[str, ...] = ("PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN")
+    cancer_types: Tuple[str, ...] = ("PRO", "OVA", "LUN", "CRC", "PAN", "BLC")
     cancer_groups_raw: Tuple[str, ...] = (
-        "PRO", "BRE", "OVA", "LUN", "CRC", "CPAN", "SPAN",
+        "PRO", "OVA", "LUN", "CRC", "CPAN", "YPAN", "BLC",
     )
     non_cancer_groups: Tuple[str, ...] = ("NOR", "DIA", "HBP", "H.D.")
     group_aliases: Dict[str, List[str]] = field(default_factory=dict)
@@ -75,6 +75,7 @@ class ModelConfig:
         return len(self.cancer_types)
 
     # --- ResNet18-1D Encoder ---
+    input_channels: int = 1  # 1=raw only, 3=multi-view (raw+d1+d2)
     resnet_channels: Tuple[int, ...] = (32, 64, 128, 256)
     resnet_blocks: Tuple[int, ...] = (2, 2, 2, 2)  # BasicBlocks per layer
     encoder_output_dim: int = 256  # after GlobalAvgPool
@@ -141,8 +142,20 @@ class ModelConfig:
             categories.get("control", []) + categories.get("non_cancer", [])
         )
 
-        # No alias merging: cancer_types = cancer_raw directly
+        # Resolve aliases from config
+        aliases = ds.get("group_aliases", {})
+
+        # cancer_types uses alias names (e.g. PAN instead of CPAN)
         cancer_types = list(cancer_raw)
+
+        # Expand cancer_groups_raw: for each alias in cancer_types, include its members
+        cancer_groups_raw_list = []
+        for ct in cancer_types:
+            if ct in aliases:
+                cancer_groups_raw_list.extend(aliases[ct])
+            else:
+                cancer_groups_raw_list.append(ct)
+        cancer_groups_raw = tuple(cancer_groups_raw_list)
 
         # Order by display.group_order
         display_order = config_dict.get("display", {}).get("group_order", [])
@@ -158,9 +171,9 @@ class ModelConfig:
         kwargs = dict(
             n_spectral_features=n_spectral_features,
             cancer_types=cancer_types,
-            cancer_groups_raw=cancer_raw,
+            cancer_groups_raw=cancer_groups_raw,
             non_cancer_groups=non_cancer,
-            group_aliases={},
+            group_aliases=aliases,
             random_state=random_state,
         )
         kwargs.update(overrides)
@@ -226,7 +239,8 @@ class ResNet1DEncoder(nn.Module):
         blocks = config.resnet_blocks      # (2, 2, 2, 2)
 
         # Stem
-        self.conv1 = nn.Conv1d(1, channels[0], kernel_size=7, stride=2,
+        in_ch = getattr(config, "input_channels", 1)
+        self.conv1 = nn.Conv1d(in_ch, channels[0], kernel_size=7, stride=2,
                                padding=3, bias=False)
         self.bn1 = nn.BatchNorm1d(channels[0])
         self.relu = nn.ReLU(inplace=True)
@@ -266,9 +280,9 @@ class ResNet1DEncoder(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """(B, L) or (B, 1, L) → (B, 512)"""
+        """(B, L) or (B, C, L) → (B, encoder_output_dim)"""
         if x.dim() == 2:
-            x = x.unsqueeze(1)
+            x = x.unsqueeze(1)  # (B, L) → (B, 1, L)
 
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
@@ -287,8 +301,9 @@ class ShallowCNN1DEncoder(nn.Module):
 
     def __init__(self, config: ModelConfig):
         super().__init__()
+        in_ch = getattr(config, "input_channels", 1)
         self.features = nn.Sequential(
-            nn.Conv1d(1, 32, kernel_size=7, padding=3, bias=False),
+            nn.Conv1d(in_ch, 32, kernel_size=7, padding=3, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
             nn.MaxPool1d(kernel_size=2),
@@ -331,7 +346,7 @@ class BinaryHead(nn.Module):
 
 
 class CancerTypeHead(nn.Module):
-    """Stage 2: Cancer type (7 classes). Output: logits (B, 7)."""
+    """Stage 2: Cancer type (8 classes). Output: logits (B, n_classes)."""
     def __init__(self, input_dim: int, n_classes: int, hidden_dim: int = 128,
                  dropout: float = 0.3):
         super().__init__()
@@ -457,7 +472,7 @@ class SERSCancerDetector(BaseCancerDetector):
     Stage 1: Binary — Cancer or not?
     Stage 2: Cancer type — Which of 7 types? (gated by Stage 1)
 
-    Cancer types: PRO, BRE, OVA, LUN, CRC, CPAN, SPAN
+    Cancer types: PRO, BRE, OVA, LUN, CRC, CPAN, BLC
     Non-cancer:   NOR, DIA, HBP, H.D. (binary label=0)
     """
 
@@ -466,6 +481,52 @@ class SERSCancerDetector(BaseCancerDetector):
 
     def _build_encoder(self, config: ModelConfig) -> nn.Module:
         return ResNet1DEncoder(config)
+
+class SeparateEncoderWrapper(nn.Module):
+    """Multi-view encoder: independent ResNet1D per channel → concat.
+
+    Each channel (raw, d1, d2) gets its own encoder that specializes
+    on different spectral properties. Features are concatenated.
+
+    Input:  (B, C, L)  — C channels of L spectral points
+    Output: (B, C * single_encoder_dim)
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        n_ch = config.input_channels
+        # Build one single-channel encoder per view
+        single_config = ModelConfig(
+            **{**config.__dict__, "input_channels": 1}
+        )
+        self.encoders = nn.ModuleList([
+            ResNet1DEncoder(single_config) for _ in range(n_ch)
+        ])
+        self.output_dim = single_config.encoder_output_dim * n_ch
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """(B, C, L) → (B, C * enc_dim)"""
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        feats = []
+        for i, enc in enumerate(self.encoders):
+            feats.append(enc(x[:, i:i+1, :]))  # (B, enc_dim)
+        return torch.cat(feats, dim=1)
+
+
+class SeparateEncoderDetector(BaseCancerDetector):
+    """Two-stage model with separate ResNet1D encoders per spectral channel.
+
+    Better than shared encoder when channels carry fundamentally different
+    information (raw intensity vs derivative = peak position).
+    """
+
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+
+    def _build_encoder(self, config: ModelConfig) -> nn.Module:
+        return SeparateEncoderWrapper(config)
+
 
 class CNN1DCancerDetector(SERSCancerDetector):
     """Two-stage shallow 1D CNN model for baseline comparison."""
@@ -586,7 +647,16 @@ class SERSDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         spec = self.spectra[idx]
         if self.augment:
-            spec = self._augment(spec)
+            if spec.dim() == 1:
+                spec = self._augment(spec)
+            else:
+                # Multi-channel: augment each channel identically
+                shift = torch.randint(-self.shift_max, self.shift_max + 1, (1,)).item()
+                scale = torch.empty(1).uniform_(*self.scale_range).item()
+                noise = torch.randn(1, spec.shape[-1]) * self.noise_std
+                spec = spec * scale + noise
+                if shift != 0:
+                    spec = torch.roll(spec, shifts=shift, dims=-1)
         return {
             "spectra": spec,
             "binary_label": self.binary_labels[idx],
@@ -602,6 +672,8 @@ def build_model(model_name: str, config: ModelConfig) -> nn.Module:
     model_name = str(model_name).lower()
     if model_name in {"resnet18", "resnet", "sers_resnet18"}:
         return SERSCancerDetector(config)
+    if model_name in {"resnet18_separate", "separate"}:
+        return SeparateEncoderDetector(config)
     if model_name in {"cnn1d", "cnn", "shallow_cnn"}:
         return CNN1DCancerDetector(config)
     raise ValueError(f"Unsupported torch model: {model_name}")

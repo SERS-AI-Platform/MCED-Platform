@@ -75,6 +75,9 @@ convention = "numpy"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests that need real files or are slow (deselect with '-m \"not slow\"')",
+]
 
 [tool.mypy]
 python_version = "3.10"

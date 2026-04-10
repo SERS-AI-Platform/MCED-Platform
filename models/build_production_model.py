@@ -29,7 +29,7 @@ import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_auc_score, f1_score, accuracy_score
+from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, roc_curve
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -47,7 +47,7 @@ warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 
-CANCER_TYPES = ["PRO", "LUN", "CRC", "CPAN", "OVA"]
+CANCER_TYPES = ["PRO", "BRE", "OVA", "LUN", "CRC", "PAN", "BLC"]
 NON_CANCER = ["NOR", "DIA", "HBP", "H.D."]
 TIER1_FEATURES = ["age", "sex_numeric", "bmi"]
 
@@ -60,7 +60,14 @@ def load_clinical():
 
 
 def merge_clinical(df_spec, clin):
-    """Merge spectral df with clinical age/sex/bmi."""
+    """Merge spectral df with clinical age/sex/bmi.
+
+    Handles three ID formats:
+    - Standard: patient_id = 'GROUP SAMPLE_ID' (PRO, OVA, LUN, CRC, CPAN, NOR, etc.)
+    - BLC: clinical disease_group='BLA', patient_ids='1기~2기-N' → match by row position
+    - BRE: clinical patient_ids are hospital codes → match by row position
+    """
+    # Standard lookup (GROUP SAMPLE_ID format)
     lookup = {}
     for _, row in clin.iterrows():
         lookup[row["patient_id"]] = {
@@ -69,11 +76,34 @@ def merge_clinical(df_spec, clin):
             "bmi": row.get("bmi", np.nan),
         }
 
+    # Positional lookup for groups with non-standard patient_id formats
+    # CSV row order = spectral sample_id order
+    pos_lookup = {}
+    for grp_spec, grp_clin in [("BLC", "BLA"), ("BRE", "BRE"), ("OVA", "OVA")]:
+        grp_rows = clin[clin["disease_group"] == grp_clin].reset_index(drop=True)
+        for idx, (_, row) in enumerate(grp_rows.iterrows()):
+            pos_key = f"{grp_spec} {idx + 1}"
+            pos_lookup[pos_key] = {
+                "age": row["age"],
+                "sex_numeric": row["sex_numeric"],
+                "bmi": row.get("bmi", np.nan),
+            }
+
+    # Alias mapping: spectral group name after resolve_aliases → original clinical key prefix
+    ALIAS_TO_CLINICAL = {"PAN": "CPAN"}
+
     ages, sexes, bmis = [], [], []
     for _, row in df_spec.iterrows():
         key = f"{row['group']} {row['sample_id']}"
-        if key in lookup:
-            c = lookup[key]
+        # Also try alias key (e.g., PAN→CPAN) and normalized H.D. key
+        alias_grp = ALIAS_TO_CLINICAL.get(row["group"], row["group"])
+        alias_key = f"{alias_grp} {row['sample_id']}"
+        # H.D. in clinical has extra spaces: "H. D. N"
+        hd_key = f"H. D. {row['sample_id']}" if row["group"] == "H.D." else None
+        c = lookup.get(key) or lookup.get(alias_key) or pos_lookup.get(key)
+        if not c and hd_key:
+            c = lookup.get(hd_key)
+        if c:
             ages.append(c["age"])
             sexes.append(c["sex_numeric"])
             bmis.append(c["bmi"])
@@ -182,6 +212,59 @@ def main():
     s2_fus_f1 = f1_score(ctl_fus[cancer_fus], s2_fus_pred, average="macro", zero_division=0)
     logger.info(f"    Stage 2 (fusion): train F1 = {s2_fus_f1:.4f}")
 
+    # ── Compute operating thresholds via internal CV ──
+    logger.info("\n  Computing operating thresholds (5-fold internal CV)...")
+
+    from sklearn.model_selection import StratifiedGroupKFold
+    cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)
+    cv_probs = np.full(len(X), np.nan)
+    for _, (tr, va) in enumerate(cv.split(X, bl, sample_ids)):
+        m = build_lr(X[tr], bl[tr], seed=42)
+        cv_probs[va] = m.predict_proba(X[va])[:, 1]
+
+    valid = ~np.isnan(cv_probs)
+    fpr, tpr, thresholds = roc_curve(bl[valid], cv_probs[valid])
+
+    def find_threshold_for_sensitivity(target_sens):
+        idx = np.argmin(np.abs(tpr - target_sens))
+        return float(thresholds[idx])
+
+    def find_threshold_for_specificity(target_spec):
+        idx = np.argmin(np.abs((1 - fpr) - target_spec))
+        return float(thresholds[idx])
+
+    # Youden's J (balanced)
+    j_scores = tpr - fpr
+    balanced_thresh = float(thresholds[np.argmax(j_scores)])
+
+    # Target-based thresholds
+    screening_thresh = find_threshold_for_sensitivity(0.95)
+    confirmatory_thresh = find_threshold_for_specificity(0.95)
+
+    operating_modes = {
+        "screening": {
+            "threshold": round(screening_thresh, 4),
+            "description": "High sensitivity for screening (target Sens >= 95%)",
+        },
+        "balanced": {
+            "threshold": round(balanced_thresh, 4),
+            "description": "Balanced sensitivity/specificity (Youden's J)",
+        },
+        "confirmatory": {
+            "threshold": round(confirmatory_thresh, 4),
+            "description": "High specificity for confirmation (target Spec >= 95%)",
+        },
+    }
+
+    for mode_name, mode_info in operating_modes.items():
+        t = mode_info["threshold"]
+        preds = (cv_probs[valid] > t).astype(int)
+        sens = float((cv_probs[valid][bl[valid] == 1] > t).mean())
+        spec = float((cv_probs[valid][bl[valid] == 0] <= t).mean())
+        mode_info["cv_sensitivity"] = round(sens, 4)
+        mode_info["cv_specificity"] = round(spec, 4)
+        logger.info(f"    {mode_name:>14s}: threshold={t:.4f} → Sens={sens:.3f}, Spec={spec:.3f}")
+
     # ── Save common grid ──
     grid = np.loadtxt(PROJECT_ROOT / "results" / "common_grid.csv", skiprows=1)
     np.save(out_dir / "common_grid.npy", grid)
@@ -230,6 +313,8 @@ def main():
             "fusion": {"s1_auc": s1_fus_auc, "s2_f1_macro": s2_fus_f1},
         },
         "stage2_classes": s2_sers.classes_.tolist(),
+        "operating_modes": operating_modes,
+        "default_mode": "screening",
     }
     with open(out_dir / "manifest.json", "w") as f:
         json.dump(manifest, f, indent=2, default=str)

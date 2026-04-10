@@ -41,6 +41,17 @@ from .preprocessing import (
     save_processed_spectra,
 )
 
+# Validation
+from .validation import (
+    ValidationIssue,
+    ValidationResult,
+    validate_csv_structure,
+    validate_spectrum,
+    validate_spectra_batch,
+    validate_processed_spectrum,
+    detect_duplicate_samples,
+)
+
 # Data analysis and exploration
 from .analysis import (
     analyze_dataset_structure,
@@ -124,6 +135,14 @@ __all__ = [
     "summarize_confusion_pairs",
     "summarize_spectrum_peaks",
     "summarize_shap_feature_importance",
+    # Validation
+    "ValidationIssue",
+    "ValidationResult",
+    "validate_csv_structure",
+    "validate_spectrum",
+    "validate_spectra_batch",
+    "validate_processed_spectrum",
+    "detect_duplicate_samples",
     # Analysis
     "analyze_dataset_structure",
     "check_data_completeness",

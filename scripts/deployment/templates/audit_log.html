@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block page_title %}{{ s.audit_title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-title">{{ s.audit_title }}</h2>
+
+    <div style="overflow-x: auto;">
+        <table class="audit-table">
+            <thead>
+                <tr>
+                    <th>{{ s.audit_time }}</th>
+                    <th>{{ s.audit_user }}</th>
+                    <th>Session</th>
+                    <th>{{ s.audit_action }}</th>
+                    <th>{{ s.audit_detail }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.timestamp }}</td>
+                    <td>{{ log.user_name or "—" }}</td>
+                    <td style="font-family: var(--font-mono); font-size: 11px;">{{ log.session_id[:8] if log.session_id else "—" }}</td>
+                    <td><strong>{{ log.action }}</strong></td>
+                    <td style="font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">{{ log.detail or "" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
