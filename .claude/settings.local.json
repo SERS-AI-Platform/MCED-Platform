@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ide__executeCode",
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(conda env list:*)",
+      "Bash(python run_qc_preprocess.py:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(nvidia-smi:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(python3:*)",
+      "Bash(head:*)",
+      "Bash(du:*)",
+      "Bash(ls:*)",
+      "Bash(\"C:/Program Files/PostgreSQL/15/bin/psql.exe\":*)",
+      "Bash(pip show:*)",
+      "Bash(dpkg -l)",
+      "Bash(apt list:*)",
+      "Bash(sudo apt-get:*)",
+      "Bash(/home/insu/.claude/plans/floating-skipping-salamander-agent-ae58572e4b4128060.md:*)",
+      "Read(//home/insu/.config/**)",
+      "Read(//home/insu/.claude/**)",
+      "Bash(find /home/insu/.claude/plugins -name \"*.json\" | xargs grep -l \"supabase\" 2>/dev/null | head -5)"
+    ]
+  }
+}

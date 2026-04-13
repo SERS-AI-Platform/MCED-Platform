@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "training_date": "2026-03-18T14:50:22.539636",
+  "n_training_samples": 6200,
+  "n_spectral_features": 933,
+  "cancer_types": [
+    "PRO",
+    "LUN",
+    "CRC",
+    "CPAN",
+    "OVA"
+  ],
+  "non_cancer_groups": [
+    "NOR",
+    "DIA",
+    "HBP",
+    "H.D."
+  ],
+  "cancer_type_indices": {
+    "PRO": 0,
+    "LUN": 1,
+    "CRC": 2,
+    "CPAN": 3,
+    "OVA": 4
+  },
+  "clinical_features": [
+    "age",
+    "sex_numeric",
+    "bmi"
+  ],
+  "bmi_fill_median": 24.0,
+  "model_files": {
+    "stage1_sers": "stage1_sers.joblib",
+    "stage2_sers": "stage2_sers.joblib",
+    "stage1_fusion": "stage1_fusion.joblib",
+    "stage2_fusion": "stage2_fusion.joblib"
+  },
+  "training_metrics": {
+    "sers_only": {
+      "s1_auc": 0.9968690476190476,
+      "s2_f1_macro": 0.9972641604585533
+    },
+    "fusion": {
+      "s1_auc": 0.9996225352112676,
+      "s2_f1_macro": 0.998596613666707
+    }
+  },
+  "stage2_classes": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "operating_modes": {
+    "screening": {
+      "threshold": 0.3854,
+      "description": "High sensitivity for screening (target Sens >= 95%)",
+      "cv_sensitivity": 0.9495,
+      "cv_specificity": 0.906
+    },
+    "balanced": {
+      "threshold": 0.7777,
+      "description": "Balanced sensitivity/specificity (Youden's J)",
+      "cv_sensitivity": 0.905,
+      "cv_specificity": 0.9635
+    },
+    "confirmatory": {
+      "threshold": 0.6993,
+      "description": "High specificity for confirmation (target Spec >= 95%)",
+      "cv_sensitivity": 0.9148,
+      "cv_specificity": 0.9505
+    }
+  },
+  "default_mode": "screening"
+}

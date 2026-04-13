@@ -1,0 +1,418 @@
+# SERS Analysis Pipeline Configuration
+# Base Model Development — Multi-cancer Screening
+# Updated: 2025-02-25
+
+# =============================================================================
+# DATASET CONFIGURATION
+# =============================================================================
+dataset:
+  # -------------------------------------------------------------------------
+  # folder_to_group: Maps raw data folder names → group codes
+  # -------------------------------------------------------------------------
+  folder_to_group:
+    "1. Prostate cancer (100개)": "PRO"
+    "2. Breast cancer (30개)": "BRE"
+    "3. Ovarian cancer (70개)": "OVA"
+    "4. Lung cancer (300개)": "LUN"
+    "5. Normal (100개)": "NOR"
+    "6. Diabetes (100개)": "DIA"
+    "7. High blood pressure (100개)": "HBP"
+    "8. High blood pressure + Diabetes (100개)": "H.D."
+    "9. Colorectal cancer (300개)": "CRC"
+    "10-1. C-Pancreatic cancer (70개)": "CPAN"
+    "10-2. S-Pancreatic cancer (72개)": "SPAN"
+    "20260407_Bladder_1mW_0.05s_Ave 100": "BLC"
+
+  # -------------------------------------------------------------------------
+  # folder_to_group_medical: Maps raw_data_medical folder names → group codes
+  # Medical Raman 장비 데이터 (BG 미차감 원본 + Background/ 폴더)
+  # -------------------------------------------------------------------------
+  folder_to_group_medical:
+    "1. Prostate cancer (100개)": "PRO"
+    "2. Breast cancer (30개)": "BRE"
+    "3. Ovarian cancer (70개)": "OVA"
+    "4. Lung cancer (300개)": "LUN"
+    "5. Normal (100개)": "NOR"
+    "6. Diabetes (100개)": "DIA"
+    "7. High blood pressure (100개)": "HBP"
+    "8. High blood pressure + Diabetes (100개)": "H.D."
+    "9. Colorectal cancer (300개)": "CRC"
+    "10-1. C-Pancreatic cancer (70개)": "CPAN"
+    "10-2. S-Pancreatic cancer (72개)": "SPAN"
+    "10-3. Y-Pancreatic cancer (30개)": "YPAN"
+    "11. Bladdder Cancer (299개)": "BLC"
+    "12. Y-Normal (29개)": "YNOR"
+
+  # -------------------------------------------------------------------------
+  # Medical 장비 전용 설정
+  # -------------------------------------------------------------------------
+  medical:
+    file_pattern: "*.txt"
+    # BG-removed 스펙트럼은 각 폴더의 Background/ 하위폴더에 위치
+    # (메인 폴더 = raw 원본, Background/ = 장비 자체 BG 제거 결과)
+    read_from_subdir: "Background"
+    exclude_patterns:
+      - "*_ave.txt"
+      - "MultiData.txt"
+      - "*Zone.Identifier*"
+    expected_reps: 6
+    # Medical 장비 BG-removed 데이터는 이미 깨끗하므로 SG smoothing 불필요
+    # Calibration도 skip (urea reference peak 없음, 장비간 enhancement 패턴 상이)
+    do_smooth: false
+    do_calibration: false
+    # Medical → Thermo wavenumber alignment
+    # 물리적 검증: urea peak (정상 ~1001.4 cm⁻¹)이 Medical에서 ~1027 cm⁻¹에 나타남 → +26 cm⁻¹ offset
+    # 경험적 검증: 2nd-deriv correlation search median +28 cm⁻¹
+    # 따라서 Medical wn에 -28 적용하여 Thermo 기준으로 정렬
+    wavenumber_shift: -28.0
+
+  group_metadata:
+    PRO:
+      label: "Prostate Cancer"
+      category: "cancer"
+      n_samples: 100
+      protocol: "SMCXD01"
+      study_type: "retrospective"
+      hospital: "Chungbuk National University Hospital"
+      hospital_kr: "충북대학교병원"
+      filename_pattern: "PRO {sample_id}_{rep}.CSV"
+
+    BRE:
+      label: "Breast Cancer"
+      category: "cancer"
+      n_samples: 30
+      protocol: "SMCXD01"
+      study_type: "retrospective"
+      hospital: "Inje University Busan Paik Hospital"
+      hospital_kr: "인제대학교 부산백병원"
+      filename_pattern: "BRE {sample_id}_{rep}.CSV"
+
+    OVA:
+      label: "Ovarian Cancer"
+      category: "cancer"
+      n_samples: 70
+      protocol: "SMCXD01"
+      study_type: "retrospective"
+      hospitals:
+        - hospital: "Inje University Busan Paik Hospital"
+          hospital_kr: "인제대학교 부산백병원"
+          n_samples: 30
+        - hospital: "Seoul National University Hospital"
+          hospital_kr: "서울대학교병원"
+          n_samples: 40
+      filename_pattern: "OVA {sample_id}_{rep}.CSV"
+
+    LUN:
+      label: "Lung Cancer"
+      category: "cancer"
+      n_samples: 300
+      protocols: ["SMCXD01", "SMCXD06"]
+      study_type: "retrospective"
+      hospitals:
+        - hospital: "Seoul National University Hospital"
+          hospital_kr: "서울대학교병원"
+          protocol: "SMCXD01"
+          n_samples: 30
+        - hospital: "Seoul St. Mary's Hospital"
+          hospital_kr: "서울성모병원"
+          protocol: "SMCXD06"
+          n_samples: 170
+        - hospital: "Seoul National University Hospital"
+          hospital_kr: "서울대학교병원"
+          protocol: "SMCXD06"
+          n_samples: 100
+      filename_pattern: "LUN {sample_id}_{rep}.CSV"
+
+    NOR:
+      label: "Normal"
+      category: "control"
+      n_samples: 100
+      n_replicates: 5
+      protocol: "SMCXD03"
+      study_type: "retrospective"
+      hospital: "Yangsan Pusan National University Hospital"
+      hospital_kr: "양산부산대병원"
+      filename_pattern: "NOR {sample_id}_{rep}.CSV"
+
+    DIA:
+      label: "Diabetes"
+      category: "non-cancer"
+      n_samples: 100
+      protocol: "SMCXD03"
+      study_type: "retrospective"
+      hospital: "Yangsan Pusan National University Hospital"
+      hospital_kr: "양산부산대병원"
+      filename_pattern: "DIA {sample_id}_{rep}.CSV"
+
+    HBP:
+      label: "High Blood Pressure"
+      category: "non-cancer"
+      n_samples: 100
+      protocol: "SMCXD03"
+      study_type: "retrospective"
+      hospital: "Yangsan Pusan National University Hospital"
+      hospital_kr: "양산부산대병원"
+      filename_pattern: "HBP {sample_id}_{rep}.CSV"
+
+    H.D.:
+      label: "High BP + Diabetes"
+      category: "non-cancer"
+      n_samples: 100
+      protocol: "SMCXD05"
+      study_type: "retrospective"
+      hospital: "Yangsan Pusan National University Hospital"
+      hospital_kr: "양산부산대병원"
+      filename_pattern: "H.D. {sample_id}_{rep}.CSV"
+
+    CRC:
+      label: "Colorectal Cancer"
+      category: "cancer"
+      n_samples: 300
+      protocol: "SMCXD06"
+      study_type: "retrospective"
+      hospital: "Chungbuk National University Hospital"
+      hospital_kr: "충북대학교병원"
+      filename_pattern: "CRC {sample_id}_{rep}.CSV"
+
+    CPAN:
+      label: "Pancreatic Cancer (Chungbuk)"
+      category: "cancer"
+      n_samples: 70
+      protocol: "SMCXD06"
+      study_type: "retrospective"
+      hospital: "Chungbuk National University Hospital"
+      hospital_kr: "충북대학교병원"
+      filename_pattern: "CPAN {sample_id}_{rep}.CSV"
+
+    SPAN:
+      label: "Pancreatic Cancer (Samsung, post-operative)"
+      category: "cancer"
+      n_samples: 200
+      protocol: "SMCXD02"
+      study_type: "prospective"
+      hospital: "Samsung Seoul Hospital"
+      hospital_kr: "삼성서울병원"
+      note: "Post-operative samples — excluded from screening algorithm by default"
+      filename_pattern: "SPAN {sample_id}_{rep}.CSV"
+
+    BLC:
+      label: "Bladder Cancer"
+      category: "cancer"
+      n_samples: 300
+      protocol: "SMCXD06"
+      study_type: "retrospective"
+      hospital: "Chungbuk National University Hospital"
+      hospital_kr: "충북대학교병원"
+      filename_pattern: "BLC {sample_id}_{rep}.CSV"
+
+    YPAN:
+      label: "Pancreatic Cancer (Severance)"
+      category: "cancer"
+      n_samples: 30
+      study_type: "prospective"
+      hospital: "Yonsei Severance Hospital"
+      hospital_kr: "연세세브란스병원"
+      filename_pattern: "YPAN {sample_id}_{rep}.CSV"
+
+    YNOR:
+      label: "Normal Control (Severance)"
+      category: "control"
+      n_samples: 30
+      study_type: "prospective"
+      hospital: "Yonsei Severance Hospital"
+      hospital_kr: "연세세브란스병원"
+      filename_pattern: "YNOR {sample_id}_{rep}.CSV"
+
+    BPRO:
+      label: "Prostate Cancer (Boramae)"
+      category: "cancer"
+      n_samples: 300
+      study_type: "prospective"
+      hospital: "Seoul National University Boramae Hospital"
+      hospital_kr: "서울대보라매병원"
+      filename_pattern: "BPRO {sample_id}_{rep}.CSV"
+
+    BNOR:
+      label: "Normal Control (Boramae)"
+      category: "control"
+      n_samples: 150
+      study_type: "prospective"
+      hospital: "Seoul National University Boramae Hospital"
+      hospital_kr: "서울대보라매병원"
+      filename_pattern: "BNOR {sample_id}_{rep}.CSV"
+
+
+  # -------------------------------------------------------------------------
+  # Group aliases: Merge sub-groups for modeling
+  # -------------------------------------------------------------------------
+  group_aliases:
+    # Merge pancreatic sub-cohorts into unified PAN
+    PAN: ["CPAN", "YPAN"]
+    # Merge YNOR into NOR
+    NOR: ["YNOR"]
+
+  # -------------------------------------------------------------------------
+  # Category definitions for binary classification
+  # -------------------------------------------------------------------------
+  categories:
+    cancer: ["PRO", "BRE", "OVA", "LUN", "CRC", "PAN", "BLC"]
+    non_cancer: ["DIA", "HBP", "H.D."]
+    control: ["NOR"]
+
+  # -------------------------------------------------------------------------
+  # Equipment-level QC data (from prior analysis)
+  # -------------------------------------------------------------------------
+  equipment_folder_to_group:
+    handheld:
+      equipment: "handheld"
+      sample_folder_to_group:
+        "1. NOR": "NOR"
+    medical_removed:
+      equipment: "medical_removed"
+      sample_folder_to_group:
+        "1. NOR": "NOR"
+    medical_raw:
+      equipment: "medical_raw"
+      sample_folder_to_group:
+        "1. NOR": "NOR"
+    nanoscope:
+      equipment: "nanoscope"
+      sample_folder_to_group:
+        "1. NOR": "NOR"
+    thermo:
+      equipment: "thermo"
+      sample_folder_to_group:
+        "1. NOR": "NOR"
+# =============================================================================
+# DISPLAY — Visualization style (colors, ordering, categories)
+# =============================================================================
+# Centralizes all hardcoded style constants so pipeline scripts stay clean.
+# Usage in code:  dsp = config.display
+#                 dsp.active_groups(df["group"].unique())
+#                 dsp.palette_for(groups)
+#                 dsp.category_map["CRC"]  → "cancer"
+
+
+display:
+  # Plot order: control → non-cancer → cancer
+  group_order:
+    - "NOR"
+    - "DIA"
+    - "HBP"
+    - "H.D."
+    - "PRO"
+    - "BRE"
+    - "OVA"
+    - "LUN"
+    - "CRC"
+    - "PAN"
+    - "BLC"
+
+  # Group → category (drives row coloring in tables, legend grouping)
+  category_map:
+    NOR: "control"
+    DIA: "non_cancer"
+    HBP: "non_cancer"
+    H.D.: "non_cancer"
+    PRO: "cancer"
+    BRE: "cancer"
+    OVA: "cancer"
+    LUN: "cancer"
+    CRC: "cancer"
+    PAN: "cancer"
+    BLC: "cancer"
+
+  # Per-group hex colors
+  group_colors:
+    PRO: "#E91E63"
+    BRE: "#FF69B4"
+    OVA: "#AB47BC"
+    LUN: "#42A5F5"
+    CRC: "#EF5350"
+    PAN: "#FFA726"
+    BLC: "#7E57C2"
+    DIA: "#66BB6A"
+    HBP: "#26A69A"
+    H.D.: "#78909C"
+    NOR: "#8D6E63"
+
+
+  # Category-level colors
+  category_colors:
+    cancer: "#E53935"
+    non_cancer: "#43A047"
+    control: "#5C6BC0"
+  # Replicate overlay colors (cycled)
+  replicate_colors:
+    - "#E91E63"
+    - "#2196F3"
+    - "#4CAF50"
+    - "#FF9800"
+    - "#9C27B0"
+    - "#00BCD4"
+    - "#FF5722"
+    - "#795548"
+    - "#607D8B"
+    - "#CDDC39"
+# =============================================================================
+# PREPROCESSING
+# =============================================================================
+preprocessing:
+  # Wavenumber calibration — aligns urea reference peak across all spectra
+  # Corrects instrument drift (typically ±1–4 cm⁻¹ between lots/institutions)
+  do_calibration: true
+  calibration_reference_wn: 1001.4   # Urea symmetric C-N stretch (cm⁻¹)
+  calibration_window: 10.0           # ± search range (cm⁻¹) — narrowed 2026-04-07
+  # Robust scoring: distance-weighted (sigma=3) + min-score fail-safe.
+  # See find_reference_peak() for the gaussian penalty that avoids picking
+  # strong adjacent metabolite peaks at 1007.4 / 995.9 cm⁻¹.
+
+  do_smooth: true
+  smooth_window: 11      # Must be odd, >= smooth_poly + 2
+  smooth_poly: 3         # Savitzky-Golay polynomial order
+  baseline_window: 101   # Rolling minimum window
+  use_snv: true          # Standard Normal Variate normalization
+
+  # Fixed wavenumber grid — ensures all pipelines produce identical feature space
+  # Derived from intersection of all 8,799 raw spectra (x_min ≈ 50.06–51.01)
+  # Applied after trim to fingerprint_region [400, 2200]
+  fixed_grid:
+    x_min: 402.0          # Safe lower bound (all data ≥ 401.12 after trim)
+    x_max: 2198.0         # Safe upper bound (all data ≤ 2199.63 after trim)
+    n_points: 935         # Fixed point count for all pipelines
+
+# =============================================================================
+# QUALITY CONTROL
+# =============================================================================
+qc:
+  # Level 0: Intensity Gate
+  intensity_gate_ratio: 0.1
+
+  # ── v1 strict (legacy, whole-subject drop) ────────────────────
+  # Validated 2026-03-27. Kept for --qc-policy strict back-compat.
+  rsd_threshold: 5.0
+  corr_threshold: 0.95
+
+  # ── v2 two-stage (2026-04-08, default) ───────────────────────
+  # Stage 1 (raw): intensity gate + cosmic_ray (isolation test) + saturation.
+  # Stage 2a (post-preproc): per-replicate corr-to-mean, drop bad reps only.
+  # Stage 2b: require minimum surviving replicates per subject.
+  # Thresholds derived in Phase 7 from NOR+YNOR distribution (p5) —
+  # see results/qc_validation/threshold_derivation_report.md
+  per_spectrum_corr_threshold: 0.925
+  min_reps_after_qc: 4
+  cosmic_isolation: 2.0       # peak / neighbor_avg ratio
+  cosmic_height: 0.3          # peak height / spectrum range
+  saturation_plateau: 5       # consecutive samples at max
+
+  expected_reps: 5            # 5 replicates per sample
+  fingerprint_region: [400, 2200]
+
+# =============================================================================
+# MODELING
+# =============================================================================
+modeling:
+  n_splits: 5
+  use_pca: false
+  pca_components: 30
+  random_state: 42

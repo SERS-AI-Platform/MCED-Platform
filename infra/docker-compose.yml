@@ -1,0 +1,47 @@
+services:
+  # ── Web Application (browser UI + API) ──
+  sers-app:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    container_name: sers-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../data/raw_data:/spectra:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16G
+        reservations:
+          cpus: "4"
+          memory: 8G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── CLI Prediction (one-shot) ──
+  sers-predict:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: sers-predict
+    volumes:
+      - ../data/raw_data:/spectra:ro
+      - ../results:/results:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16G
+        reservations:
+          cpus: "4"
+          memory: 8G

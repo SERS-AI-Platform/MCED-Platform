@@ -1,0 +1,64 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+*.pyc
+__pycache__
+
+# Development
+.venv
+venv
+env
+.env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.egg-info
+dist
+build
+*.o
+*.so
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Documentation
+*.md
+docs/
+notebooks/
+
+# Large data files (mount volumes instead)
+data/
+results/
+*.csv
+*.xlsx
+
+# Models - exclude training artifacts, keep production
+models/results/
+models/__pycache__/
+!models/production/
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Pipeline outputs
+pipeline.log

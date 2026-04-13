@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "fit_date": "2026-04-09T13:02:46",
+  "method": "Piecewise Direct Standardization (PDS)",
+  "hyperparameters": {
+    "half_window": 31,
+    "ridge": 0.01
+  },
+  "n_paired_samples": 1569,
+  "n_features": 935,
+  "grid_range_cm1": [
+    402.0,
+    2198.0
+  ],
+  "medical_wavenumber_shift_cm1": -28.0,
+  "in_sample_metrics": {
+    "raw": {
+      "rmse": 1.2719533520429223,
+      "mean_correlation": 0.11352696476441468
+    },
+    "medical_to_thermo": {
+      "rmse": 0.5263442152271463,
+      "mean_correlation": 0.8439642016612914
+    },
+    "thermo_to_medical": {
+      "rmse": 0.45651239478544986,
+      "mean_correlation": 0.8703332209255166
+    }
+  },
+  "source_phase": "CIC-2 (2026-04-07) \u2014 PDS hp sweep best config",
+  "training_cohort_source": "All paired samples from Thermo+Medical datasets (sample-level mean aggregation)"
+}

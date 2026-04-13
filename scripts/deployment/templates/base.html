@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ s.app_title }} — {% block page_title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/clinical.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app-container">
+    {% if user %}
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="header-logo">S</div>
+            <span class="header-title">{{ s.app_title }}</span>
+        </div>
+        <div class="header-right">
+            {% if operating_mode %}
+            <span class="mode-badge {{ operating_mode }}">
+                {% if operating_mode == 'screening' %}{{ s.mode_screening }}
+                {% elif operating_mode == 'balanced' %}{{ s.mode_balanced }}
+                {% elif operating_mode == 'confirmatory' %}{{ s.mode_confirmatory }}
+                {% endif %}
+            </span>
+            {% endif %}
+            <span class="user-info">{{ user.display_name }} ({{ user.role }})</span>
+            <button class="lang-toggle" onclick="toggleLang()">{{ 'EN' if lang == 'ko' else '한' }}</button>
+            <a href="/logout" class="btn-logout">{{ s.logout }}</a>
+        </div>
+    </header>
+
+    {% if show_stepper is defined and show_stepper %}
+    <!-- Step Indicator -->
+    <nav class="stepper">
+        {% set steps = [
+            ('patient', s.step_patient),
+            ('upload', s.step_upload),
+            ('qc', s.step_qc),
+            ('results', s.step_results),
+            ('report', s.step_report)
+        ] %}
+        {% for step_id, step_name in steps %}
+            {% if not loop.first %}<span class="step-arrow">&#9654;</span>{% endif %}
+            <span class="step {% if current_step == step_id %}active{% elif step_id in completed_steps %}completed{% endif %}">
+                {% if step_id in completed_steps %}&#10003; {% endif %}{{ step_name }}
+            </span>
+        {% endfor %}
+    </nav>
+    {% endif %}
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        {{ s.app_title }} {{ s.version }} &middot; {{ s.company }}
+    </footer>
+</div>
+
+<script>
+function toggleLang() {
+    const current = document.cookie.match(/sers_lang=(\w+)/);
+    const newLang = (current && current[1] === 'ko') ? 'en' : 'ko';
+    document.cookie = `sers_lang=${newLang};path=/;max-age=${86400*365}`;
+    location.reload();
+}
+</script>
+<script src="/static/js/clinical.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

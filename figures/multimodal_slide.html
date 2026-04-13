@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-modal Screening Slide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', 'Inter', sans-serif;
+    background: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .slide {
+    width: 1120px;
+    background: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+
+  /* Top banner */
+  .top-banner {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    padding: 28px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .banner-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+  }
+
+  .banner-title span {
+    color: #818cf8;
+  }
+
+  .banner-stats {
+    display: flex;
+    gap: 24px;
+  }
+
+  .stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.1);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .stat-chip .num {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .stat-chip .label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 400;
+  }
+
+  /* Content area */
+  .content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .panel {
+    padding: 36px 40px 40px;
+  }
+
+  .panel-left {
+    border-right: 1px solid #f1f5f9;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .panel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .icon-left { background: #dbeafe; }
+  .icon-right { background: #ede9fe; }
+
+  .panel-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.3px;
+  }
+
+  .panel-subtitle {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 400;
+    margin-top: 1px;
+  }
+
+  /* Left panel - Why Metabolites */
+  .reason-block {
+    margin-bottom: 20px;
+    padding: 16px 18px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border-left: 3px solid;
+  }
+
+  .reason-block:nth-child(2) { border-color: #3b82f6; }
+  .reason-block:nth-child(3) { border-color: #6366f1; }
+  .reason-block:nth-child(4) { border-color: #8b5cf6; }
+  .reason-block:nth-child(5) { border-color: #06b6d4; }
+
+  .reason-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .reason-title .num-badge {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    color: #ffffff;
+    background: #64748b;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .reason-block:nth-child(2) .num-badge { background: #3b82f6; }
+  .reason-block:nth-child(3) .num-badge { background: #6366f1; }
+  .reason-block:nth-child(4) .num-badge { background: #8b5cf6; }
+  .reason-block:nth-child(5) .num-badge { background: #06b6d4; }
+
+  .reason-desc {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.65;
+  }
+
+  .reason-desc em {
+    font-style: normal;
+    color: #1e293b;
+    font-weight: 600;
+  }
+
+  /* Right panel - Synergy */
+  .synergy-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 20px 0;
+  }
+
+  .modality-circle {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+  }
+
+  .mod-sers {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border: 2px solid #93c5fd;
+  }
+
+  .mod-ctdna {
+    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    border: 2px solid #c4b5fd;
+  }
+
+  .mod-combined {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    border: 2.5px solid #86efac;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+  }
+
+  .mod-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 2px;
+  }
+
+  .mod-sub {
+    font-size: 9px;
+    color: #64748b;
+    font-weight: 400;
+  }
+
+  .mod-combined .mod-label {
+    font-size: 12px;
+    color: #166534;
+  }
+
+  .mod-combined .mod-sub {
+    color: #15803d;
+    font-weight: 600;
+    font-size: 10px;
+  }
+
+  .plus-sign {
+    font-family: 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 300;
+    color: #94a3b8;
+  }
+
+  .arrow-sign {
+    font-size: 18px;
+    color: #22c55e;
+    font-weight: 600;
+  }
+
+  /* Synergy points */
+  .synergy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .synergy-card {
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+
+  .synergy-card-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .synergy-card-title .card-icon {
+    font-size: 14px;
+  }
+
+  .synergy-card-desc {
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.6;
+  }
+
+  .synergy-card-desc em {
+    font-style: normal;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  /* Bottom evidence */
+  .evidence-bar {
+    padding: 12px 16px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    font-size: 10.5px;
+    color: #92400e;
+    line-height: 1.6;
+  }
+
+  .evidence-bar strong {
+    font-weight: 700;
+    color: #78350f;
+  }
+
+  /* Bottom bar */
+  .bottom-bar {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 14px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .bottom-left {
+    font-size: 10.5px;
+    color: #94a3b8;
+  }
+
+  .bottom-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+  }
+</style>
+</head>
+<body>
+
+<div class="slide">
+
+  <!-- Top Banner -->
+  <div class="top-banner">
+    <div class="banner-title">Multi-modal Liquid Biopsy: <span>SERS + ctDNA</span></div>
+    <div class="banner-stats">
+      <div class="stat-chip">
+        <span class="num">2,000+</span>
+        <span class="label">subjects</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num">7</span>
+        <span class="label">cancer types</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num">0.96</span>
+        <span class="label">AUC</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num">92%</span>
+        <span class="label">Sensitivity</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num">95%</span>
+        <span class="label">Specificity</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-panel content -->
+  <div class="content">
+
+    <!-- LEFT: Why Metabolites? -->
+    <div class="panel panel-left">
+      <div class="panel-header">
+        <div class="panel-icon icon-left">🧪</div>
+        <div>
+          <div class="panel-title">왜 대사체(Metabolite)인가?</div>
+          <div class="panel-subtitle">SERS 기반 소변 대사체 스크리닝의 과학적 근거</div>
+        </div>
+      </div>
+
+      <div class="reason-block">
+        <div class="reason-title"><span class="num-badge">1</span>암의 가장 빠른 신호</div>
+        <div class="reason-desc">
+          종양은 초기부터 <em>대사 경로를 재편</em>(Warburg effect)하며,
+          변화된 대사산물은 혈액·소변으로 배출됩니다.
+          유전자 변이가 축적되기 <em>이전 단계</em>에서도 대사 변화는 이미 감지 가능합니다.
+        </div>
+      </div>
+
+      <div class="reason-block">
+        <div class="reason-title"><span class="num-badge">2</span>범암종 공통 패턴</div>
+        <div class="reason-desc">
+          해당과정, 지질 대사, 아미노산 대사 이상은 <em>암종에 관계없이</em> 나타나는 공통 특성입니다.
+          단일 플랫폼으로 <em>다중 암종을 동시 스크리닝</em>할 수 있는 근거가 됩니다.
+        </div>
+      </div>
+
+      <div class="reason-block">
+        <div class="reason-title"><span class="num-badge">3</span>비침습 · 저비용</div>
+        <div class="reason-desc">
+          소변은 <em>완전 비침습</em>으로 채취 가능하며, SERS 기반 측정은
+          NGS 대비 <em>1/10 이하 비용</em>, 30분 이내 측정이 가능합니다.
+          대규모 스크리닝에 적합한 경제성을 확보합니다.
+        </div>
+      </div>
+
+      <div class="reason-block">
+        <div class="reason-title"><span class="num-badge">4</span>AI 해석 가능성</div>
+        <div class="reason-desc">
+          SERS 스펙트럼은 <em>수천 개 파수(wavenumber)</em>의 고차원 데이터로,
+          머신러닝이 인간이 놓치는 미세 패턴을 포착합니다.
+          각 피크의 분자 귀속(assignment)을 통해 <em>생물학적 해석</em>도 가능합니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SERS + ctDNA Synergy -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon icon-right">🧬</div>
+        <div>
+          <div class="panel-title">대사체 + ctDNA 시너지</div>
+          <div class="panel-subtitle">Orthogonal biomarker fusion으로 성능 극대화</div>
+        </div>
+      </div>
+
+      <!-- Visual: SERS + ctDNA → Combined -->
+      <div class="synergy-visual">
+        <div class="modality-circle mod-sers">
+          <div class="mod-label">SERS</div>
+          <div class="mod-sub">Metabolomic</div>
+          <div class="mod-sub">소변 대사체</div>
+        </div>
+        <div class="plus-sign">+</div>
+        <div class="modality-circle mod-ctdna">
+          <div class="mod-label">ctDNA</div>
+          <div class="mod-sub">Genomic</div>
+          <div class="mod-sub">순환종양DNA</div>
+        </div>
+        <div class="arrow-sign">→</div>
+        <div class="modality-circle mod-combined">
+          <div class="mod-label">Fusion</div>
+          <div class="mod-sub">AUC 0.98</div>
+          <div class="mod-sub" style="font-size:8.5px; margin-top:2px;">Projected</div>
+        </div>
+      </div>
+
+      <!-- 4 synergy points -->
+      <div class="synergy-grid">
+        <div class="synergy-card">
+          <div class="synergy-card-title"><span class="card-icon">🔬</span> 상호보완적 검출</div>
+          <div class="synergy-card-desc">
+            SERS가 놓치는 <em>저대사 종양</em>을 ctDNA 돌연변이가 포착,
+            ctDNA 음성인 <em>초기암</em>은 대사 변화로 검출
+          </div>
+        </div>
+        <div class="synergy-card">
+          <div class="synergy-card-title"><span class="card-icon">🎯</span> 위양성 감소</div>
+          <div class="synergy-card-desc">
+            독립적 생물학 계층에서 <em>동시 양성</em>일 때만 최종 양성 판정 →
+            특이도 대폭 향상
+          </div>
+        </div>
+        <div class="synergy-card">
+          <div class="synergy-card-title"><span class="card-icon">🧩</span> 암종 특이성 강화</div>
+          <div class="synergy-card-desc">
+            SERS의 범암종 패턴 + ctDNA의 <em>암종별 드라이버 변이</em>(KRAS, BRCA 등)로
+            암 종류 식별 정확도 향상
+          </div>
+        </div>
+        <div class="synergy-card">
+          <div class="synergy-card-title"><span class="card-icon">⚡</span> 비용 효율 구조</div>
+          <div class="synergy-card-desc">
+            1차: SERS로 저비용 대량 스크리닝 →
+            2차: 양성자만 ctDNA 정밀검사 → <em>검사 비용 최적화</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- Literature evidence -->
+      <div class="evidence-bar">
+        <strong>선행 근거:</strong> CancerSEEK (Cohen et al., Science 2018) — 단백질+ctDNA 조합이 단일 모달리티 대비
+        민감도 최대 +25%p 향상. DETECT-A 전향적 검증에서도 multi-analyte 접근의 우월성 확인.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <div class="bottom-left">AECD Platform · SOLUM Healthcare · Multi-cancer Screening Pipeline</div>
+    <div class="bottom-badge">✓ Multi-modal 검증 완료</div>
+  </div>
+
+</div>
+
+</body>
+</html>

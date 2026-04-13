@@ -1,0 +1,70 @@
+{
+  "project": "AACR 2026",
+  "description": "SERS-based multi-cancer urine screening poster",
+
+  "label_map": {
+    "PRO": "PRC",
+    "OVA": "OVC",
+    "LUN": "LC",
+    "CPAN": "PAC",
+    "PAN": "PAC",
+    "NOR": "Normal control",
+    "CRC": "CRC",
+    "DIA": "DM",
+    "HBP": "HTN",
+    "H.D.": "DM + HTN"
+  },
+
+  "full_name_map": {
+    "PRC": "Prostate cancer",
+    "OVC": "Ovarian cancer",
+    "LC": "Lung cancer",
+    "PAC": "Pancreatic cancer",
+    "CRC": "Colorectal cancer",
+    "Normal control": "Normal control",
+    "DM": "Diabetes",
+    "HTN": "Hypertension",
+    "DM + HTN": "Diabetes + Hypertension",
+    "Non-cancer": "Non-cancer controls"
+  },
+
+  "colors": {
+    "Non-cancer": "#1b3a5c",
+    "PRC": "#e8733a",
+    "OVC": "#7b2d8e",
+    "LC": "#d4a088",
+    "PAC": "#a01020",
+    "CRC": "#2980b9"
+  },
+
+  "groups": {
+    "cancer": ["LUN", "CPAN", "OVA", "CRC", "PRO"],
+    "non_cancer": ["NOR", "DIA", "HBP", "H.D."]
+  },
+
+  "display_order": ["Non-cancer", "PRC", "OVC", "LC", "PAC", "CRC"],
+
+  "group_totals": {
+    "NOR": 100,
+    "DIA": 100,
+    "HBP": 100,
+    "H.D.": 100,
+    "PRO": 100,
+    "OVA": 70,
+    "LUN": 300,
+    "CPAN": 70,
+    "CRC": 300
+  },
+
+  "data_sources": {
+    "PRO": "PRO_with_staging.csv",
+    "PAN": "PAN_with_ajcc_stage.csv",
+    "CRC": "CRC_with_ajcc_stage.csv"
+  },
+
+  "exclusions": {
+    "NOR": ["YNOR", "YPAN_NOR"],
+    "PAN": ["SPAN", "YPAN"],
+    "notes": "CPAN only (Chungbuk), NOR excludes Yonsei controls, SPAN excluded (post-operative)"
+  }
+}

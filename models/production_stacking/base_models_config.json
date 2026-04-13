@@ -1,0 +1,74 @@
+{
+  "lr_raw": {
+    "channels": [
+      0
+    ],
+    "model": "lr",
+    "pca": null
+  },
+  "lr_d1": {
+    "channels": [
+      1
+    ],
+    "model": "lr",
+    "pca": null
+  },
+  "lr_d2": {
+    "channels": [
+      2
+    ],
+    "model": "lr",
+    "pca": null
+  },
+  "lr_concat": {
+    "channels": [
+      0,
+      1,
+      2
+    ],
+    "model": "lr",
+    "pca": null
+  },
+  "lr_peak": {
+    "channels": "peak",
+    "model": "lr",
+    "pca": null
+  },
+  "xgb_raw": {
+    "channels": [
+      0
+    ],
+    "model": "xgb",
+    "pca": null
+  },
+  "xgb_d1": {
+    "channels": [
+      1
+    ],
+    "model": "xgb",
+    "pca": null
+  },
+  "rf_raw": {
+    "channels": [
+      0
+    ],
+    "model": "rf",
+    "pca": null
+  },
+  "rf_d1": {
+    "channels": [
+      1
+    ],
+    "model": "rf",
+    "pca": null
+  },
+  "ridge_concat": {
+    "channels": [
+      0,
+      1,
+      2
+    ],
+    "model": "ridge",
+    "pca": null
+  }
+}

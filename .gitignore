@@ -1,0 +1,71 @@
+# Data files — ignore raw data but allow scripts and reports
+data/*
+!data/clinical_data/
+data/clinical_data/*
+!data/clinical_data/standardize_clinical.py
+!data/clinical_data/link_sers_clinical.py
+!data/clinical_data/normalize_excel_files.py
+!data/clinical_data/apply_column_mappings.py
+!data/clinical_data/standardized/
+data/clinical_data/standardized/*
+!data/clinical_data/standardized/clinical_data_report_draft.md
+!data/clinical_data/standardized/figures/
+
+# Results & model outputs
+results/
+models/results/
+
+# Models & artifacts
+mlruns/
+mlartifacts/
+.mlflow/
+runs/
+experiments/
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Environment
+.env
+.env.local
+secrets/
+credentials/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.log
+*.db
+*.sqlite
+.cache/
+
+# Images & Figures (general)
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.tif
+*.ico
+*.webp
+# Allow analysis figures and SVGs
+# *.png — allowed for reports
+# *.svg — allowed for reports

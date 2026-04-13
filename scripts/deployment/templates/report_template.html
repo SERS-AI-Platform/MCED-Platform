@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 20mm 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'NanumGothic', 'Pretendard', sans-serif; font-size: 11pt; color: #1E293B; line-height: 1.6; }
+
+        .report-header { text-align: center; border-bottom: 2px solid #1E293B; padding-bottom: 16px; margin-bottom: 24px; }
+        .report-title { font-size: 18pt; font-weight: 800; }
+        .report-subtitle { font-size: 10pt; color: #64748B; margin-top: 4px; }
+        .report-id { font-size: 9pt; color: #94A3B8; margin-top: 8px; }
+
+        .section { margin-bottom: 20px; }
+        .section-title { font-size: 12pt; font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+        th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #E2E8F0; }
+        th { font-weight: 600; color: #64748B; background: #F8FAFC; width: 30%; }
+
+        .result-box { text-align: center; padding: 20px; border-radius: 8px; margin: 16px 0; }
+        .result-positive { background: #FEF2F2; border: 2px solid #DC2626; }
+        .result-negative { background: #F0FDF4; border: 2px solid #059669; }
+        .result-label { font-size: 24pt; font-weight: 800; }
+        .result-positive .result-label { color: #DC2626; }
+        .result-negative .result-label { color: #059669; }
+        .result-detail { font-size: 10pt; color: #64748B; margin-top: 4px; }
+
+        .cancer-type-box { padding: 12px 16px; background: #FEF2F2; border-radius: 6px; margin: 12px 0; }
+        .cancer-type-name { font-size: 14pt; font-weight: 700; color: #DC2626; }
+        .cancer-type-conf { font-size: 10pt; color: #64748B; }
+
+        .disclaimer-box { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px; font-size: 9pt; color: #92400E; margin-top: 24px; }
+
+        .footer-line { margin-top: 32px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 9pt; color: #94A3B8; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <div class="report-title">{{ s.report_title }}</div>
+        <div class="report-subtitle">{{ s.app_title }} {{ s.version }} &middot; {{ s.company }}</div>
+        <div class="report-id">{{ s.report_id }}: {{ report_id }} &middot; {{ s.test_date }}: {{ generated_at }}</div>
+    </div>
+
+    <!-- Patient Information -->
+    <div class="section">
+        <div class="section-title">{{ s.patient_info }}</div>
+        <table>
+            <tr><th>{{ s.patient_id }}</th><td>{{ session.patient_id }}</td></tr>
+            <tr><th>{{ s.age }}</th><td>{{ session.age|int }}</td></tr>
+            <tr><th>{{ s.sex }}</th><td>{{ s.male if session.sex == 'M' else s.female }}</td></tr>
+            {% if session.bmi %}<tr><th>{{ s.bmi }}</th><td>{{ session.bmi }}</td></tr>{% endif %}
+        </table>
+    </div>
+
+    <!-- Test Conditions -->
+    <div class="section">
+        <div class="section-title">{{ s.test_conditions }}</div>
+        <table>
+            <tr><th>운영 모드</th><td>
+                {% if session.operating_mode == 'screening' %}{{ s.mode_screening }} ({{ s.mode_screening_desc }})
+                {% elif session.operating_mode == 'balanced' %}{{ s.mode_balanced }} ({{ s.mode_balanced_desc }})
+                {% else %}{{ s.mode_confirmatory }} ({{ s.mode_confirmatory_desc }}){% endif %}
+            </td></tr>
+            <tr><th>Decision Threshold</th><td>{{ "%.4f"|format(session.threshold) }}</td></tr>
+            <tr><th>모델 변형</th><td>{{ s.model_fusion if session.model_variant == 'fusion' else s.model_sers_only }}</td></tr>
+        </table>
+    </div>
+
+    <!-- QC Summary -->
+    <div class="section">
+        <div class="section-title">{{ s.qc_summary_label }}</div>
+        <table>
+            <tr><th>전체 스펙트럼</th><td>{{ qc_total }}개</td></tr>
+            <tr><th>QC 통과</th><td>{{ qc_passed }}개</td></tr>
+            <tr><th>QC 실패</th><td>{{ qc_total - qc_passed }}개</td></tr>
+        </table>
+    </div>
+
+    <!-- Test Result -->
+    <div class="section">
+        <div class="section-title">{{ s.test_result }}</div>
+
+        <div class="result-box {{ 'result-positive' if prediction.cancer_detected else 'result-negative' }}">
+            <div class="result-label">
+                {% if prediction.cancer_detected %}&#9888; {{ s.positive }}{% else %}&#10003; {{ s.negative }}{% endif %}
+            </div>
+            <div class="result-detail">
+                {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
+                {% if prediction.majority_vote %}&middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
+            </div>
+        </div>
+
+        {% if prediction.cancer_detected %}
+        <div class="cancer-type-box">
+            <div class="cancer-type-name">
+                {{ s.estimated_type }}: {{ s['cancer_' + prediction.cancer_type_prediction] }}
+                ({{ prediction.cancer_type_prediction }})
+            </div>
+            <div class="cancer-type-conf">
+                {{ s.confidence }}:
+                {% if prediction.cancer_type_confidence >= 0.7 %}{{ s.confidence_high }}
+                {% elif prediction.cancer_type_confidence >= 0.4 %}{{ s.confidence_medium }}
+                {% else %}{{ s.confidence_low }}{% endif %}
+                ({{ "%.1f"|format(prediction.cancer_type_confidence * 100) }}%)
+            </div>
+        </div>
+
+        <table style="margin-top: 12px;">
+            <tr><th>암종</th><th>확률</th></tr>
+            {% for ct in cancer_types_sorted %}
+            <tr>
+                <td>{{ s['cancer_' + ct.code] }} ({{ ct.code }})</td>
+                <td>{{ "%.1f"|format(ct.prob * 100) }}%</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="disclaimer-box">
+        &#9888; {{ s.disclaimer }}
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-line">
+        <span>{{ s.operator }}: {{ operator_name }}</span>
+        <span>{{ s.report_id }}: {{ report_id }}</span>
+    </div>
+</body>
+</html>

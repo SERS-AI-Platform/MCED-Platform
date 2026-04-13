@@ -1,0 +1,39 @@
+# SERS Nanostructure Configuration
+# Au nanoparticle paper-based urine test strip
+# Used across all SMCXD01-06 protocols
+
+substrate:
+  type: paper
+  hydrophilicity: high
+  adsorption_type: noncovalent
+
+nanoparticle:
+  material: Au
+  shape: polyhedral
+  mean_size_nm: 200
+  size_variance: moderate
+  crystallinity: polycrystalline
+  grain_boundary_density: high
+
+hotspot_geometry:
+  gap_size_nm: "1-10"
+  gap_density: high
+  connectivity: 3D_network
+  branching_factor: high
+  porosity: high
+  hotspot_density: high
+  hotspot_distribution: random_3D
+  plasmonic_coupling: strong
+
+measurement:
+  laser_wavelength_nm: 785
+  signal_variability: moderate
+  fingerprint_region_cm1: [400, 2200]
+
+notes: |
+  3D Au nanostructure network on paper substrate.
+  High porosity and branching create dense, randomly distributed
+  hotspots with strong plasmonic coupling.
+  Paper substrate provides high hydrophilicity for urine absorption.
+  Non-covalent adsorption allows metabolite molecules to freely
+  interact with hotspot surfaces.
