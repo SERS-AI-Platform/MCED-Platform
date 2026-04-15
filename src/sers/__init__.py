@@ -14,8 +14,8 @@ from .config import Config, load_config
 # I/O operations
 from .io import SpectrumID, find_spectra, make_common_grid, parse_filename, read_spectrum
 
-# Signal processing
-from .signal import baseline_correction, resample, smooth, snv
+# Signal processing (moved to preprocessing/ subpackage)
+from .preprocessing.signal import baseline_correction, resample, smooth, snv
 
 # Quality control
 from .qc import (
@@ -52,8 +52,8 @@ from .validation import (
     detect_duplicate_samples,
 )
 
-# Data analysis and exploration
-from .analysis import (
+# Data analysis and exploration (moved to features/ subpackage)
+from .features.analysis import (
     analyze_dataset_structure,
     check_data_completeness,
     generate_dataset_report,

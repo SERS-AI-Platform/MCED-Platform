@@ -69,3 +69,10 @@ Thumbs.db
 # Allow analysis figures and SVGs
 # *.png — allowed for reports
 # *.svg — allowed for reports
+
+# Reorg 2026-04-15 additions
+artifacts/
+results/runs/
+results/_archive/
+*.aux
+*.log

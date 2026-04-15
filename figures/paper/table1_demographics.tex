@@ -1,0 +1,82 @@
+\documentclass[10pt]{article}
+\usepackage[paperwidth=30cm, paperheight=16cm, margin=1.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{caption}
+\pagestyle{empty}
+
+\newcolumntype{C}[1]{>{\centering\arraybackslash}m{#1}}
+\definecolor{stageblue}{HTML}{EAF1FB}
+
+\begin{document}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.5}
+
+\captionsetup{font={bf, large}, labelsep=period, justification=raggedright, singlelinecheck=false}
+\caption{Baseline Demographics and Disease Stage of Study Participants (N\,=\,1,629)}
+
+\vspace{8pt}
+
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{
+  l
+  l
+  r
+  c
+  c
+  c
+  >{\columncolor{stageblue}}c
+  >{\columncolor{stageblue}}c
+  >{\columncolor{stageblue}}c
+}
+
+\toprule[1.5pt]
+
+\textbf{Group} &
+\textbf{Cancer type} &
+\textbf{\textit{n}} &
+\textbf{Age (yr), median [IQR]} &
+\textbf{Sex (F:M), n (\%)} &
+\textbf{BMI (kg/m\textsuperscript{2}), median [IQR]} &
+\textbf{Stage (I, II), n (\%)} &
+\textbf{Stage (III, IV), n (\%)} &
+\textbf{Unknown, n (\%)} \\
+
+\midrule[0.8pt]
+
+Non-cancer & ---        & 429 & 57 [49--66] & 120:309 (28/72) & 25 [23--27] & ---      & ---      & ---     \\
+PRC        & Prostate   & 100 & 72 [67--82] & 0:100 (0/100)   & 24 [22--26] & 26 (26)  & 49 (49)  & 25 (25) \\
+OVC        & Ovarian    &  70 & 56 [47--63] & 70:0 (100/0)    & 24 [21--27] &  8 (11)  &  4 (6)   & 58 (83) \\
+LC         & Lung       & 300 & 66 [60--72] & 138:162 (46/54) & 24 [22--25] & 228 (76) & 27 (9)   & 45 (15) \\
+PAC        & Pancreatic & 100 & 68 [61--73] & 50:50 (50/50)   & 22 [19--24] & 37 (37)  & 54 (54)  &  9 (9)  \\
+CRC        & Colorectal & 300 & 67 [60--76] & 107:193 (36/64) & 24 [22--26] & 132 (44) & 143 (48) & 25 (8)  \\
+BLC        & Bladder    & 299 & 72 [64--80] & 45:254 (15/85)  & 24 [22--27] & 291 (97) &  8 (3)   &  0      \\
+BRE        & Breast     &  30 & 62 [51--72] & 30:0 (100/0)    & 25 [22--29] & 23 (77)  &  0       &  7 (23) \\
+
+\midrule[0.8pt]
+
+\multicolumn{3}{l}{\textit{p}-value} & {$<$0.001} & {$<$0.001} & {$<$0.001} & & & \\
+
+\bottomrule[1.5pt]
+
+\end{tabular}%
+}
+
+\vspace{10pt}
+\raggedright
+\small
+Continuous variables are presented as median [interquartile range]. Categorical variables are presented as n (\%).
+Stage is classified as early (I, II) vs.\ advanced (III, IV).
+Non-cancer includes NOR (n\,=\,100), DIA (n\,=\,100), HBP (n\,=\,100), H.D.\ (n\,=\,100), and YNOR (n\,=\,29).
+PAC includes CPAN (n\,=\,70) and YPAN (n\,=\,30).
+\textit{p}-values were calculated using the Kruskal--Wallis test for continuous variables and Chi-square test for categorical variables.
+
+\end{table}
+
+\end{document}
