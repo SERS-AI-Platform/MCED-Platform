@@ -34,7 +34,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from scripts.run_qc_threshold_experiment import (
     aggregate_medoid, run_cv, get_feature_cols, load_data
 )
-from models.model import ModelConfig
+from sers.models._legacy.resnet_v1.model import ModelConfig
 
 
 def filter_by_qc_fast(df, qc, rsd_thresh, corr_thresh, _merge_cache={}):

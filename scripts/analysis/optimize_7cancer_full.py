@@ -30,7 +30,7 @@ warnings.filterwarnings("ignore")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from models.model import ModelConfig, SERSDataset, SERSCancerDetector
+from sers.models._legacy.resnet_v1.model import ModelConfig, SERSDataset, SERSCancerDetector
 from models.train import (
     load_processed_spectra, get_feature_columns,
     apply_class_selection, resolve_aliases, aggregate_replicates,

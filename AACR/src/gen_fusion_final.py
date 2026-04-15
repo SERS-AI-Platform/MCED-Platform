@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, f1_score, roc_curve
 
-from models.model import ModelConfig, SERSDataset, SERSCancerDetector
+from sers.models._legacy.resnet_v1.model import ModelConfig, SERSDataset, SERSCancerDetector
 from models.train import train_fold, apply_class_selection
 
 import yaml

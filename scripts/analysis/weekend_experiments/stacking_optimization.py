@@ -53,7 +53,7 @@ warnings.filterwarnings("ignore")
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from models.stacking_utils import preprocess_channel, load_raw_multichannel, build_classifier, train_base_model  # noqa: E402
+from sers.models.usersnet.stacking import preprocess_channel, load_raw_multichannel, build_classifier, train_base_model  # noqa: E402
 from src.sers.config import RESULTS_DIR, FIG_DIR  # noqa: E402
 
 OUTPUT_DIR = RESULTS_DIR / "weekend_experiments" / "stacking_optimization"

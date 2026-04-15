@@ -44,7 +44,7 @@ class ProductionPredictor:
 
     def __init__(self, artifact_dir: Path | str = None):
         if artifact_dir is None:
-            artifact_dir = PROJECT_ROOT / "models" / "production"
+            artifact_dir = PROJECT_ROOT / "artifacts" / "baselines" / "lr-fusion" / "v1.0.0"
         self.artifact_dir = Path(artifact_dir)
 
         if not self.artifact_dir.exists():

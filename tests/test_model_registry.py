@@ -1,4 +1,4 @@
-"""Enforce parity between `src/sers/models/_registry.py` and `models/MODEL_STATUS.md`.
+"""Enforce parity between `src/sers/models/_registry.py` and `docs/MODEL_STATUS.md`.
 
 If this test fails, either:
     - You added a model to the registry but forgot to document it, or
@@ -15,7 +15,7 @@ import pytest
 from sers.models._registry import MODEL_REGISTRY, ModelSpec, get_spec, list_by_category
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STATUS_MD = REPO_ROOT / "models" / "MODEL_STATUS.md"
+STATUS_MD = REPO_ROOT / "docs" / "MODEL_STATUS.md"
 
 
 def _extract_status_keys() -> set[str]:

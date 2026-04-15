@@ -23,7 +23,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, f1_score, roc_curve
 
-from models.model import ModelConfig, SERSDataset, SERSCancerDetector
+from sers.models._legacy.resnet_v1.model import ModelConfig, SERSDataset, SERSCancerDetector
 from models.train import (
     load_processed_spectra, get_feature_columns,
     apply_class_selection, resolve_aliases, aggregate_replicates,

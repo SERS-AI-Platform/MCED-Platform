@@ -53,9 +53,9 @@ warnings.filterwarnings("ignore")
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from models.stacking_utils import preprocess_channel, load_raw_multichannel
-from models.model import ModelConfig, SERSCancerDetector, TwoStageLoss, SERSDataset
-from models.contrastive.model import (
+from sers.models.usersnet.stacking import preprocess_channel, load_raw_multichannel
+from sers.models._legacy.resnet_v1.model import ModelConfig, SERSCancerDetector, TwoStageLoss, SERSDataset
+from sers.models.experimental.contrastive.model import (
     ContrastiveEncoder, NTXentLoss,
     ContrastiveReplicateDataset, PatientBatchSampler,
 )

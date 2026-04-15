@@ -8,8 +8,8 @@ wavenumber grid the target production model uses.
 
 Usage:
     python scripts/deployment/fit_pds_artifact.py  \
-        --grid models/production_stacking/common_grid.npy  \
-        --out  models/production_stacking/calibration/pds.npz
+        --grid artifacts/usersnet/current/common_grid.npy  \
+        --out  artifacts/usersnet/current/calibration/pds.npz
 
 By default writes artifacts for BOTH production/ and production_stacking/ models.
 """

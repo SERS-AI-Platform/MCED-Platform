@@ -54,7 +54,7 @@ def get_predictor() -> ProductionPredictor:
     global predictor
     if predictor is None:
         # Prefer stacking model if available, fall back to LR
-        stacking_dir = PROJECT_ROOT / "models" / "production_stacking"
+        stacking_dir = PROJECT_ROOT / "artifacts" / "usersnet" / "current"
         if stacking_dir.exists():
             predictor = StackingPredictor(stacking_dir)
             logger.info(f"Stacking V2 model loaded: {predictor.cancer_types}, "

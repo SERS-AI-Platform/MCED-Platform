@@ -6,7 +6,7 @@
 
 **참조 문서**:
 - `docs/DIRECTORY_CONVENTIONS.md` — 디렉토리 정의 및 분별 규칙 (정본)
-- `models/MODEL_STATUS.md` — 모델별 상태 및 이동 목적지 (정본)
+- `docs/MODEL_STATUS.md` — 모델별 상태 및 이동 목적지 (정본)
 
 ---
 
@@ -115,7 +115,7 @@ SERS-AI/
 ### ✅ Phase 0 — 사전 준비 (문서화, 현재 완료됨)
 
 - [x] `docs/DIRECTORY_CONVENTIONS.md` 작성
-- [x] `models/MODEL_STATUS.md` 작성
+- [x] `docs/MODEL_STATUS.md` 작성
 - [x] `docs/REORG_PLAN.md` 개정 (이 문서)
 - [x] `src/sers/models/_registry.py` + `__init__.py` 작성 (2026-04-15)
 - [x] `tests/test_model_registry.py` 작성 — registry ↔ MODEL_STATUS.md 키 동기화 검증
@@ -346,24 +346,44 @@ __pycache__/
     [x] 1-C scripts/ 루트 정리 (migrate_figures→figures/, sql_explorer→db/, setup_repo→infra/)
     [x] 1-D figures/ 정리 (paper/, slides/ 분리 + LaTeX 중간산출 삭제 + training→results/runs/)
 
-[ ] Phase 2 — Artifacts/Results 분리 (작업량 1시간)
-    [ ] 2-A 아티팩트 이동
-    [ ] 2-B 결과 이동
-    [ ] 2-C 경로 문자열 업데이트
+[x] Phase 2 — Artifacts/Results 분리 (2026-04-15 완료, 194 tests pass)
+    [x] 2-A production_stacking → artifacts/usersnet/v1.0.0/ + current symlink
+    [x] 2-B production → artifacts/baselines/lr-fusion/v1.0.0/
+    [x] 2-C models/results → results/ (benchmarks, tuning, learning_curves, etc.)
+    [x] 2-D 경로 문자열 업데이트 (sers_predict, cli/production, BUILD_GUIDE, etc.)
 
-[ ] Phase 3 — Experimental/Legacy 격리 (작업량 1시간)
-    [ ] 3-A Experimental 이동 + README
-    [ ] 3-B Archived 이동 + README
+[x] Phase 3 — Experimental/Legacy 격리 (2026-04-15 완료, 194 tests pass)
+    [x] 3-A Experimental → src/sers/models/experimental/{contrastive,cross_attention,film,transformer,blc_mfds}/ + README 5종
+    [x] 3-B Archived → scripts/experiments/_archive/ (YYYY-MM_ prefix) + README
+    [x] 3-B2 사후 분석 → scripts/analysis/ (clinical_breakdown, confounding_analysis, xai_fusion_analysis, learning_curve_comparison)
 
-[ ] Phase 4 — 고영향 이동 (작업량 2~3시간, 주의)
-    [ ] 4-A uSERS-Net production 이동 + import 수정 (8~10개 파일)
-    [ ] 4-B Legacy ResNet 격리 + import 수정 (25~27개 파일)
-    [ ] 4-C Registry + CLI (sers compare 포함)
+[x] Phase 4 — 고영향 이동 (2026-04-15 완료, 194 tests pass)
+    [x] 4-A uSERS-Net 이동: stacking_utils/clinical_utils → sers.models.usersnet/*
+        train_stacking → scripts/training/train_usersnet.py
+        build_production_stacking → scripts/training/build_usersnet_production.py
+        eval_stacking_holdout → scripts/evaluation/eval_usersnet_holdout.py
+    [x] 4-B Legacy 격리:
+        model.py → sers.models._legacy.resnet_v1.model
+        train.py → scripts/training/_legacy/train_resnet.py
+        test.py → scripts/evaluation/_legacy/eval_resnet.py
+        build_production_model.py → scripts/training/_legacy/build_lr_fusion.py
+        run_sersnet.py → scripts/training/_legacy/run_sersnet_ensemble.py
+    [x] 4-B2 Import 일괄 수정 (sed): models.model/stacking_utils/clinical_utils/experimental/*
+    [x] 4-B3 models/ compat shim (train, train_stacking, run_train_val_test) — deprecation warning
+    [x] 4-C Registry + CLI
+        - src/sers/models/_registry.py (9 models: 1 production + 3 baseline + 5 experimental)
+        - src/sers/cli/compare.py (sers compare —models usersnet,resnet18,...)
+        - src/sers/models/usersnet/__init__.py (public API)
+        - src/sers/models/_legacy/__init__.py, _legacy/resnet_v1/__init__.py
+        - src/sers/models/experimental/__init__.py
 
-[ ] Phase 5 — Cleanup
-    [ ] 빈 폴더 제거
-    [ ] .gitignore, pyproject.toml, 문서 업데이트
-    [ ] 테스트 회귀 확인
+[x] Phase 5 — Cleanup (2026-04-15)
+    [x] models/ 실질적 제거 (compat shim 4 파일 + MODEL_STATUS.md는 docs/ 로 이동)
+    [x] pyproject.toml packages = src/ 기반 유지 (수정 불필요)
+    [x] tests/test_model_registry.py 경로 갱신 (models/MODEL_STATUS.md → docs/MODEL_STATUS.md)
+    [x] 전체 회귀 테스트 194/194 pass
 ```
+
+**재구성 완료 — 총 소요: 약 1.5시간 (집중 작업)**
 
 **총 예상 작업량**: 6~8시간 (집중 작업 시)

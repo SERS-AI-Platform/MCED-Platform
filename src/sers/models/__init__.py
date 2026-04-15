@@ -1,7 +1,7 @@
 """SERS-AI model registry and model implementations.
 
 This package is the single import point for all models in the project.
-See `docs/DIRECTORY_CONVENTIONS.md` and `models/MODEL_STATUS.md` for the
+See `docs/DIRECTORY_CONVENTIONS.md` and `docs/MODEL_STATUS.md` for the
 model taxonomy (production / baseline-legacy / experimental / archived).
 """
 

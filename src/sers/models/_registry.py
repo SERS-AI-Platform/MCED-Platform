@@ -6,12 +6,12 @@ Consumed by:
     - src/sers/cli/compare.py     (sers compare --models a,b,c)
     - scripts/deployment/sers_predict.py  (production inference)
 
-This file pairs with `models/MODEL_STATUS.md` (human-readable status & rationale).
+This file pairs with `docs/MODEL_STATUS.md` (human-readable status & rationale).
 A pytest test enforces key-set parity between the two; do not drift.
 
 When adding a new model:
     1. Add a ModelSpec entry below.
-    2. Update `models/MODEL_STATUS.md` with the same key + category + rationale.
+    2. Update `docs/MODEL_STATUS.md` with the same key + category + rationale.
     3. Create the module/script/artifact paths referenced.
     4. Run `pytest tests/test_model_registry.py`.
 """

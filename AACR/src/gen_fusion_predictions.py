@@ -32,7 +32,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 CANCER_TYPES = ["PRO", "LUN", "CRC", "CPAN", "OVA"]
 
 # ── Import ResNet18 components ──
-from models.model import ModelConfig, SERSDataset, SERSCancerDetector
+from sers.models._legacy.resnet_v1.model import ModelConfig, SERSDataset, SERSCancerDetector
 from models.train import train_fold
 
 import yaml

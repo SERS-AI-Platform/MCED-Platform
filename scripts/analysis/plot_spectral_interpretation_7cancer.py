@@ -41,7 +41,7 @@ from models.train import (
     load_processed_spectra, get_feature_columns,
     resolve_aliases, create_labels,
 )
-from models.model import ModelConfig
+from sers.models._legacy.resnet_v1.model import ModelConfig
 
 # =============================================================================
 # Constants

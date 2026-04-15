@@ -6,9 +6,9 @@ Inputs (existing):
   results/weekend_experiments/stacking_optimization/oof_predictions.npz
   results/weekend_experiments/stacking_optimization/best_ensemble_config.json
   results/weekend_experiments/stacking_optimization/base_model_contribution.csv
-  models/production_stacking/{meta_s1,meta_s2,base_*}.joblib
-  models/production_stacking/common_grid.npy
-  models/production_stacking/peak_config.json (KNOWN_PEAKS layout)
+  artifacts/usersnet/current/{meta_s1,meta_s2,base_*}.joblib
+  artifacts/usersnet/current/common_grid.npy
+  artifacts/usersnet/current/peak_config.json (KNOWN_PEAKS layout)
 
 Outputs (overwritten):
   results/training/stacking_optimization_v2/experiment_summary.json

@@ -50,7 +50,7 @@ def filter_by_qc_fast(df, qc, rsd_thresh, corr_thresh):
     df_keys["sample_id"] = df_keys["sample_id"].astype(str)
     mask = pd.merge(df_keys.reset_index(), passed_keys, on=["group", "sample_id"], how="inner")["index"]
     return df.loc[mask].copy()
-from models.model import ModelConfig
+from sers.models._legacy.resnet_v1.model import ModelConfig
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import (
