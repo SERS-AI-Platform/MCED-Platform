@@ -1,0 +1,179 @@
+% ──────────────────────────────────────────────────────────
+% Supplementary: Stage-Stratified TOO Performance Summary
+% Single-page landscape, tablet/laptop display
+% Compile: pdflatex suppl_too_summary.tex && pdftoppm -png -r 300 -singlefile suppl_too_summary.pdf suppl_too_summary
+% ──────────────────────────────────────────────────────────
+\documentclass[11pt,landscape]{article}
+
+\usepackage[landscape, margin=1.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{graphicx}
+\usepackage{helvet}
+\usepackage{calc}
+\usepackage{tabularx}
+\renewcommand{\familydefault}{\sfdefault}
+
+% ── Colors ──
+\definecolor{accent}{HTML}{2C3E50}
+\definecolor{early}{HTML}{2980B9}
+\definecolor{late}{HTML}{E74C3C}
+\definecolor{cardgray}{HTML}{F8F9FA}
+\definecolor{textmed}{HTML}{555555}
+\definecolor{textlight}{HTML}{888888}
+\definecolor{divider}{HTML}{E0E0E0}
+
+% Cancer colors
+\definecolor{cprc}{HTML}{8B4513}
+\definecolor{covc}{HTML}{6A5ACD}
+\definecolor{clc}{HTML}{2E8B57}
+\definecolor{cpac}{HTML}{CD5C5C}
+\definecolor{ccrc}{HTML}{4682B4}
+
+\definecolor{highlightbg}{HTML}{EBF5FB}
+
+\pagestyle{empty}
+
+\newcommand{\earlyval}[1]{\textcolor{early}{\textbf{#1}}}
+\newcommand{\lateval}[1]{\textcolor{late}{\textbf{#1}}}
+\newcommand{\cancerlabel}[2]{\textcolor{#1}{\textbf{#2}}}
+
+\begin{document}
+
+% ════════════════════════════════════════════════════
+%  TITLE
+% ════════════════════════════════════════════════════
+\begin{center}
+{\LARGE\bfseries\color{accent} Stage-Stratified Cancer Type Identification (TOO) — Supplementary Data}\\[4pt]
+{\normalsize\color{textmed} uSERS-Net $\mid$ Patient-level majority vote $\mid$ 5-fold stratified CV $\mid$ N\,=\,1{,}240 patients $\mid$ 6{,}200 spectra}
+\end{center}
+
+\vspace{6pt}
+
+% ════════════════════════════════════════════════════
+%  TABLE 1: Demographics + Stage Distribution
+% ════════════════════════════════════════════════════
+\noindent
+\begin{minipage}[t]{0.52\textwidth}
+\vspace{0pt}
+{\large\bfseries\color{accent} A.\quad Cohort Demographics \& Stage Distribution}\\[6pt]
+
+\renewcommand{\arraystretch}{1.35}
+\small
+\begin{tabularx}{\textwidth}{
+  >{\raggedright\arraybackslash}p{1.8cm}
+  >{\centering\arraybackslash}p{0.7cm}
+  >{\centering\arraybackslash}p{1.6cm}
+  >{\centering\arraybackslash}p{1.8cm}
+  >{\centering\arraybackslash}p{1.5cm}
+  >{\centering\arraybackslash}X
+  >{\centering\arraybackslash}X
+}
+\toprule
+\textbf{Group} & \textbf{n} & \textbf{Age (yr)} & \textbf{Sex (F:M)} & \textbf{BMI} & \textbf{Early} & \textbf{Late} \\
+\midrule
+Non-cancer   & 400 & 58 [49–65] & 102:298 & 25 [23–27] & \multicolumn{2}{c}{\textcolor{textlight}{---}} \\
+\arrayrulecolor{divider}\midrule\arrayrulecolor{black}
+\cancerlabel{cprc}{PRC} & 100 & 72 [67–82] & 0:100 & 24 [22–26]
+  & \earlyval{29} {\scriptsize T1–T2}
+  & \lateval{47} {\scriptsize T3–T4} \\
+\cancerlabel{covc}{OVC} & 70 & 56 [47–63] & 70:0 & 24 [21–27]
+  & \multicolumn{2}{c}{\textcolor{textlight}{\small excluded (staging $<$15\%)}} \\
+\cancerlabel{clc}{LC} & 300 & 66 [60–72] & 138:162 & 24 [22–25]
+  & \earlyval{90} {\scriptsize I–II}
+  & \lateval{10} {\scriptsize III–IV} \\
+\cancerlabel{cpac}{PAC} & 70 & 68 [63–74] & 36:34 & 21 [19–24]
+  & \earlyval{39} {\scriptsize I–II}
+  & \lateval{29} {\scriptsize III–IV} \\
+\cancerlabel{ccrc}{CRC} & 300 & 67 [60–76] & 107:193 & 24 [22–26]
+  & \earlyval{253} {\scriptsize I–II}
+  & \lateval{47} {\scriptsize III–IV} \\
+\bottomrule
+\end{tabularx}
+
+\vspace{4pt}
+{\footnotesize\color{textlight}
+Values: median [IQR]. PRC staged by T-stage (proxy). OVC excluded due to insufficient staging data.\\
+Non-cancer = Normal + DM + HTN + DM\,+\,HTN (100 each). Early = Stage I–II; Late = Stage III–IV.}
+
+\end{minipage}%
+\hfill
+% ════════════════════════════════════════════════════
+%  TABLE 2: TOO Accuracy by Stage
+% ════════════════════════════════════════════════════
+\begin{minipage}[t]{0.46\textwidth}
+\vspace{0pt}
+{\large\bfseries\color{accent} B.\quad Cancer Type ID (TOO) Accuracy by Stage}\\[6pt]
+
+\renewcommand{\arraystretch}{1.35}
+\small
+\begin{tabularx}{\textwidth}{
+  >{\raggedright\arraybackslash}p{1.8cm}
+  >{\centering\arraybackslash}X
+  >{\centering\arraybackslash}X
+  >{\centering\arraybackslash}X
+}
+\toprule
+\textbf{Cancer} & \textbf{Early Stage} & \textbf{Late Stage} & \textbf{Overall} \\
+\midrule
+\cancerlabel{cprc}{PRC}
+  & \cellcolor{highlightbg}\earlyval{96.6\%} {\scriptsize (28/29)}
+  & \lateval{100.0\%} {\scriptsize (47/47)}
+  & \textbf{98.7\%} \\[4pt]
+\cancerlabel{clc}{LC}
+  & \cellcolor{highlightbg}\earlyval{97.8\%} {\scriptsize (88/90)}
+  & \lateval{100.0\%} {\scriptsize (10/10)}
+  & \textbf{98.0\%} \\[4pt]
+\cancerlabel{cpac}{PAC}
+  & \cellcolor{highlightbg}\earlyval{87.2\%} {\scriptsize (34/39)}
+  & \lateval{86.2\%} {\scriptsize (25/29)}
+  & \textbf{86.8\%} \\[4pt]
+\cancerlabel{ccrc}{CRC}
+  & \cellcolor{highlightbg}\earlyval{98.0\%} {\scriptsize (248/253)}
+  & \lateval{95.7\%} {\scriptsize (45/47)}
+  & \textbf{97.7\%} \\
+\midrule
+\textbf{Weighted Avg}
+  & \cellcolor{highlightbg}\earlyval{97.0\%} {\scriptsize (398/411)}
+  & \lateval{95.5\%} {\scriptsize (127/133)}
+  & \textbf{96.5\%} \\
+\bottomrule
+\end{tabularx}
+
+\vspace{8pt}
+
+% ── Key Findings box ──
+\fcolorbox{divider}{cardgray}{%
+\begin{minipage}[t]{0.95\textwidth}
+\vspace{4pt}
+{\normalsize\bfseries\color{accent} Key Findings}\\[3pt]
+{\small
+\begin{itemize}\setlength\itemsep{2pt}
+  \item[\textcolor{early}{\textbullet}] Early-stage weighted TOO accuracy: \earlyval{97.0\%} (398/411 patients)
+  \item[\textcolor{early}{\textbullet}] \cancerlabel{ccrc}{CRC} early I–II: 98.0\% --- screening-grade at earliest stages
+  \item[\textcolor{early}{\textbullet}] \cancerlabel{cpac}{PAC} early I–II: 87.2\% --- meaningful for 5-yr survival $<$12\%
+  \item[\textcolor{early}{\textbullet}] No significant early-vs-late drop for any cancer type
+\end{itemize}
+}
+\vspace{3pt}
+\end{minipage}%
+}
+
+\end{minipage}
+
+\vspace{10pt}
+
+% ════════════════════════════════════════════════════
+%  BOTTOM: Methodology note
+% ════════════════════════════════════════════════════
+\begin{center}
+\small\color{textmed}
+TOO = Tumor of Origin (cancer type identification).
+Accuracy = patient-level majority vote across 5 replicate spectra.
+uSERS-Net = Ensemble (Fusion LR + ResNet18, $\alpha$\,=\,0.8).
+\end{center}
+
+\end{document}

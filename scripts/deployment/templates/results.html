@@ -18,15 +18,15 @@
     </div>
     <div class="patient-bar-item">
         <span class="patient-bar-label">Model:</span>
-        <span class="patient-bar-value">{{ s.model_fusion if session.model_variant == 'fusion' else s.model_sers_only }}</span>
+        <span class="patient-bar-value">
+            {% if session.model_variant == 'stacking_v2' %}{{ s.model_stacking_v2 }}
+            {% elif session.model_variant == 'fusion' %}{{ s.model_fusion }}
+            {% else %}{{ s.model_sers_only }}{% endif %}
+        </span>
     </div>
     <div class="patient-bar-item">
-        <span class="patient-bar-label">Mode:</span>
-        <span class="mode-badge {{ session.operating_mode }}">
-            {% if session.operating_mode == 'screening' %}{{ s.mode_screening }}
-            {% elif session.operating_mode == 'balanced' %}{{ s.mode_balanced }}
-            {% else %}{{ s.mode_confirmatory }}{% endif %}
-        </span>
+        <span class="patient-bar-label">{{ s.analysis_standard }}:</span>
+        <span class="patient-bar-value">{{ s.standard_decision_rule }}</span>
     </div>
 </div>
 
@@ -42,7 +42,7 @@
             {{ s.positive if prediction.cancer_detected else s.negative }}
         </div>
         <div class="result-sub">
-            {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
+            {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
             {% if prediction.majority_vote %} &middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
         </div>
     </div>
@@ -51,15 +51,15 @@
     <div style="margin-bottom: 32px;">
         <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">{{ s.screening_index }}</div>
         <div class="gauge-container">
-            <div class="gauge-threshold" style="left: {{ (session.threshold * 100)|round }}%;"></div>
-            <div class="gauge-marker" style="left: {{ (prediction.screening_index * 100)|round }}%;">
+            <div class="gauge-threshold" style="left: {{ ((prediction.ssi_threshold / 10) * 100)|round }}%;"></div>
+            <div class="gauge-marker" style="left: {{ ((prediction.screening_index / 10) * 100)|round }}%;">
                 <div class="gauge-value">{{ "%.2f"|format(prediction.screening_index) }}</div>
             </div>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
             <span>0.0</span>
-            <span>Threshold: {{ "%.4f"|format(session.threshold) }}</span>
-            <span>1.0</span>
+            <span>{{ s.decision_threshold }}: {{ "%.1f"|format(prediction.ssi_threshold) }}</span>
+            <span>10.0</span>
         </div>
     </div>
 
@@ -139,13 +139,13 @@
     <div class="collapsible-content">
         <table class="qc-table">
             <thead>
-                <tr><th>File</th><th>Cancer Prob</th><th>Detected</th><th>Correlation</th></tr>
+                <tr><th>File</th><th>{{ s.screening_index }}</th><th>{{ s.test_result }}</th><th>Correlation</th></tr>
             </thead>
             <tbody>
                 {% for rep in per_replicate %}
                 <tr>
                     <td>{{ rep.file }}</td>
-                    <td>{{ "%.4f"|format(rep.cancer_probability) }}</td>
+                    <td>{{ "%.2f"|format(rep.ssi_score if rep.ssi_score is defined else rep.cancer_probability) }}</td>
                     <td>{{ s.positive if rep.cancer_detected else s.negative }}</td>
                     <td>{{ "%.4f"|format(rep.replicate_correlation) if rep.replicate_correlation else "—" }}</td>
                 </tr>

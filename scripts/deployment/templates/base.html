@@ -17,14 +17,6 @@
             <span class="header-title">{{ s.app_title }}</span>
         </div>
         <div class="header-right">
-            {% if operating_mode %}
-            <span class="mode-badge {{ operating_mode }}">
-                {% if operating_mode == 'screening' %}{{ s.mode_screening }}
-                {% elif operating_mode == 'balanced' %}{{ s.mode_balanced }}
-                {% elif operating_mode == 'confirmatory' %}{{ s.mode_confirmatory }}
-                {% endif %}
-            </span>
-            {% endif %}
             <span class="user-info">{{ user.display_name }} ({{ user.role }})</span>
             <button class="lang-toggle" onclick="toggleLang()">{{ 'EN' if lang == 'ko' else '한' }}</button>
             <a href="/logout" class="btn-logout">{{ s.logout }}</a>

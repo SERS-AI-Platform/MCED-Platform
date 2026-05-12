@@ -1,0 +1,18 @@
+{
+  "do_trim": true,
+  "trim_region": [
+    400,
+    2200
+  ],
+  "do_smooth": true,
+  "smooth_window": 11,
+  "smooth_poly": 3,
+  "do_baseline": true,
+  "baseline_window": 101,
+  "normalization": "snv",
+  "channels": [
+    "raw",
+    "1st_derivative",
+    "2nd_derivative"
+  ]
+}

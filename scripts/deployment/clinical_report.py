@@ -11,8 +11,28 @@ from jinja2 import Environment, FileSystemLoader
 
 from . import clinical_db as db
 from .clinical_i18n import STRINGS
+from .sers_predict import SSI_DECISION_CUTOFF, probability_to_ssi
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
+
+
+def get_patient_ssi_score(patient_decision: dict, probability_threshold: float | None = None) -> float:
+    """Return SSI score, converting legacy 0-1 saved probabilities when needed."""
+    if patient_decision.get("ssi_score") is not None:
+        return patient_decision["ssi_score"]
+
+    score = patient_decision.get(
+        "screening_index", patient_decision.get("cancer_signal_score", 0.0)
+    )
+    if (
+        patient_decision.get("model_probability_mean") is None
+        and score is not None
+        and float(score) <= 1.0
+        and probability_threshold is not None
+    ):
+        return round(probability_to_ssi(float(score), probability_threshold), 2)
+
+    return score
 
 
 def generate_report_html(
@@ -92,9 +112,14 @@ def create_and_save_report(
     # Flatten prediction for template
     pred = prediction_row["result_json"] if prediction_row else {}
     patient_decision = pred.get("patient_decision", {})
+    ssi_score = get_patient_ssi_score(patient_decision, session.get("threshold"))
     prediction_data = {
         "cancer_detected": patient_decision.get("cancer_detected", False),
-        "screening_index": patient_decision.get("screening_index", 0.0),
+        "screening_index": ssi_score,
+        "ssi_score": ssi_score,
+        "ssi_threshold": patient_decision.get("ssi_threshold", SSI_DECISION_CUTOFF),
+        "model_probability_mean": patient_decision.get("model_probability_mean"),
+        "model_probability_threshold": patient_decision.get("model_probability_threshold"),
         "majority_vote": patient_decision.get("majority_vote"),
         "cancer_type_prediction": pred.get("cancer_type_prediction"),
         "cancer_type_confidence": pred.get("cancer_type_confidence"),

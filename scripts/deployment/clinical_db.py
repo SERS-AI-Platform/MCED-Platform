@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     age REAL NOT NULL,
     sex TEXT NOT NULL CHECK(sex IN ('M', 'F')),
     bmi REAL,
+    -- Legacy compatibility column. New UI treats this as the model decision
+    -- profile and does not expose per-patient operating-mode selection.
     operating_mode TEXT NOT NULL CHECK(operating_mode IN ('screening', 'balanced', 'confirmatory')),
     model_variant TEXT,
     threshold REAL,
@@ -212,7 +214,7 @@ def save_prediction(session_id: str, result: dict):
             (
                 session_id,
                 result.get("cancer_detected", False),
-                result.get("screening_index", 0.0),
+                result.get("screening_index", result.get("cancer_signal_score", 0.0)),
                 result.get("majority_vote"),
                 result.get("cancer_type_prediction"),
                 result.get("cancer_type_confidence"),

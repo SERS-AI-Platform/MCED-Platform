@@ -35,7 +35,12 @@ from scripts.deployment import clinical_db as db
 from scripts.deployment import clinical_auth as auth
 from scripts.deployment import clinical_report as report
 from scripts.deployment.clinical_i18n import get_strings, get_lang, LANG_COOKIE
-from scripts.deployment.sers_predict import ProductionPredictor, StackingPredictor
+from scripts.deployment.sers_predict import (
+    ProductionPredictor,
+    StackingPredictor,
+    SSI_DECISION_CUTOFF,
+    probability_to_ssi,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +53,26 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # Global predictor (loaded once)
 predictor: ProductionPredictor | None = None
+STANDARD_DECISION_PROFILE = "balanced"
+
+
+def get_patient_ssi_score(patient_decision: dict, probability_threshold: float | None = None) -> float:
+    """Return SSI score, converting legacy 0-1 saved probabilities when needed."""
+    if patient_decision.get("ssi_score") is not None:
+        return patient_decision["ssi_score"]
+
+    score = patient_decision.get(
+        "screening_index", patient_decision.get("cancer_signal_score", 0.0)
+    )
+    if (
+        patient_decision.get("model_probability_mean") is None
+        and score is not None
+        and float(score) <= 1.0
+        and probability_threshold is not None
+    ):
+        return round(probability_to_ssi(float(score), probability_threshold), 2)
+
+    return score
 
 
 def get_predictor() -> ProductionPredictor:
@@ -58,11 +83,11 @@ def get_predictor() -> ProductionPredictor:
         if stacking_dir.exists():
             predictor = StackingPredictor(stacking_dir)
             logger.info(f"Stacking V2 model loaded: {predictor.cancer_types}, "
-                        f"modes: {list(predictor.operating_modes.keys())}")
+                        f"standard decision profile: {STANDARD_DECISION_PROFILE}")
         else:
             predictor = ProductionPredictor()
             logger.info(f"LR model loaded: {predictor.cancer_types}, "
-                        f"modes: {list(predictor.operating_modes.keys())}")
+                        f"standard decision profile: {STANDARD_DECISION_PROFILE}")
     return predictor
 
 
@@ -71,13 +96,12 @@ def template_context(request: Request, **kwargs) -> dict:
     user = auth.get_current_user(request)
     lang = get_lang(request)
     s = get_strings(request)
-    operating_mode = auth.get_operating_mode(request)
     return {
         "request": request,
         "user": user,
         "lang": lang,
         "s": s,
-        "operating_mode": operating_mode,
+        "decision_profile": STANDARD_DECISION_PROFILE,
         **kwargs,
     }
 
@@ -103,9 +127,7 @@ async def root():
 async def login_page(request: Request):
     user = auth.get_current_user(request)
     if user:
-        if auth.get_operating_mode(request):
-            return RedirectResponse("/patient/new", status_code=303)
-        return RedirectResponse("/mode", status_code=303)
+        return RedirectResponse("/patient/new", status_code=303)
     ctx = template_context(request, error=False)
     return templates.TemplateResponse("login.html", ctx)
 
@@ -114,7 +136,7 @@ async def login_page(request: Request):
 async def register_page(request: Request):
     user = auth.get_current_user(request)
     if user:
-        return RedirectResponse("/mode", status_code=303)
+        return RedirectResponse("/patient/new", status_code=303)
     ctx = template_context(request, error=False, success=False)
     return templates.TemplateResponse("register.html", ctx)
 
@@ -176,7 +198,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         ctx = template_context(request, error=True)
         return templates.TemplateResponse("login.html", ctx)
 
-    response = RedirectResponse("/mode", status_code=303)
+    response = RedirectResponse("/patient/new", status_code=303)
     response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, max_age=8 * 3600)
     return response
 
@@ -195,16 +217,7 @@ async def logout(request: Request):
 
 @app.get("/mode", response_class=HTMLResponse)
 async def mode_page(request: Request):
-    redirect = auth.require_auth(request)
-    if redirect:
-        return redirect
-
-    pred = get_predictor()
-    modes = pred.operating_modes
-    current_mode = auth.get_operating_mode(request)
-
-    ctx = template_context(request, modes=modes, current_mode=current_mode)
-    return templates.TemplateResponse("mode_select.html", ctx)
+    return RedirectResponse("/patient/new", status_code=303)
 
 
 @app.post("/mode")
@@ -212,9 +225,6 @@ async def mode_submit(request: Request, mode: str = Form(...)):
     redirect = auth.require_auth(request)
     if redirect:
         return redirect
-
-    token = auth.get_session_token(request)
-    auth.set_operating_mode(token, mode)
     return RedirectResponse("/patient/new", status_code=303)
 
 
@@ -225,8 +235,6 @@ async def patient_page(request: Request):
     redirect = auth.require_auth(request)
     if redirect:
         return redirect
-    if not auth.get_operating_mode(request):
-        return RedirectResponse("/mode", status_code=303)
 
     ctx = template_context(request, show_stepper=True, current_step="patient", completed_steps=[])
     return templates.TemplateResponse("patient_register.html", ctx)
@@ -245,16 +253,15 @@ async def patient_submit(
         return redirect
 
     user = auth.get_current_user(request)
-    operating_mode = auth.get_operating_mode(request)
     pred = get_predictor()
-    threshold = pred.operating_modes[operating_mode]["threshold"]
+    threshold = pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"]
 
     session_id = db.create_session(
         patient_id=patient_id,
         age=age,
         sex=sex,
         bmi=bmi,
-        operating_mode=operating_mode,
+        operating_mode=STANDARD_DECISION_PROFILE,
         created_by=user["user_id"],
         threshold=threshold,
     )
@@ -336,7 +343,7 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
         age=session["age"],
         sex=session["sex"],
         bmi=session["bmi"],
-        mode=session["operating_mode"],
+        mode=STANDARD_DECISION_PROFILE,
     )
 
     # Update spectra QC info
@@ -367,9 +374,17 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
     # Save prediction if status is OK
     if result.get("status") == "ok":
         patient_decision = result.get("patient_decision", {})
+        ssi_score = patient_decision.get(
+            "ssi_score", patient_decision.get("screening_index", 0.0)
+        )
         prediction_data = {
             "cancer_detected": patient_decision.get("cancer_detected", False),
-            "screening_index": patient_decision.get("screening_index", 0.0),
+            "cancer_signal_score": ssi_score,
+            "screening_index": ssi_score,
+            "ssi_score": ssi_score,
+            "ssi_threshold": patient_decision.get("ssi_threshold", SSI_DECISION_CUTOFF),
+            "model_probability_mean": patient_decision.get("model_probability_mean"),
+            "model_probability_threshold": patient_decision.get("model_probability_threshold"),
             "majority_vote": patient_decision.get("majority_vote"),
             "cancer_type_prediction": result.get("cancer_type_prediction"),
             "cancer_type_confidence": result.get("cancer_type_confidence"),
@@ -390,7 +405,8 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
         detail={
             "status": result.get("status"),
             "cancer_detected": result.get("patient_decision", {}).get("cancer_detected"),
-            "screening_index": result.get("patient_decision", {}).get("screening_index"),
+            "ssi_score": result.get("patient_decision", {}).get("ssi_score"),
+            "model_probability_mean": result.get("patient_decision", {}).get("model_probability_mean"),
         },
     )
 
@@ -448,10 +464,15 @@ async def results_page(request: Request, session_id: str):
     # Flatten prediction for template
     result_json = prediction_row["result_json"]
     patient_decision = result_json.get("patient_decision", {})
+    ssi_score = get_patient_ssi_score(patient_decision, session.get("threshold"))
 
     prediction = {
         "cancer_detected": patient_decision.get("cancer_detected", False),
-        "screening_index": patient_decision.get("screening_index", 0.0),
+        "screening_index": ssi_score,
+        "ssi_score": ssi_score,
+        "ssi_threshold": patient_decision.get("ssi_threshold", SSI_DECISION_CUTOFF),
+        "model_probability_mean": patient_decision.get("model_probability_mean"),
+        "model_probability_threshold": patient_decision.get("model_probability_threshold"),
         "majority_vote": patient_decision.get("majority_vote"),
         "cancer_type_prediction": result_json.get("cancer_type_prediction"),
         "cancer_type_confidence": result_json.get("cancer_type_confidence"),
@@ -540,7 +561,9 @@ async def health():
         "status": "healthy",
         "model_loaded": pred is not None,
         "cancer_types": pred.cancer_types if pred else [],
-        "operating_modes": list(pred.operating_modes.keys()) if pred else [],
+        "decision_profile": STANDARD_DECISION_PROFILE,
+        "ssi_threshold": SSI_DECISION_CUTOFF,
+        "model_probability_threshold": pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"] if pred else None,
         "timestamp": datetime.now().isoformat(),
     }
 

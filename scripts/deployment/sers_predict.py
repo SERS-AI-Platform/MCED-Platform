@@ -38,6 +38,30 @@ logger = logging.getLogger("sers_predict")
 INTENSITY_GATE_RATIO = 0.1      # flag if fp_mean < median * 0.1
 MIN_REPLICATE_CORRELATION = 0.90  # flag if corr with median spectrum < 0.90
 
+# SSI is the user-facing 0-10 SERS Screening Index. The model still makes the
+# binary decision on probability p, and the active probability threshold maps to
+# SSI 4.0.
+SSI_MAX_SCORE = 10.0
+SSI_DECISION_CUTOFF = 4.0
+
+
+def probability_to_ssi(
+    probability: float,
+    probability_threshold: float,
+    cutoff: float = SSI_DECISION_CUTOFF,
+    max_score: float = SSI_MAX_SCORE,
+) -> float:
+    """Convert model probability to the 0-10 SSI scale."""
+    p = float(np.clip(probability, 0.0, 1.0))
+    theta = float(np.clip(probability_threshold, 1e-8, 1.0 - 1e-8))
+
+    if p <= theta:
+        score = cutoff * p / theta
+    else:
+        score = cutoff + (max_score - cutoff) * (p - theta) / (1.0 - theta)
+
+    return float(np.clip(score, 0.0, max_score))
+
 
 class ProductionPredictor:
     """Loads production model artifacts and runs inference."""
@@ -284,9 +308,13 @@ class ProductionPredictor:
             if active_mode not in self.operating_modes:
                 active_mode = self.default_mode
             threshold = self.operating_modes[active_mode]["threshold"]
+            ssi_score = probability_to_ssi(cancer_prob, threshold)
             result["cancer_detected"] = cancer_prob > threshold
-            result["operating_mode"] = active_mode
+            result["decision_rule"] = "standard_balanced" if active_mode == "balanced" else active_mode
             result["threshold"] = threshold
+            result["model_probability_threshold"] = threshold
+            result["ssi_score"] = round(ssi_score, 2)
+            result["ssi_threshold"] = SSI_DECISION_CUTOFF
 
             # Stage 2: cancer type (always compute, even if non-cancer predicted)
             type_probs = s2_model.predict_proba(X)[0].copy()
@@ -472,12 +500,14 @@ class ProductionPredictor:
             per_replicate.append({
                 'file': s['filepath'].name,
                 'cancer_probability': round(cp, 4),
+                'ssi_score': round(probability_to_ssi(cp, threshold), 2),
                 'cancer_detected': cp > threshold,
                 'replicate_correlation': s.get('replicate_correlation'),
             })
 
         # Step 4: Patient-level aggregation
         mean_prob = float(np.mean(cancer_probs))
+        ssi_score = probability_to_ssi(mean_prob, threshold)
         n_detected = sum(1 for cp in cancer_probs if cp > threshold)
         majority_detected = n_detected > len(cancer_probs) / 2
 
@@ -518,8 +548,10 @@ class ProductionPredictor:
             'calibration': ('pds_medical_to_thermo'
                             if (instrument or '').lower() in ('medical', 'medical_raman')
                             and self.pds is not None else 'none'),
-            'operating_mode': active_mode,
+            'decision_rule': 'standard_balanced' if active_mode == 'balanced' else active_mode,
             'threshold': threshold,
+            'model_probability_threshold': threshold,
+            'ssi_threshold': SSI_DECISION_CUTOFF,
 
             # QC summary
             'qc_summary': {
@@ -531,7 +563,12 @@ class ProductionPredictor:
 
             # Patient-level decision
             'patient_decision': {
-                'screening_index': round(mean_prob, 4),
+                'ssi_score': round(ssi_score, 2),
+                'ssi_threshold': SSI_DECISION_CUTOFF,
+                'screening_index': round(ssi_score, 2),
+                'cancer_signal_score': round(ssi_score, 2),
+                'model_probability_mean': round(mean_prob, 4),
+                'model_probability_threshold': round(threshold, 4),
                 'cancer_detected': majority_detected,
                 'majority_vote': f'{n_detected}/{len(qc_passed)}',
                 'method': 'mean_probability + majority_vote',
@@ -581,10 +618,18 @@ def format_result_text(result: dict) -> str:
 
     # Stage 1
     prob = result["cancer_probability"]
+    ssi = result.get(
+        "ssi_score",
+        probability_to_ssi(prob, result.get("model_probability_threshold", result.get("threshold", 0.5))),
+    )
+    ssi_threshold = result.get("ssi_threshold", SSI_DECISION_CUTOFF)
     detected = result["cancer_detected"]
-    bar = "#" * int(prob * 30) + "-" * (30 - int(prob * 30))
-    status = "CANCER DETECTED" if detected else "Non-cancer"
-    lines.append(f"  Cancer probability: {prob:.1%}  [{bar}]  {status}")
+    bar = "#" * int((ssi or 0.0) / SSI_MAX_SCORE * 30) + "-" * (
+        30 - int((ssi or 0.0) / SSI_MAX_SCORE * 30)
+    )
+    status = "Further evaluation recommended" if detected else "Below decision threshold"
+    lines.append(f"  SSI score: {ssi:.2f} / {SSI_MAX_SCORE:.0f}  [{bar}]  {status}")
+    lines.append(f"  Model probability: {prob:.1%} (SSI threshold: {ssi_threshold:.1f})")
 
     # Stage 2
     if detected:
@@ -878,10 +923,14 @@ class StackingPredictor(ProductionPredictor):
             threshold = self.operating_modes[active_mode]["threshold"]
 
             result["cancer_probability"] = round(cancer_prob, 4)
+            ssi_score = probability_to_ssi(cancer_prob, threshold)
             result["cancer_detected"] = cancer_prob > threshold
             result["model_variant"] = "stacking_v2"
-            result["operating_mode"] = active_mode
+            result["decision_rule"] = "standard_balanced" if active_mode == "balanced" else active_mode
             result["threshold"] = threshold
+            result["model_probability_threshold"] = threshold
+            result["ssi_score"] = round(ssi_score, 2)
+            result["ssi_threshold"] = SSI_DECISION_CUTOFF
 
             # Stage 2: cancer type
             type_probs = self.meta_s2.predict_proba(meta_all)[0].copy()
@@ -999,12 +1048,14 @@ class StackingPredictor(ProductionPredictor):
             per_replicate.append({
                 'file': s['filepath'].name,
                 'cancer_probability': round(cp, 4),
+                'ssi_score': round(probability_to_ssi(cp, threshold), 2),
                 'cancer_detected': cp > threshold,
                 'replicate_correlation': s.get('replicate_correlation'),
             })
 
         # Step 4: Patient-level aggregation
         mean_prob = float(np.mean(cancer_probs))
+        ssi_score = probability_to_ssi(mean_prob, threshold)
         n_detected = sum(1 for cp in cancer_probs if cp > threshold)
         majority_detected = n_detected > len(cancer_probs) / 2
 
@@ -1041,14 +1092,21 @@ class StackingPredictor(ProductionPredictor):
             'status': 'ok',
             'pipeline': 'stacking_v2 (10 base + ElasticNet meta)',
             'model_variant': 'stacking_v2',
-            'operating_mode': active_mode,
+            'decision_rule': 'standard_balanced' if active_mode == 'balanced' else active_mode,
             'threshold': threshold,
+            'model_probability_threshold': threshold,
+            'ssi_threshold': SSI_DECISION_CUTOFF,
             'qc_summary': {
                 'total': len(raw_spectra), 'passed': len(qc_passed), 'failed': len(qc_failed),
                 'failures': [{'file': s['filepath'].name, 'flags': s['qc_flags']} for s in qc_failed],
             },
             'patient_decision': {
-                'screening_index': round(mean_prob, 4),
+                'ssi_score': round(ssi_score, 2),
+                'ssi_threshold': SSI_DECISION_CUTOFF,
+                'screening_index': round(ssi_score, 2),
+                'cancer_signal_score': round(ssi_score, 2),
+                'model_probability_mean': round(mean_prob, 4),
+                'model_probability_threshold': round(threshold, 4),
                 'cancer_detected': majority_detected,
                 'majority_vote': f'{n_detected}/{len(qc_passed)}',
                 'method': 'mean_probability + majority_vote',
@@ -1084,7 +1142,7 @@ Examples:
     p.add_argument("--bmi", type=float, default=None, help="Patient BMI")
     p.add_argument("--mode", "-m", default=None,
                    choices=["screening", "balanced", "confirmatory"],
-                   help="Operating mode: screening (high sensitivity), balanced, confirmatory (high specificity)")
+                   help="Internal decision profile: screening, balanced, confirmatory")
     p.add_argument("--instrument", "-i", default="thermo",
                    choices=["thermo", "medical"],
                    help="Source instrument. 'medical' triggers PDS calibration "
@@ -1112,8 +1170,9 @@ Examples:
         mode = args.mode or predictor.default_mode
         mode_info = predictor.operating_modes.get(mode, {})
         print(f"  Model: {variant}")
-        print(f"  Mode: {mode} — {mode_info.get('description', '')}")
-        print(f"  Threshold: {mode_info.get('threshold', 0.5)}")
+        print(f"  Decision profile: {mode} — {mode_info.get('description', '')}")
+        print(f"  SSI threshold: {SSI_DECISION_CUTOFF:.1f}")
+        print(f"  Model probability threshold: {mode_info.get('threshold', 0.5)}")
         print(f"  Files: {len(args.spectra)}")
         if args.age:
             print(f"  Patient: age={args.age}, sex={args.sex}, bmi={args.bmi or 'auto'}")
@@ -1137,10 +1196,12 @@ Examples:
     if ok_results:
         n_detected = sum(1 for r in ok_results if r["cancer_detected"])
         avg_prob = np.mean([r["cancer_probability"] for r in ok_results])
+        avg_ssi = np.mean([r.get("ssi_score", 0.0) for r in ok_results])
         output["summary"] = {
             "total": len(ok_results),
             "cancer_detected": n_detected,
             "non_cancer": len(ok_results) - n_detected,
+            "mean_ssi_score": round(float(avg_ssi), 2),
             "mean_cancer_probability": round(float(avg_prob), 4),
         }
 
@@ -1159,7 +1220,8 @@ Examples:
             print()
             print("-" * 60)
             print(f"  Summary: {output['summary']['cancer_detected']}/{output['summary']['total']} "
-                  f"cancer detected (mean prob: {output['summary']['mean_cancer_probability']:.1%})")
+                  f"further evaluation recommended "
+                  f"(mean SSI: {output['summary']['mean_ssi_score']:.2f})")
         print("=" * 60)
     else:
         # Quiet mode: output JSON to stdout

@@ -42,7 +42,6 @@ def login(username: str, password: str) -> Optional[str]:
         "username": user["username"],
         "role": user["role"],
         "display_name": user["display_name"],
-        "operating_mode": None,  # 로그인 후 선택
         "created_at": datetime.now(),
     }
 
@@ -77,25 +76,6 @@ def get_session_token(request: Request) -> Optional[str]:
     return request.cookies.get(SESSION_COOKIE)
 
 
-def set_operating_mode(token: str, mode: str):
-    """Set operating mode for the current session."""
-    if token in _sessions:
-        old_mode = _sessions[token].get("operating_mode")
-        _sessions[token]["operating_mode"] = mode
-        db.log_audit(
-            "mode_change",
-            user_id=_sessions[token]["user_id"],
-            detail={"from": old_mode, "to": mode},
-        )
-
-
-def get_operating_mode(request: Request) -> Optional[str]:
-    token = request.cookies.get(SESSION_COOKIE)
-    if token and token in _sessions:
-        return _sessions[token].get("operating_mode")
-    return None
-
-
 def require_auth(request: Request) -> Optional[RedirectResponse]:
     """Returns RedirectResponse to login if not authenticated, else None."""
     user = get_current_user(request)
@@ -110,5 +90,5 @@ def require_role(request: Request, roles: list[str]) -> Optional[RedirectRespons
     if not user:
         return RedirectResponse("/login", status_code=303)
     if user["role"] not in roles:
-        return RedirectResponse("/mode", status_code=303)
+        return RedirectResponse("/patient/new", status_code=303)
     return None

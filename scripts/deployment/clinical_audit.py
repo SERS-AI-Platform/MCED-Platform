@@ -14,7 +14,6 @@ from . import clinical_db as db
 # Routes that trigger audit logging (POST actions)
 AUDITED_ACTIONS = {
     ("POST", "/login"): "login_attempt",
-    ("POST", "/mode"): "mode_select",
     ("POST", "/patient/new"): "patient_create",
     ("POST", "/logout"): "logout",
 }

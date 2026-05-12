@@ -1,0 +1,124 @@
+{
+  "version": "2.0",
+  "model_type": "stacking_ensemble",
+  "training_date": "2026-04-07T10:06:14.969065",
+  "n_training_samples": 1569,
+  "n_spectral_features": 935,
+  "n_base_models": 10,
+  "base_model_names": [
+    "lr_raw",
+    "lr_d1",
+    "lr_d2",
+    "lr_concat",
+    "lr_peak",
+    "xgb_raw",
+    "xgb_d1",
+    "rf_raw",
+    "rf_d1",
+    "ridge_concat"
+  ],
+  "meta_learner": "elasticnet",
+  "cancer_types": [
+    "PRO",
+    "LUN",
+    "CRC",
+    "PAN",
+    "OVA",
+    "BRE",
+    "BLC"
+  ],
+  "cancer_type_indices": {
+    "PRO": 0,
+    "LUN": 1,
+    "CRC": 2,
+    "PAN": 3,
+    "OVA": 4,
+    "BRE": 5,
+    "BLC": 6
+  },
+  "non_cancer_groups": [
+    "NOR",
+    "DIA",
+    "HBP",
+    "H.D."
+  ],
+  "n_peak_features": 75,
+  "operating_modes": {
+    "screening": {
+      "threshold": 0.48,
+      "cv_sensitivity": 0.9544,
+      "cv_specificity": 0.9425,
+      "description": "High sensitivity for screening (target Sens >= 95%)"
+    },
+    "balanced": {
+      "threshold": 0.60,
+      "cv_sensitivity": 0.9461,
+      "cv_specificity": 0.9655,
+      "description": "Balanced sensitivity/specificity (Youden's J)"
+    },
+    "confirmatory": {
+      "threshold": 0.70,
+      "cv_sensitivity": 0.92,
+      "cv_specificity": 0.98,
+      "description": "High specificity for confirmation (target Spec >= 95%)"
+    }
+  },
+  "default_mode": "screening",
+  "training_metrics": {
+    "meta_s1_train_auc": 0.9983,
+    "meta_s2_train_f1": 0.9743,
+    "cv_auc": 0.9983
+  },
+  "cv_performance": {
+    "mean_s1_auc": 0.9936,
+    "std_s1_auc": 0.0017,
+    "mean_s2_f1": 0.9252,
+    "std_s2_f1": 0.0219
+  },
+  "model_files": {
+    "base_models": {
+      "lr_raw": {
+        "s1": "base_lr_raw_s1.joblib",
+        "s2": "base_lr_raw_s2.joblib"
+      },
+      "lr_d1": {
+        "s1": "base_lr_d1_s1.joblib",
+        "s2": "base_lr_d1_s2.joblib"
+      },
+      "lr_d2": {
+        "s1": "base_lr_d2_s1.joblib",
+        "s2": "base_lr_d2_s2.joblib"
+      },
+      "lr_concat": {
+        "s1": "base_lr_concat_s1.joblib",
+        "s2": "base_lr_concat_s2.joblib"
+      },
+      "lr_peak": {
+        "s1": "base_lr_peak_s1.joblib",
+        "s2": "base_lr_peak_s2.joblib"
+      },
+      "xgb_raw": {
+        "s1": "base_xgb_raw_s1.joblib",
+        "s2": "base_xgb_raw_s2.joblib"
+      },
+      "xgb_d1": {
+        "s1": "base_xgb_d1_s1.joblib",
+        "s2": "base_xgb_d1_s2.joblib"
+      },
+      "rf_raw": {
+        "s1": "base_rf_raw_s1.joblib",
+        "s2": "base_rf_raw_s2.joblib"
+      },
+      "rf_d1": {
+        "s1": "base_rf_d1_s1.joblib",
+        "s2": "base_rf_d1_s2.joblib"
+      },
+      "ridge_concat": {
+        "s1": "base_ridge_concat_s1.joblib",
+        "s2": "base_ridge_concat_s2.joblib"
+      }
+    },
+    "meta_s1": "meta_s1.joblib",
+    "meta_s2": "meta_s2.joblib"
+  }
+}

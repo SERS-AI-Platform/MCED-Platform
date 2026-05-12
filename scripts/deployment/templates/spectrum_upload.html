@@ -103,8 +103,7 @@ function renderFiles() {
 
 function confirmAnalysis() {
     const msg = `{{ s.confirm_analysis }}`.replace('{patient_id}', '{{ session.patient_id }}')
-        .replace('{n}', files.length)
-        .replace('{mode}', '{% if operating_mode == "screening" %}{{ s.mode_screening }}{% elif operating_mode == "balanced" %}{{ s.mode_balanced }}{% else %}{{ s.mode_confirmatory }}{% endif %}');
+        .replace('{n}', files.length);
     document.getElementById('confirmMsg').textContent = msg;
     document.getElementById('confirmDialog').classList.add('active');
 }

@@ -58,13 +58,13 @@
     <div class="section">
         <div class="section-title">{{ s.test_conditions }}</div>
         <table>
-            <tr><th>운영 모드</th><td>
-                {% if session.operating_mode == 'screening' %}{{ s.mode_screening }} ({{ s.mode_screening_desc }})
-                {% elif session.operating_mode == 'balanced' %}{{ s.mode_balanced }} ({{ s.mode_balanced_desc }})
-                {% else %}{{ s.mode_confirmatory }} ({{ s.mode_confirmatory_desc }}){% endif %}
+            <tr><th>{{ s.analysis_standard }}</th><td>{{ s.standard_decision_rule }} ({{ s.mode_balanced_desc }})</td></tr>
+            <tr><th>{{ s.decision_threshold }}</th><td>{{ "%.1f"|format(prediction.ssi_threshold) }}</td></tr>
+            <tr><th>모델</th><td>
+                {% if session.model_variant == 'stacking_v2' %}{{ s.model_stacking_v2 }}
+                {% elif session.model_variant == 'fusion' %}{{ s.model_fusion }}
+                {% else %}{{ s.model_sers_only }}{% endif %}
             </td></tr>
-            <tr><th>Decision Threshold</th><td>{{ "%.4f"|format(session.threshold) }}</td></tr>
-            <tr><th>모델 변형</th><td>{{ s.model_fusion if session.model_variant == 'fusion' else s.model_sers_only }}</td></tr>
         </table>
     </div>
 
@@ -87,7 +87,7 @@
                 {% if prediction.cancer_detected %}&#9888; {{ s.positive }}{% else %}&#10003; {{ s.negative }}{% endif %}
             </div>
             <div class="result-detail">
-                {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
+                {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
                 {% if prediction.majority_vote %}&middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
             </div>
         </div>
