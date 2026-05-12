@@ -49,6 +49,10 @@ credentials/
 # OS
 .DS_Store
 Thumbs.db
+*:Zone.Identifier
+
+# Non-code presentation/research deliverables
+AACR/
 
 # Temporary
 *.tmp
