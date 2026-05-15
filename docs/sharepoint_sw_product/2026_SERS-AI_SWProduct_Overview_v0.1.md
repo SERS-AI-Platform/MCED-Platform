@@ -145,5 +145,6 @@ Do not upload:
 | `cc3a998` | created SharePoint overview/model development governance |
 | `fae245a` | recorded SharePoint document commit references |
 | `9e68d15` | latest experiment results governance reference before this SW product package |
+| `63671e5` | created `03_SW_Product` governance, software overview, IFU linkage, and remap entries |
 
-Add the final `03_SW_Product` commit hash after commit.
+For future SW product updates, add the relevant run or document commit hash here and in `VERSION_LOG.md`.
