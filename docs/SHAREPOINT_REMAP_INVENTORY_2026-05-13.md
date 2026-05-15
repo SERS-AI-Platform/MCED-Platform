@@ -112,6 +112,18 @@ These should remain in the `SERS-AI` Git repository:
 | `docs/sharepoint_model_development/VERSION_LOG.md` | `2026_SERS-AI_ModelDevelopment_VERSION_LOG.md` | maintain Git commit references and SharePoint version history |
 | `docs/sharepoint_model_development/README.md` | optional internal governance note | keep in Git unless SharePoint admins want folder rules uploaded |
 
+### `/01_Projects/SERS-AI/02_Experiment_Results/`
+
+| Local file/folder | Proposed SharePoint name | Action |
+| --- | --- | --- |
+| `docs/sharepoint_experiment_results/2026_SERS-AI_ExperimentResults_Index_v0.1.md` | `2026_SERS-AI_ExperimentResults_Index_v0.1.md` | upload as result package index and rules |
+| `docs/sharepoint_experiment_results/VERSION_LOG.md` | `2026_SERS-AI_ExperimentResults_VERSION_LOG.md` | maintain Git/run references |
+| generated result workbook | `2026_SERS-AI_ExperimentResults_PhaseP_Q_5Cancer_v0.1.xlsx` | upload; must include run ID, sample count, dataset definition, commit |
+| generated result workbook | `2026_SERS-AI_ExperimentResults_PhaseW_7Cancer_v0.1.xlsx` | upload; must include run ID, sample count, dataset definition, commit |
+| `publications/bumbucheo/figures/fig_roc_curves_7c.png` | `Figures/ROC/2026_SERS-AI_PhaseW_7Cancer_ROC.png` | upload final figure only |
+| `publications/bumbucheo/figures/fig_confusion_matrices_7c.png` | `Figures/Confusion_Matrix/2026_SERS-AI_PhaseW_7Cancer_ConfusionMatrix.png` | upload final figure only |
+| `publications/bumbucheo/figures/fig_sensitivity_bar_7c.png` | `Figures/Performance/2026_SERS-AI_PhaseW_7Cancer_SensitivityBar.png` | upload final figure only |
+
 ### `/01_Projects/SERS-AI/Conference/2026_AACR/`
 
 | Local file/folder | Proposed SharePoint name | Action |
