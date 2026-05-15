@@ -95,6 +95,23 @@ These should remain in the `SERS-AI` Git repository:
 
 ## SharePoint Upload Candidates
 
+### `/01_Projects/SERS-AI/Project_Overview/`
+
+| Local file/folder | Proposed SharePoint name | Action |
+| --- | --- | --- |
+| `docs/sharepoint_project_overview/2026_SERS-AI_ProjectOverview_PSRF_v0.1.md` | `2026_SERS-AI_ProjectOverview_PSRF_v0.1.md` | keep as latest 1-page single source |
+| `docs/sharepoint_project_overview/2026_SERS-AI_ProjectGoals_v0.1.md` | `2026_SERS-AI_ProjectGoals_v0.1.md` | upload/update when project scope changes |
+| `docs/sharepoint_project_overview/2026_SERS-AI_KPI_Status_Risk_v0.1.md` | `2026_SERS-AI_KPI_Status_Risk_v0.1.md` | update before monthly review or KPI/status change |
+| `docs/sharepoint_project_overview/VERSION_LOG.md` | `2026_SERS-AI_ProjectOverview_VERSION_LOG.md` | maintain SharePoint-facing version history |
+
+### `/01_Projects/SERS-AI/01_Model_Development/`
+
+| Local file/folder | Proposed SharePoint name | Action |
+| --- | --- | --- |
+| `docs/sharepoint_model_development/2026_SERS-AI_ModelDevelopment_Overview_v0.1.md` | `2026_SERS-AI_ModelDevelopment_Overview_v0.1.md` | upload as concept-level model structure and approach document |
+| `docs/sharepoint_model_development/VERSION_LOG.md` | `2026_SERS-AI_ModelDevelopment_VERSION_LOG.md` | maintain Git commit references and SharePoint version history |
+| `docs/sharepoint_model_development/README.md` | optional internal governance note | keep in Git unless SharePoint admins want folder rules uploaded |
+
 ### `/01_Projects/SERS-AI/Conference/2026_AACR/`
 
 | Local file/folder | Proposed SharePoint name | Action |
