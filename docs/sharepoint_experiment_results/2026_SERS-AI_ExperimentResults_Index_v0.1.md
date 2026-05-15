@@ -72,5 +72,6 @@ The following are not allowed in SharePoint `02_Experiment_Results`:
 | `1cd527f` | merged OneDrive development materials |
 | `cc3a998` | created SharePoint Project Overview and Model Development docs |
 | `fae245a` | recorded SharePoint document commit references |
+| `578dcbf` | created `02_Experiment_Results` governance, result index, and SharePoint remap entries |
 
-Add the current commit hash when this `02_Experiment_Results` package is committed.
+For Excel workbooks, include `578dcbf` or a later run-specific commit hash in the `Commit_References` sheet.
