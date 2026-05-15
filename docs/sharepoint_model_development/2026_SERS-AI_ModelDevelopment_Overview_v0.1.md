@@ -163,6 +163,7 @@ Those belong in Git, local WSL storage, or controlled model artifact storage dep
 | `1cd527f` | `Merge OneDrive development materials` | merged later development materials; includes production inference update scope for `scripts/deployment/sers_predict.py` |
 | `77b01cc` | `Add development asset governance guide` | added Git/SharePoint/WSL governance rules |
 | `56f200b` | `Add SharePoint remap inventory` | added SharePoint remapping inventory used to place this folder |
+| `cc3a998` | `Add SharePoint overview and model development docs` | created this SharePoint-facing `01_Model_Development` document set |
 
 Git trace command used for this version:
 
