@@ -124,6 +124,17 @@ These should remain in the `SERS-AI` Git repository:
 | `publications/bumbucheo/figures/fig_confusion_matrices_7c.png` | `Figures/Confusion_Matrix/2026_SERS-AI_PhaseW_7Cancer_ConfusionMatrix.png` | upload final figure only |
 | `publications/bumbucheo/figures/fig_sensitivity_bar_7c.png` | `Figures/Performance/2026_SERS-AI_PhaseW_7Cancer_SensitivityBar.png` | upload final figure only |
 
+### `/01_Projects/SERS-AI/03_SW_Product/`
+
+| Local file/folder | Proposed SharePoint name | Action |
+| --- | --- | --- |
+| `docs/sharepoint_sw_product/2026_SERS-AI_SWProduct_Overview_v0.1.md` | `2026_SERS-AI_SWProduct_Overview_v0.1.md` | upload as product-level software overview |
+| `docs/sharepoint_sw_product/2026_SERS-AI_SWProduct_IFU_Linkage_v0.1.md` | `2026_SERS-AI_SWProduct_IFU_Linkage_v0.1.md` | upload as IFU linkage table |
+| `docs/sharepoint_sw_product/VERSION_LOG.md` | `2026_SERS-AI_SWProduct_VERSION_LOG.md` | maintain Git and SharePoint version history |
+| `docs/clinical_use/USER_MANUAL.md` | `IFU/2026_SERS-AI_UserManual_Draft.md` | upload as current IFU/User Manual source |
+| `docs/clinical_use/TRACEABILITY_MATRIX.md` | `IFU/2026_SERS-AI_SWProduct_TraceabilityMatrix_Draft.md` | upload if usability traceability is reviewed |
+| `/home/insu/solum-dashboard/clinical_reports/screenshots/*.png` | `Screenshots/` | upload only approved de-identified screenshots |
+
 ### `/01_Projects/SERS-AI/Conference/2026_AACR/`
 
 | Local file/folder | Proposed SharePoint name | Action |
