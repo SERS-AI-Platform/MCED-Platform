@@ -25,6 +25,8 @@
         .result-label { font-size: 24pt; font-weight: 800; }
         .result-positive .result-label { color: #DC2626; }
         .result-negative .result-label { color: #059669; }
+        .result-invalid { background: #FEF3C7; border: 2px solid #F59E0B; }
+        .result-invalid .result-label { color: #92400E; }
         .result-detail { font-size: 10pt; color: #64748B; margin-top: 4px; }
 
         .cancer-type-box { padding: 12px 16px; background: #FEF2F2; border-radius: 6px; margin: 12px 0; }
@@ -58,6 +60,7 @@
     <div class="section">
         <div class="section-title">{{ s.test_conditions }}</div>
         <table>
+<<<<<<< Updated upstream
             <tr><th>{{ s.analysis_standard }}</th><td>{{ s.standard_decision_rule }} ({{ s.mode_balanced_desc }})</td></tr>
             <tr><th>{{ s.decision_threshold }}</th><td>{{ "%.1f"|format(prediction.ssi_threshold) }}</td></tr>
             <tr><th>모델</th><td>
@@ -65,6 +68,10 @@
                 {% elif session.model_variant == 'fusion' %}{{ s.model_fusion }}
                 {% else %}{{ s.model_sers_only }}{% endif %}
             </td></tr>
+=======
+            <tr><th>Decision Threshold</th><td>{{ "%.4f"|format(session.threshold) }}</td></tr>
+            <tr><th>모델 변형</th><td>{{ s.model_fusion if session.model_variant == 'fusion' else s.model_sers_only }}</td></tr>
+>>>>>>> Stashed changes
         </table>
     </div>
 
@@ -75,6 +82,18 @@
             <tr><th>전체 스펙트럼</th><td>{{ qc_total }}개</td></tr>
             <tr><th>QC 통과</th><td>{{ qc_passed }}개</td></tr>
             <tr><th>QC 실패</th><td>{{ qc_total - qc_passed }}개</td></tr>
+            <tr><th>{{ s.qc_pass_rate }}</th><td>{{ "%.1f"|format(qc_summary.pass_rate) }}%</td></tr>
+            <tr><th>{{ s.qc_min_valid_count }}</th><td>{{ qc_summary.min_valid_count }}개</td></tr>
+            <tr><th>{{ s.qc_validity }}</th><td>{{ s.qc_valid if qc_summary.valid else s.qc_invalid }}</td></tr>
+        </table>
+        <table style="margin-top: 10px;">
+            <tr><th>{{ s.qc_failure_reasons }}</th><td>
+                {{ s.qc_reason_low_intensity }} {{ qc_summary.reason_counts.low_intensity }}건,
+                {{ s.qc_reason_spike_noise }} {{ qc_summary.reason_counts.spike_noise }}건,
+                {{ s.qc_reason_saturation }} {{ qc_summary.reason_counts.saturation }}건,
+                {{ s.qc_reason_low_correlation }} {{ qc_summary.reason_counts.low_correlation }}건,
+                {{ s.qc_reason_other }} {{ qc_summary.reason_counts.other }}건
+            </td></tr>
         </table>
     </div>
 
@@ -82,40 +101,79 @@
     <div class="section">
         <div class="section-title">{{ s.test_result }}</div>
 
-        <div class="result-box {{ 'result-positive' if prediction.cancer_detected else 'result-negative' }}">
+        <div class="result-box {% if not qc_summary.valid %}result-invalid{% elif prediction.cancer_detected %}result-positive{% else %}result-negative{% endif %}">
             <div class="result-label">
-                {% if prediction.cancer_detected %}&#9888; {{ s.positive }}{% else %}&#10003; {{ s.negative }}{% endif %}
+                {% if not qc_summary.valid %}
+                    &#9888; {{ s.invalid_decision }}
+                {% elif final_decision == 'strong_positive' %}
+                    &#9888; {{ s.strong_positive }}
+                {% elif prediction.cancer_detected %}
+                    &#9888; {{ s.positive }}
+                {% else %}
+                    &#10003; {{ s.negative }}
+                {% endif %}
             </div>
             <div class="result-detail">
+<<<<<<< Updated upstream
                 {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
+=======
+                {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
+                &middot; {{ s.ssi }}: {{ "%.1f"|format(ssi) }} / 10
+>>>>>>> Stashed changes
                 {% if prediction.majority_vote %}&middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
             </div>
         </div>
 
-        {% if prediction.cancer_detected %}
+        {% if prediction.cancer_detected and cancer_types_sorted %}
         <div class="cancer-type-box">
             <div class="cancer-type-name">
-                {{ s.estimated_type }}: {{ s['cancer_' + prediction.cancer_type_prediction] }}
-                ({{ prediction.cancer_type_prediction }})
+                {{ s.estimated_type }}: {{ s['cancer_' + type_confidence.top.code] }}
+                ({{ type_confidence.top.code }})
             </div>
             <div class="cancer-type-conf">
                 {{ s.confidence }}:
-                {% if prediction.cancer_type_confidence >= 0.7 %}{{ s.confidence_high }}
-                {% elif prediction.cancer_type_confidence >= 0.4 %}{{ s.confidence_medium }}
+                {% if type_confidence.level == 'high' %}{{ s.confidence_high }}
+                {% elif type_confidence.level == 'medium' %}{{ s.confidence_medium }}
                 {% else %}{{ s.confidence_low }}{% endif %}
-                ({{ "%.1f"|format(prediction.cancer_type_confidence * 100) }}%)
+                ({{ "%.1f"|format(type_confidence.top.prob * 100) }}%)
             </div>
         </div>
 
         <table style="margin-top: 12px;">
-            <tr><th>암종</th><th>확률</th></tr>
+            <tr><th>순위</th><th>암종</th><th>확률</th></tr>
             {% for ct in cancer_types_sorted %}
             <tr>
+                <td>{{ loop.index }}순위</td>
                 <td>{{ s['cancer_' + ct.code] }} ({{ ct.code }})</td>
                 <td>{{ "%.1f"|format(ct.prob * 100) }}%</td>
             </tr>
             {% endfor %}
         </table>
+        {% if type_confidence.top %}
+        <table style="margin-top: 10px;">
+            <tr><th>{{ s.top_type_rationale }}</th><td>
+                {{ s['cancer_' + type_confidence.top.code] }} {{ "%.1f"|format(type_confidence.top.prob * 100) }}%,
+                {% if type_confidence.second.code %}
+                2순위 {{ s['cancer_' + type_confidence.second.code] }} {{ "%.1f"|format(type_confidence.second.prob * 100) }}%,
+                {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}%p
+                {% endif %}
+            </td></tr>
+        </table>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <div class="section-title">{{ s.recommendation }}</div>
+        {% if not qc_summary.valid %}
+        <p>{{ s.invalid_recommendation }}</p>
+        <table>
+            <tr><th>{{ s.recommended_retest_type }}</th><td>{{ s.retest_specimen_substrate }}</td></tr>
+        </table>
+        {% elif prediction.cancer_detected %}
+        <p>{{ s.valid_recommendation_positive }}</p>
+        {% else %}
+        <p>{{ s.valid_recommendation_negative }}</p>
         {% endif %}
     </div>
 

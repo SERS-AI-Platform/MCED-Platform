@@ -10,6 +10,8 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from . import clinical_db as db
+from . import clinical_qc as qc_utils
+from . import clinical_decision as decision_utils
 from .clinical_i18n import STRINGS
 from .sers_predict import SSI_DECISION_CUTOFF, probability_to_ssi
 
@@ -55,8 +57,10 @@ def generate_report_html(
     for code, prob in sorted(probs.items(), key=lambda x: x[1], reverse=True):
         cancer_types_sorted.append({"code": code, "prob": prob})
 
-    qc_passed = sum(1 for sp in spectra if sp.get("qc_pass"))
-    qc_total = len(spectra)
+    qc_summary = qc_utils.build_qc_summary(spectra, qc_utils.DEFAULT_MIN_VALID_COUNT)
+    type_confidence = decision_utils.type_confidence(cancer_types_sorted)
+    ssi = decision_utils.screening_index_to_ssi(prediction.get("screening_index"))
+    final_decision = decision_utils.final_decision(prediction, qc_summary["valid"])
 
     return template.render(
         s=s,
@@ -64,8 +68,12 @@ def generate_report_html(
         prediction=prediction,
         spectra=spectra,
         cancer_types_sorted=cancer_types_sorted,
-        qc_passed=qc_passed,
-        qc_total=qc_total,
+        type_confidence=type_confidence,
+        ssi=ssi,
+        final_decision=final_decision,
+        qc_summary=qc_summary,
+        qc_passed=qc_summary["passed"],
+        qc_total=qc_summary["total"],
         report_id=report_id,
         operator_name=operator_name,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

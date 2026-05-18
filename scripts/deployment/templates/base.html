@@ -19,6 +19,7 @@
         <div class="header-right">
             <span class="user-info">{{ user.display_name }} ({{ user.role }})</span>
             <button class="lang-toggle" onclick="toggleLang()">{{ 'EN' if lang == 'ko' else '한' }}</button>
+            <a href="/manual" class="btn-logout">{{ s.manual_download }}</a>
             <a href="/logout" class="btn-logout">{{ s.logout }}</a>
         </div>
     </header>
@@ -61,6 +62,21 @@ function toggleLang() {
     document.cookie = `sers_lang=${newLang};path=/;max-age=${86400*365}`;
     location.reload();
 }
+{% if user %}
+const idleTimeoutMs = {{ idle_timeout_minutes }} * 60 * 1000;
+let idleTimer = null;
+function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+        alert(`{{ s.auto_logout_notice|format(minutes=idle_timeout_minutes) }}`);
+        window.location.href = "/logout";
+    }, idleTimeoutMs);
+}
+["click", "keydown", "mousemove", "touchstart", "scroll"].forEach(evt => {
+    window.addEventListener(evt, resetIdleTimer, { passive: true });
+});
+resetIdleTimer();
+{% endif %}
 </script>
 <script src="/static/js/clinical.js"></script>
 {% block scripts %}{% endblock %}

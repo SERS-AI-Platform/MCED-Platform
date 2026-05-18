@@ -17,7 +17,7 @@ from . import clinical_db as db
 _sessions: dict[str, dict] = {}
 
 SESSION_COOKIE = "sers_session"
-SESSION_EXPIRY_HOURS = 8  # 근무 시간 기준
+SESSION_EXPIRY_MINUTES = 30
 
 
 def hash_password(password: str) -> str:
@@ -43,6 +43,7 @@ def login(username: str, password: str) -> Optional[str]:
         "role": user["role"],
         "display_name": user["display_name"],
         "created_at": datetime.now(),
+        "last_activity": datetime.now(),
     }
 
     db.log_audit("login", user_id=user["id"], detail={"username": username})
@@ -65,9 +66,10 @@ def get_current_user(request: Request) -> Optional[dict]:
     session = _sessions[token]
 
     # Check expiry
-    if datetime.now() - session["created_at"] > timedelta(hours=SESSION_EXPIRY_HOURS):
+    if datetime.now() - session.get("last_activity", session["created_at"]) > timedelta(minutes=SESSION_EXPIRY_MINUTES):
         _sessions.pop(token, None)
         return None
+    session["last_activity"] = datetime.now()
 
     return session
 

@@ -311,6 +311,7 @@ display:
   # Group → category (drives row coloring in tables, legend grouping)
   category_map:
     NOR: "control"
+    YNOR: "control"
     DIA: "non_cancer"
     HBP: "non_cancer"
     H.D.: "non_cancer"
@@ -320,6 +321,9 @@ display:
     LUN: "cancer"
     CRC: "cancer"
     PAN: "cancer"
+    CPAN: "cancer"
+    SPAN: "cancer"
+    YPAN: "cancer"
     BLC: "cancer"
 
   # Per-group hex colors
@@ -330,11 +334,15 @@ display:
     LUN: "#42A5F5"
     CRC: "#EF5350"
     PAN: "#FFA726"
+    CPAN: "#FF8F00"
+    YPAN: "#FFB300"
+    SPAN: "#E65100"
     BLC: "#7E57C2"
     DIA: "#66BB6A"
     HBP: "#26A69A"
     H.D.: "#78909C"
     NOR: "#8D6E63"
+    YNOR: "#A1887F"
 
 
   # Category-level colors

@@ -18,7 +18,10 @@ STRINGS = {
         "password": "비밀번호",
         "login_submit": "로그인",
         "login_error": "사용자 ID 또는 비밀번호가 올바르지 않습니다.",
+        "password_reset_notice": "비밀번호를 잊은 경우 관리자에게 계정 초기화를 요청하세요.",
         "logout": "로그아웃",
+        "manual_download": "사용설명서 다운로드",
+        "auto_logout_notice": "{minutes}분 동안 조작이 없어 자동 로그아웃됩니다.",
         "register": "회원가입",
         "register_title": "계정 등록",
         "display_name": "이름",
@@ -34,6 +37,7 @@ STRINGS = {
         "have_account": "이미 계정이 있으신가요?",
         "no_account": "계정이 없으신가요?",
 
+<<<<<<< Updated upstream
         # Decision standard
         "mode_title": "분석 기준",
         "mode_screening": "선별검사",
@@ -49,6 +53,8 @@ STRINGS = {
         "specificity": "특이도",
         "select": "선택",
 
+=======
+>>>>>>> Stashed changes
         # Patient
         "patient_title": "환자 정보 입력",
         "patient_id": "환자번호",
@@ -69,22 +75,46 @@ STRINGS = {
         "upload_title": "스펙트럼 업로드",
         "upload_hint": "CSV 파일을 드래그하거나 클릭하여 업로드",
         "upload_format": "파형수(Wavenumber) + 강도(Intensity) 2열 CSV 형식",
-        "upload_recommend": "환자당 반복 측정 5개 권장 (1-20개 허용)",
+        "upload_recommend": "환자당 스펙트럼 데이터 CSV 5개를 수동 업로드합니다.",
+        "upload_requires_five": "CSV 파일 5개를 선택해야 분석을 시작할 수 있습니다.",
+        "upload_ready": "CSV 파일 5개가 선택되었습니다.",
         "start_analysis": "분석 시작",
+<<<<<<< Updated upstream
         "confirm_analysis": "환자 {patient_id}의 스펙트럼 {n}개를 표준 판정 기준으로 분석하시겠습니까?",
+=======
+        "confirm_analysis": "환자 {patient_id}의 스펙트럼 {n}개를 분석하시겠습니까?",
+>>>>>>> Stashed changes
 
         # QC
         "qc_title": "품질 관리 확인",
         "qc_pass": "통과",
         "qc_fail": "실패",
         "qc_summary": "{passed}/{total}개 스펙트럼 QC 통과",
-        "qc_all_fail": "모든 스펙트럼이 품질 기준을 충족하지 않습니다. 재측정이 필요합니다.",
+        "qc_all_fail": "QC 통과 스펙트럼이 기준에 미달합니다. 재측정이 필요합니다.",
+        "qc_min_pass": "분석 진행 기준: 5개 중 3개 이상 QC 통과",
+        "qc_total_count": "전체 측정 수",
+        "qc_pass_count": "QC 통과 수",
+        "qc_fail_count": "QC 실패 수",
+        "qc_pass_rate": "QC 통과율",
+        "qc_min_valid_count": "최소 유효 잔존 수",
+        "qc_validity": "검사 유효 여부",
+        "qc_valid": "유효",
+        "qc_invalid": "무효",
+        "qc_failure_reasons": "실패 사유별 건수",
+        "qc_reason_low_intensity": "강도부족",
+        "qc_reason_spike_noise": "스파이크 잡음",
+        "qc_reason_saturation": "포화",
+        "qc_reason_low_correlation": "상관계수 미달",
+        "qc_reason_other": "기타",
+        "qc_valid_message": "QC 결과: 총 {total}회 반복측정 중 {passed}회가 QC를 통과하였으며, QC 통과율은 {rate:.1f}%입니다. 최소 유효 잔존 수 {min_count}회를 충족하므로 본 검사는 유효합니다.",
+        "qc_invalid_message": "검사 무효: 총 {total}회 반복측정 중 QC를 통과한 스펙트럼이 {passed}회로, 최소 유효 잔존 수 {min_count}회를 충족하지 못했습니다. 본 결과는 최종 판정에 사용하지 않으며, 동일 검체의 재측정 또는 신규 검체 재채취가 권고됩니다.",
         "qc_intensity": "강도 기준",
         "qc_correlation": "반복 상관 계수",
         "view_results": "결과 확인",
 
         # Results
         "results_title": "분석 결과",
+<<<<<<< Updated upstream
         "positive": "추가 확인 권고",
         "negative": "기준 미만",
         "screening_index": "SSI 점수",
@@ -94,6 +124,25 @@ STRINGS = {
         "confidence_medium": "중간 분류 확률",
         "confidence_low": "낮은 분류 확률",
         "type_probabilities": "암종 분류 확률",
+=======
+        "positive": "양성",
+        "negative": "음성",
+        "screening_index": "선별 지수",
+        "ssi": "SSI",
+        "final_decision": "최종 판정",
+        "strong_positive": "강한 양성",
+        "positive_decision": "양성",
+        "negative_decision": "음성",
+        "invalid_decision": "검사 무효",
+        "estimated_type": "추정 암종",
+        "confidence": "신뢰도",
+        "confidence_high": "높음",
+        "confidence_medium": "중간",
+        "confidence_low": "낮음",
+        "type_probabilities": "암종별 확률",
+        "top_type_rationale": "유력 암종 근거",
+        "probability_gap": "확률 차이",
+>>>>>>> Stashed changes
         "replicate_details": "반복 측정 상세",
         "disclaimer": "본 결과는 선별검사 목적의 모델 기반 참고 지표입니다. SSI 점수와 암종 분류 확률은 최종 진단이나 강한/약한 양성 등급을 의미하지 않으며, 최종 판단은 임상 전문의의 평가에 따릅니다.",
 
@@ -104,11 +153,18 @@ STRINGS = {
         "cancer_CRC": "대장암",
         "cancer_PAN": "췌장암",
         "cancer_CPAN": "췌장암",
+        "cancer_PAN": "췌장암",
         "cancer_OVA": "난소암",
+<<<<<<< Updated upstream
+=======
+        "cancer_BRE": "유방암",
+>>>>>>> Stashed changes
         "cancer_BLC": "방광암",
 
         # Report
         "generate_report": "보고서 생성",
+        "csv_download": "CSV 다운로드",
+        "download_path_notice": "PDF/CSV 파일은 브라우저의 기본 다운로드 폴더 또는 사용자가 선택한 저장 위치에 저장됩니다.",
         "report_title": "SERS 암 선별검사 보고서",
         "report_confirm": "보고서를 생성하시겠습니까? 생성된 보고서는 감사 추적에 기록됩니다.",
         "report_id": "보고서 ID",
@@ -118,6 +174,12 @@ STRINGS = {
         "test_conditions": "검사 조건",
         "qc_summary_label": "품질 관리 요약",
         "test_result": "검사 결과",
+        "recommendation": "권고 문구",
+        "valid_recommendation_positive": "본 검사는 QC 기준을 충족하였으며, SSI 및 반복측정 다수결 판정이 모두 양성입니다. 임상 전문의의 판단 및 추가 확진 검사를 권고합니다.",
+        "valid_recommendation_negative": "본 검사는 QC 기준을 충족하였으며, 현재 분석 결과는 음성입니다. 본 결과는 보조 정보이며 최종 판단은 임상 전문의가 수행해야 합니다.",
+        "invalid_recommendation": "본 검사는 최종 판정에 사용하지 않으며, 재검을 권고합니다.",
+        "recommended_retest_type": "권고 재검 유형",
+        "retest_specimen_substrate": "검체/기판 재준비 후 재측정",
 
         # Navigation
         "new_patient": "새 환자",
@@ -146,7 +208,10 @@ STRINGS = {
         "password": "Password",
         "login_submit": "Log In",
         "login_error": "Invalid user ID or password.",
+        "password_reset_notice": "If you forgot your password, request an account reset from the administrator.",
         "logout": "Logout",
+        "manual_download": "Download Manual",
+        "auto_logout_notice": "You will be logged out after {minutes} minutes of inactivity.",
         "register": "Register",
         "register_title": "Create Account",
         "display_name": "Display Name",
@@ -162,6 +227,7 @@ STRINGS = {
         "have_account": "Already have an account?",
         "no_account": "Don't have an account?",
 
+<<<<<<< Updated upstream
         "mode_title": "Analysis Standard",
         "mode_screening": "Screening",
         "mode_screening_desc": "Sensitivity-first — Target Sensitivity ≥ 95%",
@@ -176,6 +242,8 @@ STRINGS = {
         "specificity": "Specificity",
         "select": "Select",
 
+=======
+>>>>>>> Stashed changes
         "patient_title": "Patient Information",
         "patient_id": "Patient ID",
         "age": "Age",
@@ -194,20 +262,44 @@ STRINGS = {
         "upload_title": "Upload Spectra",
         "upload_hint": "Drag & drop CSV files or click to browse",
         "upload_format": "Wavenumber + Intensity 2-column CSV format",
-        "upload_recommend": "5 replicates per patient recommended (1-20 allowed)",
+        "upload_recommend": "Manually upload exactly 5 spectrum CSV files per patient.",
+        "upload_requires_five": "Select exactly 5 CSV files to start analysis.",
+        "upload_ready": "5 CSV files selected.",
         "start_analysis": "Start Analysis",
+<<<<<<< Updated upstream
         "confirm_analysis": "Analyze {n} spectra for patient {patient_id} using the standard decision rule?",
+=======
+        "confirm_analysis": "Analyze {n} spectra for patient {patient_id}?",
+>>>>>>> Stashed changes
 
         "qc_title": "Quality Control Review",
         "qc_pass": "Pass",
         "qc_fail": "Fail",
         "qc_summary": "{passed}/{total} spectra passed QC",
-        "qc_all_fail": "All spectra failed quality criteria. Re-measurement is required.",
+        "qc_all_fail": "QC-passing spectra are below the acceptance rule. Re-measurement is required.",
+        "qc_min_pass": "Acceptance rule: at least 3 of 5 spectra must pass QC",
+        "qc_total_count": "Total measurements",
+        "qc_pass_count": "QC pass count",
+        "qc_fail_count": "QC fail count",
+        "qc_pass_rate": "QC pass rate",
+        "qc_min_valid_count": "Minimum valid residual count",
+        "qc_validity": "Test validity",
+        "qc_valid": "Valid",
+        "qc_invalid": "Invalid",
+        "qc_failure_reasons": "Failure reason counts",
+        "qc_reason_low_intensity": "Low intensity",
+        "qc_reason_spike_noise": "Spike noise",
+        "qc_reason_saturation": "Saturation",
+        "qc_reason_low_correlation": "Low correlation",
+        "qc_reason_other": "Other",
+        "qc_valid_message": "QC result: {passed} of {total} replicate spectra passed QC, for a pass rate of {rate:.1f}%. The minimum valid residual count of {min_count} is satisfied, so this test is valid.",
+        "qc_invalid_message": "Invalid test: {passed} of {total} replicate spectra passed QC, below the minimum valid residual count of {min_count}. This result must not be used for final interpretation. Re-measurement of the same specimen or collection of a new specimen is recommended.",
         "qc_intensity": "Intensity Gate",
         "qc_correlation": "Replicate Correlation",
         "view_results": "View Results",
 
         "results_title": "Analysis Results",
+<<<<<<< Updated upstream
         "positive": "Further Evaluation Recommended",
         "negative": "Below Decision Threshold",
         "screening_index": "SSI Score",
@@ -217,6 +309,25 @@ STRINGS = {
         "confidence_medium": "Moderate classification probability",
         "confidence_low": "Low classification probability",
         "type_probabilities": "Cancer Type Classification Probabilities",
+=======
+        "positive": "Positive",
+        "negative": "Negative",
+        "screening_index": "Screening Index",
+        "ssi": "SSI",
+        "final_decision": "Final Decision",
+        "strong_positive": "Strong Positive",
+        "positive_decision": "Positive",
+        "negative_decision": "Negative",
+        "invalid_decision": "Invalid Test",
+        "estimated_type": "Estimated Cancer Type",
+        "confidence": "Confidence",
+        "confidence_high": "High",
+        "confidence_medium": "Medium",
+        "confidence_low": "Low",
+        "type_probabilities": "Cancer Type Probabilities",
+        "top_type_rationale": "Top Type Rationale",
+        "probability_gap": "Probability Gap",
+>>>>>>> Stashed changes
         "replicate_details": "Replicate Details",
         "disclaimer": "This result is a model-based screening reference. The SSI score and cancer type probabilities are not a final diagnosis and do not represent strong/weak positive grades. Final interpretation should be made by a clinical specialist.",
 
@@ -226,10 +337,17 @@ STRINGS = {
         "cancer_CRC": "Colorectal",
         "cancer_PAN": "Pancreatic",
         "cancer_CPAN": "Pancreatic",
+        "cancer_PAN": "Pancreatic",
         "cancer_OVA": "Ovarian",
+<<<<<<< Updated upstream
+=======
+        "cancer_BRE": "Breast",
+>>>>>>> Stashed changes
         "cancer_BLC": "Bladder",
 
         "generate_report": "Generate Report",
+        "csv_download": "Download CSV",
+        "download_path_notice": "PDF/CSV files are saved to the browser's default download folder or the location selected by the user.",
         "report_title": "SERS Cancer Screening Report",
         "report_confirm": "Generate report? The report will be recorded in the audit trail.",
         "report_id": "Report ID",
@@ -239,6 +357,12 @@ STRINGS = {
         "test_conditions": "Test Conditions",
         "qc_summary_label": "QC Summary",
         "test_result": "Test Result",
+        "recommendation": "Recommendation",
+        "valid_recommendation_positive": "This test satisfied QC criteria, and both SSI and replicate majority voting are positive. Clinical specialist review and confirmatory testing are recommended.",
+        "valid_recommendation_negative": "This test satisfied QC criteria, and the current analysis result is negative. This output is adjunctive information and final interpretation must be made by a clinical specialist.",
+        "invalid_recommendation": "This test must not be used for final interpretation. Retesting is recommended.",
+        "recommended_retest_type": "Recommended Retest Type",
+        "retest_specimen_substrate": "Re-measurement after specimen/substrate preparation",
 
         "new_patient": "New Patient",
         "step_patient": "Patient",

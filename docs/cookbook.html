@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SERS-AI Cookbook — 바로 쓰는 레시피</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #6a6a6a;
+    --accent: #2c6ecb;
+    --accent-soft: #e8f0fc;
+    --ok: #2e7d32;
+    --ok-soft: #e8f5e9;
+    --warn: #ed6c02;
+    --warn-soft: #fff4e5;
+    --danger: #c62828;
+    --danger-soft: #ffebee;
+    --border: #e3e3e3;
+    --card-bg: #ffffff;
+    --terminal-bg: #0d1117;
+    --terminal-fg: #c9d1d9;
+    --terminal-prompt: #7ee787;
+    --terminal-comment: #8b949e;
+    --terminal-highlight: #ffa657;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 32px 80px 32px;
+  }
+  header {
+    margin-bottom: 32px;
+  }
+  h1 {
+    font-size: 2rem;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+  }
+
+  /* TOC */
+  .toc {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 24px;
+    margin-bottom: 40px;
+  }
+  .toc h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 24px; }
+  .toc li { margin: 4px 0; break-inside: avoid; }
+  .toc a { color: var(--fg); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  /* Recipe */
+  .recipe {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin: 28px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .recipe h2 {
+    margin: 0 0 6px 0;
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .recipe-num {
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .recipe-goal {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin: 0 0 20px 46px;
+  }
+  .step {
+    margin: 16px 0;
+  }
+  .step-label {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .step-label.input { color: var(--warn); background: var(--warn-soft); }
+  .step-label.output { color: var(--danger); background: var(--danger-soft); }
+  .step-label.verify { color: var(--ok); background: var(--ok-soft); }
+
+  /* Terminal */
+  .terminal {
+    background: var(--terminal-bg);
+    color: var(--terminal-fg);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    margin: 8px 0;
+    overflow-x: auto;
+    position: relative;
+  }
+  .terminal .prompt { color: var(--terminal-prompt); }
+  .terminal .comment { color: var(--terminal-comment); font-style: italic; }
+  .terminal .output { color: var(--terminal-fg); opacity: 0.8; }
+  .terminal .highlight { color: var(--terminal-highlight); }
+  .terminal pre {
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    white-space: pre;
+  }
+
+  /* Tip boxes */
+  .tip {
+    background: var(--ok-soft);
+    border-left: 3px solid var(--ok);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 12px 0;
+    font-size: 0.93rem;
+  }
+  .warn {
+    background: var(--warn-soft);
+    border-left: 3px solid var(--warn);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 12px 0;
+    font-size: 0.93rem;
+  }
+  .danger {
+    background: var(--danger-soft);
+    border-left: 3px solid var(--danger);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 12px 0;
+    font-size: 0.93rem;
+  }
+  .tip b, .warn b, .danger b { margin-right: 4px; }
+
+  /* Inline code */
+  code:not(.terminal *) {
+    font-family: var(--mono);
+    background: #f4f4f4;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  /* Path diagrams */
+  .path-diagram {
+    background: #f8f8f8;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.93rem;
+  }
+  th, td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--accent-soft);
+    font-weight: 600;
+  }
+
+  /* Section heading */
+  .section-heading {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 40px 0 8px 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+
+  /* Cheatsheet at bottom */
+  .cheat {
+    background: #111827;
+    color: #e5e7eb;
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-top: 48px;
+  }
+  .cheat h2 {
+    color: white;
+    margin: 0 0 16px 0;
+    font-size: 1.3rem;
+  }
+  .cheat table {
+    background: transparent;
+    color: #e5e7eb;
+  }
+  .cheat th, .cheat td {
+    border-bottom: 1px solid #374151;
+    padding: 6px 10px;
+  }
+  .cheat th { background: transparent; color: #93c5fd; }
+  .cheat code {
+    background: #1f2937;
+    color: #fde68a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.88em;
+  }
+
+  .foot {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  @media print {
+    body { background: white; }
+    .terminal { background: #f5f5f5; color: #111; border: 1px solid #ccc; }
+    .terminal .prompt { color: #006400; }
+    .cheat { background: #f5f5f5; color: #111; page-break-before: always; }
+    .cheat th, .cheat td { border-color: #ccc; }
+    .recipe { page-break-inside: avoid; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>🍳 SERS-AI Cookbook</h1>
+  <div class="subtitle">"나 같은 바보도 바로 쓸 수 있는" 실전 레시피 모음 · 2026-04-15 기준</div>
+</header>
+
+<div class="toc">
+  <h4>레시피 목차</h4>
+  <ol>
+    <li><a href="#r1">uSERS-Net 빠르게 "건강 체크"</a></li>
+    <li><a href="#r2">uSERS-Net 재학습 (v1.0.X 패치)</a></li>
+    <li><a href="#r3">Legacy baseline (ResNet18) 학습</a></li>
+    <li><a href="#r4">모델 간 성능 비교 리포트</a></li>
+    <li><a href="#r5">Production 아티팩트 빌드 + 롤백</a></li>
+    <li><a href="#r6">새 실험 스크립트 만들기</a></li>
+    <li><a href="#r7">새 모델 registry 에 등록하기</a></li>
+    <li><a href="#r8">트러블슈팅</a></li>
+  </ol>
+</div>
+
+
+<!-- =================================================== -->
+<h3 class="section-heading">일상 실행</h3>
+
+<div class="recipe" id="r1">
+  <h2><span class="recipe-num">1</span>uSERS-Net 빠르게 "건강 체크"</h2>
+  <p class="recipe-goal">지금 레지스트리·현 production·환경이 정상인지 1분 안에 확인.</p>
+
+  <div class="step">
+    <span class="step-label">명령</span>
+<div class="terminal"><pre><span class="prompt">$</span> sers --help
+<span class="prompt">$</span> sers train --help
+<span class="prompt">$</span> python -c "from sers.models._registry import MODEL_REGISTRY; print(len(MODEL_REGISTRY), 'models')"
+<span class="prompt">$</span> ls artifacts/usersnet/current/
+<span class="prompt">$</span> pytest tests/test_model_registry.py -q</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label verify">예상 출력</span>
+<div class="terminal"><pre><span class="output">9 models
+base_lr_concat_s1.joblib  base_lr_d1_s1.joblib  ... meta_s1.joblib  meta_s2.joblib
+======================== 7 passed in 0.9s ========================</span></pre></div>
+  </div>
+
+  <div class="tip"><b>💡</b> 이 5개 명령이 전부 정상이면 → 재구성이 안정 상태. 하나라도 실패하면 recipe 8(트러블슈팅)로.</div>
+</div>
+
+
+<div class="recipe" id="r2">
+  <h2><span class="recipe-num">2</span>uSERS-Net 재학습 (v1.0.X 패치)</h2>
+  <p class="recipe-goal">데이터가 추가됐거나 hyperparameter 를 살짝 바꿨을 때. 아키텍처 변경은 아님.</p>
+
+  <div class="step">
+    <span class="step-label input">입력 (data/)</span>
+    <div class="path-diagram">data/
+├── processed/          ← QC/전처리 완료 스펙트럼
+└── clinical_data/standardized/
+    └── all_clinical_standardized.csv</div>
+  </div>
+
+  <div class="step">
+    <span class="step-label">명령</span>
+<div class="terminal"><pre><span class="comment"># (1) 먼저 빠른 sanity check — 1 fold, 3 base models</span>
+<span class="prompt">$</span> sers train stacking --dry-run
+
+<span class="comment"># (2) 진짜 학습 — nested 5x3 CV + SHAP + confusion matrix</span>
+<span class="prompt">$</span> sers train stacking
+
+<span class="comment"># (3) SHAP/CM 은 생략하고 싶으면</span>
+<span class="prompt">$</span> sers train stacking --no-shap --no-cm</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label output">출력</span>
+    <div class="path-diagram">results/runs/2026-04-XX_usersnet_v1.0.X_nested_cv/
+├── manifest.json         # 실행 config + git commit
+├── metrics.json          # AUC, F1 per-fold + overall
+├── predictions/
+│   └── oof_predictions.npz
+├── figures/
+│   ├── confusion_matrix.png
+│   └── shap_summary.png
+└── logs/
+    └── training.log</div>
+  </div>
+
+  <div class="step">
+    <span class="step-label verify">검증</span>
+<div class="terminal"><pre><span class="prompt">$</span> cat results/runs/2026-04-*_usersnet*/metrics.json | python -m json.tool
+<span class="prompt">$</span> ls results/runs/2026-04-*_usersnet*/figures/</pre></div>
+  </div>
+
+  <div class="warn"><b>⚠️</b> 학습은 production artifact 를 <strong>자동으로 교체하지 않습니다</strong>. 교체하려면 Recipe 5 (production 빌드) 를 이어서 실행.</div>
+</div>
+
+
+<div class="recipe" id="r3">
+  <h2><span class="recipe-num">3</span>Legacy baseline 학습 (ResNet18 / LR-Fusion / SERS-Net Ensemble)</h2>
+  <p class="recipe-goal">uSERS-Net 성능을 비교할 baseline 수치 확보.</p>
+
+  <div class="step">
+    <span class="step-label">명령</span>
+<div class="terminal"><pre><span class="comment"># (a) ResNet18-1D 5-fold CV</span>
+<span class="prompt">$</span> sers train resnet18
+<span class="prompt">$</span> sers train resnet18 --epochs 200 --lr 3e-4
+
+<span class="comment"># (b) 구 LR-Fusion production 재빌드</span>
+<span class="prompt">$</span> python scripts/training/_legacy/build_lr_fusion.py
+
+<span class="comment"># (c) SERS-Net Ensemble (0.8·LR_fusion + 0.2·ResNet, clinical 포함)</span>
+<span class="prompt">$</span> python scripts/training/_legacy/run_sersnet_ensemble.py --n-repeats 5 --alpha 0.8</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label output">출력</span>
+    <div class="path-diagram">results/runs/2026-04-XX_resnet18_v1.0.0_5fold/
+artifacts/baselines/
+├── resnet18/v1.0.0/
+├── lr-fusion/v1.0.0/
+└── sersnet-ensemble/v1.0.0/</div>
+  </div>
+
+  <div class="tip"><b>💡</b> Legacy 는 production 에 영향 주지 않는 <strong>비교 전용 baseline</strong>. <code>sers_predict.py</code> 는 여전히 <code>artifacts/usersnet/current/</code> 를 로드합니다.</div>
+</div>
+
+
+<!-- =================================================== -->
+<h3 class="section-heading">비교 · 배포</h3>
+
+<div class="recipe" id="r4">
+  <h2><span class="recipe-num">4</span>모델 간 성능 비교 리포트 (sers compare)</h2>
+  <p class="recipe-goal">논문·대표님 보고용 head-to-head 리포트. registry 에 등록된 모델만 대상.</p>
+
+  <div class="step">
+    <span class="step-label">명령</span>
+<div class="terminal"><pre><span class="comment"># uSERS-Net vs 3개 baseline</span>
+<span class="prompt">$</span> sers compare --models usersnet,resnet18,lr-fusion,sersnet-ensemble
+
+<span class="comment"># 특정 지표만 테이블로</span>
+<span class="prompt">$</span> sers compare --models usersnet,sersnet-ensemble --metrics auc_binary,f1
+
+<span class="comment"># 비교 대상 자동 선택 (registry 의 supports_compare=True 전부)</span>
+<span class="prompt">$</span> sers compare --models all --report results/comparisons/full_2026-04/</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label verify">실제 실행 결과 예시</span>
+<div class="terminal"><pre><span class="prompt">$</span> sers compare --models usersnet --report /tmp/sers_compare_test
+<span class="output">Wrote /tmp/sers_compare_test/metrics_table.csv
+Wrote /tmp/sers_compare_test/report.md</span>
+
+<span class="prompt">$</span> cat /tmp/sers_compare_test/report.md
+<span class="output"># Model Comparison — usersnet
+
+Generated: 2026-04-15T13:08:23
+
+## Metrics
+
+| Model | Category | Version | auc_binary | auc_multi | f1 | sensitivity | specificity |
+|---|---|---|---|---|---|---|---|
+| uSERS-Net | production | 2.0 | — | — | — | — | — |</span></pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label output">출력 위치</span>
+    <div class="path-diagram">results/comparisons/2026-04-15_1308_usersnet_resnet18_.../
+├── report.md          # 사람이 읽는 마크다운
+└── metrics_table.csv  # Excel/pandas 로 로드</div>
+  </div>
+
+  <div class="warn"><b>⚠️</b> "—" 표시 = 해당 모델의 <code>artifacts/.../manifest.json</code> 에 그 지표가 없음. v1.1.0 이후 manifest 스키마 강화 예정.</div>
+</div>
+
+
+<div class="recipe" id="r5">
+  <h2><span class="recipe-num">5</span>Production 아티팩트 빌드 + 롤백</h2>
+  <p class="recipe-goal">현재 production 교체 또는 이전 버전으로 되돌리기. <code>current</code> symlink 가 포인터.</p>
+
+  <div class="step">
+    <span class="step-label">build 명령</span>
+<div class="terminal"><pre><span class="comment"># uSERS-Net (stacking) production 빌드 — 전체 데이터 사용</span>
+<span class="prompt">$</span> sers production --stacking
+
+<span class="comment"># PDS calibration 도 같이 fit</span>
+<span class="prompt">$</span> sers production --stacking --fit-pds \
+    --grid artifacts/usersnet/current/common_grid.npy</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label">버전 포인터 전환 (롤백 포함)</span>
+<div class="terminal"><pre><span class="prompt">$</span> cd artifacts/usersnet/
+
+<span class="comment"># 현재 포인터 확인</span>
+<span class="prompt">$</span> ls -la current
+<span class="output">current -> v1.0.0</span>
+
+<span class="comment"># v1.0.1 로 전환</span>
+<span class="prompt">$</span> ln -sfn v1.0.1 current
+
+<span class="comment"># 롤백 (v1.0.0 로 복귀)</span>
+<span class="prompt">$</span> ln -sfn v1.0.0 current
+
+<span class="comment"># 사용 가능한 버전 목록</span>
+<span class="prompt">$</span> ls -d v*
+<span class="output">v1.0.0  v1.0.1</span></pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label verify">배포 영향 확인</span>
+<div class="terminal"><pre><span class="prompt">$</span> python -c "
+from pathlib import Path
+p = Path('artifacts/usersnet/current').resolve()
+print('Current production:', p.name)
+"</pre></div>
+  </div>
+
+  <div class="danger"><b>🚨</b> <code>sers_predict.py</code> · webapp 이 실행 중이면 재시작해야 새 버전이 메모리에 로드됩니다. 또한 <strong>롤백 전에 예측 캐시를 flush</strong>할 것.</div>
+</div>
+
+
+<!-- =================================================== -->
+<h3 class="section-heading">새 실험 / 새 모델</h3>
+
+<div class="recipe" id="r6">
+  <h2><span class="recipe-num">6</span>새 실험 스크립트 만들기</h2>
+  <p class="recipe-goal">아이디어 → 실제 실험 → 결과 저장까지 5단계.</p>
+
+  <table>
+    <tr><th>#</th><th>판정 질문</th><th>배치</th></tr>
+    <tr><td>1</td><td>이게 일회성 실험이다? (재사용 안 함)</td><td><code>scripts/experiments/</code></td></tr>
+    <tr><td>2</td><td>사후 분석이다? (confounding, SHAP 등)</td><td><code>scripts/analysis/</code></td></tr>
+    <tr><td>3</td><td>논문/포스터 figure 생성?</td><td><code>scripts/figures/</code></td></tr>
+    <tr><td>4</td><td>여러 스크립트가 같은 helper 씀?</td><td>helper 는 <code>src/sers/</code> 로</td></tr>
+    <tr><td>5</td><td>결과는 어디로 가나?</td><td><code>results/{카테고리}/{exp_name}_{YYYY-MM-DD}/</code></td></tr>
+  </table>
+
+  <div class="step">
+    <span class="step-label">템플릿</span>
+<div class="terminal"><pre><span class="comment"># scripts/experiments/2026-04_my_new_idea.py</span>
+<span class="highlight">"""</span>
+<span class="highlight">2026-04 My New Idea</span>
+<span class="highlight">Purpose: Test whether X improves Y.</span>
+<span class="highlight">Output:  results/experiments/my_new_idea_2026-04-15/</span>
+<span class="highlight">"""</span>
+from datetime import datetime
+from pathlib import Path
+import json
+from sers.config import load_config
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RUN_ID = f"my_new_idea_{datetime.now():%Y-%m-%d}"
+OUT_DIR = PROJECT_ROOT / "results" / "experiments" / RUN_ID
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+<span class="comment"># ...실험 로직...</span>
+
+(OUT_DIR / "manifest.json").write_text(json.dumps({
+    "script": __file__,
+    "run_id": RUN_ID,
+    "timestamp": datetime.now().isoformat(),
+}, indent=2))</pre></div>
+  </div>
+
+  <div class="tip"><b>💡</b> <code>manifest.json</code> 을 매 실행마다 저장하면 6개월 뒤에도 "이 결과는 어떤 명령으로 나왔지?" 를 한눈에 복기할 수 있습니다.</div>
+</div>
+
+
+<div class="recipe" id="r7">
+  <h2><span class="recipe-num">7</span>새 모델 registry 에 등록하기</h2>
+  <p class="recipe-goal">새 아키텍처를 만들면 <code>sers compare</code>, <code>sers train --model</code> 에 자동으로 나타나게.</p>
+
+  <div class="step">
+    <span class="step-label">5단계</span>
+
+    <p><b>1.</b> 모델 정의 모듈 생성:</p>
+    <div class="path-diagram">src/sers/models/experimental/my_model/
+├── __init__.py
+├── model.py          # 아키텍처
+└── README.md         # 가설 + 상태</div>
+
+    <p><b>2.</b> <code>src/sers/models/_registry.py</code> 에 ModelSpec 추가:</p>
+<div class="terminal"><pre><span class="highlight">"my-model": ModelSpec(</span>
+    key="my-model",
+    display_name="MyModel",
+    category="experimental",            <span class="comment"># or "baseline-legacy" / "production"</span>
+    module="sers.models.experimental.my_model",
+    train_script="scripts/training/train_my_model.py",
+    eval_script=None,
+    artifact_dir="artifacts/experimental/my-model/v1.0.0",
+    paper_name="MyModel (experimental)",
+    supports_clinical=False,
+    supports_compare=False,
+),</pre></div>
+
+    <p><b>3.</b> <code>docs/MODEL_STATUS.md</code> 에 같은 키 + 사유 기재 (parity 테스트가 강제):</p>
+<div class="terminal"><pre><span class="comment">### 🧪 Experimental — My Model</span>
+
+| 파일 | 역할 | 이동 목적지 |
+|---|---|---|
+| <span class="highlight">src/sers/models/experimental/my_model/</span> | 새 아키텍처 | 동일 |</pre></div>
+
+    <p><b>4.</b> 학습 스크립트 생성 <code>scripts/training/train_my_model.py</code></p>
+
+    <p><b>5.</b> 테스트:</p>
+<div class="terminal"><pre><span class="prompt">$</span> pytest tests/test_model_registry.py -q
+<span class="output">======================== 7 passed ========================</span>
+
+<span class="prompt">$</span> sers compare --models my-model
+<span class="output">Wrote results/comparisons/.../report.md</span></pre></div>
+  </div>
+
+  <div class="warn"><b>⚠️</b> Step 3 (MODEL_STATUS.md) 를 빠뜨리면 <code>test_registry_parity_with_status_doc</code> 테스트가 실패합니다. 이는 <strong>의도된 강제</strong>입니다 — 코드와 문서가 어긋나지 않도록.</div>
+</div>
+
+
+<!-- =================================================== -->
+<h3 class="section-heading">문제 해결</h3>
+
+<div class="recipe" id="r8">
+  <h2><span class="recipe-num">8</span>트러블슈팅</h2>
+
+  <div class="step">
+    <span class="step-label">ModuleNotFoundError: 'sers.signal'</span>
+    <p>Shim 이 제거됐거나 pycache 가 꼬임.</p>
+<div class="terminal"><pre><span class="prompt">$</span> find . -name __pycache__ -type d -not -path './.git/*' -exec rm -rf {} +
+<span class="prompt">$</span> python -c "from sers.preprocessing.signal import smooth; print('OK')"</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label">DeprecationWarning: models.* is deprecated</span>
+    <p>옛 경로 사용 중. 새 코드는 <code>from sers.models.X</code> 로.</p>
+    <table>
+      <tr><th>옛 경로</th><th>새 경로</th></tr>
+      <tr><td><code>from models.model</code></td><td><code>from sers.models._legacy.resnet_v1.model</code></td></tr>
+      <tr><td><code>from models.stacking_utils</code></td><td><code>from sers.models.usersnet.stacking</code></td></tr>
+      <tr><td><code>from models.clinical_utils</code></td><td><code>from sers.models.usersnet.clinical_fusion</code></td></tr>
+      <tr><td><code>from models.contrastive.X</code></td><td><code>from sers.models.experimental.contrastive.X</code></td></tr>
+      <tr><td><code>from models.train import X</code></td><td>(임시) shim 유지, 장기적으로 helper 를 <code>src/sers/</code>로 추출 필요</td></tr>
+    </table>
+  </div>
+
+  <div class="step">
+    <span class="step-label">test_registry_parity_with_status_doc FAIL</span>
+    <p>registry 에는 있는데 MODEL_STATUS.md 에 없거나, 그 반대.</p>
+<div class="terminal"><pre><span class="prompt">$</span> pytest tests/test_model_registry.py::test_registry_parity_with_status_doc -v
+<span class="output">In MODEL_STATUS.md but not in registry: {'my-model'}</span></pre></div>
+    <p>→ <code>_registry.py</code> 에 <code>"my-model": ModelSpec(...)</code> 추가.</p>
+  </div>
+
+  <div class="step">
+    <span class="step-label">sers compare 가 "—" 만 보인다</span>
+    <p>artifact manifest 스키마가 달라서. 현재 <code>artifacts/usersnet/v1.0.0/manifest.json</code> 은 v2.0 구 형식. <code>metrics</code> 필드를 제대로 기재한 새 manifest 로 교체 필요:</p>
+<div class="terminal"><pre>{
+  "model_name": "uSERS-Net",
+  "version": "1.0.0",
+  "metrics": {
+    "holdout": {"auc_binary": 0.996, "auc_multi": 0.92},
+    "nested_cv": {"auc_binary_mean": 0.983, "auc_binary_std": 0.011}
+  }
+}</pre></div>
+  </div>
+
+  <div class="step">
+    <span class="step-label">webapp 이 구 모델을 계속 로드</span>
+    <p>파이썬 프로세스가 import 시 한 번 로드. <code>current</code> symlink 바꾼 뒤:</p>
+<div class="terminal"><pre><span class="prompt">$</span> pkill -f sers_clinical_webapp
+<span class="prompt">$</span> sers serve clinical   <span class="comment"># 재기동</span></pre></div>
+  </div>
+</div>
+
+
+<!-- ============= CHEATSHEET ============= -->
+<div class="cheat">
+  <h2>📋 한 장 Cheatsheet (인쇄용)</h2>
+  <table>
+    <thead>
+      <tr><th>목적</th><th>명령어</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>헬프</td><td><code>sers --help</code></td></tr>
+      <tr><td>빠른 체크</td><td><code>sers train stacking --dry-run</code></td></tr>
+      <tr><td>uSERS-Net 학습</td><td><code>sers train stacking</code></td></tr>
+      <tr><td>ResNet baseline</td><td><code>sers train resnet18</code></td></tr>
+      <tr><td>구 LR-Fusion 재빌드</td><td><code>python scripts/training/_legacy/build_lr_fusion.py</code></td></tr>
+      <tr><td>SERS-Net Ensemble</td><td><code>python scripts/training/_legacy/run_sersnet_ensemble.py</code></td></tr>
+      <tr><td>Holdout 평가</td><td><code>python scripts/evaluation/eval_usersnet_holdout.py</code></td></tr>
+      <tr><td>비교 리포트</td><td><code>sers compare --models usersnet,resnet18,lr-fusion</code></td></tr>
+      <tr><td>Production 빌드</td><td><code>sers production --stacking</code></td></tr>
+      <tr><td>버전 전환</td><td><code>ln -sfn v1.0.1 artifacts/usersnet/current</code></td></tr>
+      <tr><td>Webapp 실행</td><td><code>sers serve clinical</code></td></tr>
+      <tr><td>레지스트리 테스트</td><td><code>pytest tests/test_model_registry.py -q</code></td></tr>
+      <tr><td>전체 테스트</td><td><code>pytest tests/ -q</code></td></tr>
+      <tr><td>pycache 청소</td><td><code>find . -name __pycache__ -type d -exec rm -rf {} +</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="foot">
+  <p>
+    이 문서와 <code>docs/project_structure_guide.html</code> 는 한 쌍입니다.
+    구조가 궁금하면 project_structure_guide, 명령어가 궁금하면 이 cookbook.
+  </p>
+  <p>
+    Cookbook 의 모든 CLI 옵션은 <code>sers --help</code>, <code>sers train --help</code> 로 검증됨 (2026-04-15).
+    Recipe 4 의 실행 결과는 <code>/tmp/sers_compare_test/</code> 에서 실제 확인됨.
+  </p>
+</div>
+
+</div>
+</body>
+</html>

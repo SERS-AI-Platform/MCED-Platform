@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SERS-AI 프로젝트 구조 가이드</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #6a6a6a;
+    --accent: #2c6ecb;
+    --accent-soft: #e8f0fc;
+    --ok: #2e7d32;
+    --warn: #ed6c02;
+    --danger: #c62828;
+    --border: #e3e3e3;
+    --code-bg: #f4f4f4;
+    --card-bg: #ffffff;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+  h1 {
+    font-size: 2.2rem;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1.05rem;
+    margin-bottom: 40px;
+  }
+  h2 {
+    font-size: 1.55rem;
+    margin: 56px 0 16px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent);
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 1.15rem;
+    margin: 32px 0 12px 0;
+    color: var(--accent);
+  }
+  h4 { font-size: 1rem; margin: 20px 0 8px 0; }
+  p { margin: 0 0 16px 0; }
+  code {
+    font-family: var(--mono);
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+  pre {
+    font-family: var(--mono);
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 18px 20px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+  .card h4 { margin-top: 0; color: var(--accent); }
+  .card .role-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .tag-input { background: #fef3e0; color: var(--warn); }
+  .tag-def { background: #e8f0fc; color: var(--accent); }
+  .tag-run { background: #e8f5e9; color: var(--ok); }
+  .tag-out { background: #fde7e9; color: var(--danger); }
+  .tag-cfg { background: #eceff1; color: var(--muted); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.94rem;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent-soft);
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent);
+  }
+  tbody tr:hover { background: #fcfcfc; }
+  .flow {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin: 20px 0;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  .notice {
+    background: #fff8e1;
+    border-left: 4px solid var(--warn);
+    padding: 12px 18px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+  .notice-ok {
+    background: #e8f5e9;
+    border-left-color: var(--ok);
+  }
+  .notice-danger {
+    background: #ffebee;
+    border-left-color: var(--danger);
+  }
+  .notice .label {
+    font-weight: 600;
+    display: inline-block;
+    margin-right: 6px;
+  }
+  .icon { font-size: 1.2em; margin-right: 4px; }
+  nav.toc {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 40px;
+  }
+  nav.toc h4 { margin: 0 0 8px 0; font-size: 0.9rem; color: var(--muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; }
+  nav.toc a { color: var(--fg); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+  .mono-inline { font-family: var(--mono); }
+  .role-bar {
+    display: flex;
+    gap: 4px;
+    margin: 8px 0 20px 0;
+    flex-wrap: wrap;
+  }
+  .role-step {
+    flex: 1;
+    min-width: 140px;
+    padding: 12px 14px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+  }
+  .role-step strong { display: block; margin-bottom: 4px; font-size: 0.95rem; }
+  .foot {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  details {
+    margin: 12px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 16px;
+    background: var(--card-bg);
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 10px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SERS-AI 프로젝트 구조 가이드</h1>
+<div class="subtitle">
+  2026-04-15 재구성 기준 | uSERS-Net v1.0.0 | 4-역할 분리 모델 · src-layout + Cookiecutter DS
+</div>
+
+<nav class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#part1">1. 핵심 개념 — "모델"이라는 단어의 4가지 역할</a></li>
+    <li><a href="#part2">2. 7가지 최상위 디렉토리</a></li>
+    <li><a href="#part3">3. 한 번의 학습 실행 흐름도</a></li>
+    <li><a href="#part4">4. scripts/ → results/ 대응표</a></li>
+    <li><a href="#part5">5. 자주 묻는 질문에 대한 답</a></li>
+    <li><a href="#part6">6. <code>models/</code>는 왜 아직 남아 있는가</a></li>
+    <li><a href="#part7">7. 판정 프레임워크 — 새 파일이 어디로 갈지</a></li>
+  </ol>
+</nav>
+
+<!-- ==================== PART 1 ==================== -->
+<h2 id="part1">1. 핵심 개념 — "모델"이라는 단어의 4가지 역할</h2>
+
+<p>프로젝트가 헷갈렸던 이유는 "models"라는 이름 하나가 <strong>4가지 전혀 다른 것</strong>을 같이 담고 있었기 때문입니다. 재구성 후에는 역할마다 다른 디렉토리에 삽니다.</p>
+
+<div class="role-bar">
+  <div class="role-step" style="background: #fef3e0;">
+    <strong>① 데이터</strong>
+    <code>data/</code><br>
+    원본 + 전처리<br>
+    <span style="color:var(--muted); font-size:0.8rem">재료</span>
+  </div>
+  <div class="role-step" style="background: #e8f0fc;">
+    <strong>② 정의</strong>
+    <code>src/sers/models/</code><br>
+    아키텍처 Python 코드<br>
+    <span style="color:var(--muted); font-size:0.8rem">도면</span>
+  </div>
+  <div class="role-step" style="background: #e8f5e9;">
+    <strong>③ 실행자</strong>
+    <code>scripts/</code><br>
+    학습/평가 CLI<br>
+    <span style="color:var(--muted); font-size:0.8rem">시공</span>
+  </div>
+  <div class="role-step" style="background: #fde7e9;">
+    <strong>④ 산출물</strong>
+    <code>artifacts/</code> + <code>results/</code><br>
+    가중치 + 지표<br>
+    <span style="color:var(--muted); font-size:0.8rem">건물 + 보고서</span>
+  </div>
+</div>
+
+<div class="notice notice-ok">
+  <span class="label">🔑 기억할 점:</span>
+  아무것도 학습하지 않는 디렉토리가 3개(data, src/sers/models, artifacts)이고,
+  학습이 실제로 일어나는 곳은 <strong>scripts/ 하나뿐</strong>입니다.
+</div>
+
+<h3>비유로 이해하기</h3>
+<table>
+  <thead><tr><th>프로젝트 개념</th><th>건축 비유</th><th>요리 비유</th></tr></thead>
+  <tbody>
+    <tr><td><code>data/</code></td><td>재료(벽돌, 철근)</td><td>식재료</td></tr>
+    <tr><td><code>src/sers/models/</code></td><td>건축 도면</td><td>레시피 · 메뉴</td></tr>
+    <tr><td><code>scripts/training/</code></td><td>시공 팀</td><td>요리사</td></tr>
+    <tr><td><code>artifacts/</code></td><td>완공된 건물 (배포 대상)</td><td>냉장고의 완성 요리 (서빙 가능)</td></tr>
+    <tr><td><code>results/</code></td><td>공사 보고서 · 검수 기록</td><td>매번의 요리 시식 기록</td></tr>
+    <tr><td><code>config/</code></td><td>시방서</td><td>표준 조리법 세부 스펙</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ==================== PART 2 ==================== -->
+<h2 id="part2">2. 7가지 최상위 디렉토리</h2>
+
+<div class="cards">
+  <div class="card" style="border-left-color: var(--warn);">
+    <span class="role-tag tag-input">① 입력</span>
+    <h4>data/</h4>
+    <p>스펙트럼 원본 + 표준화된 임상 CSV.</p>
+    <p><strong>소비자:</strong> preprocessing · training 스크립트</p>
+    <p><strong>재생성:</strong> ❌ (원본). <strong>git:</strong> ❌ (gitignored)</p>
+  </div>
+
+  <div class="card" style="border-left-color: var(--accent);">
+    <span class="role-tag tag-def">② 정의(라이브러리)</span>
+    <h4>src/sers/</h4>
+    <p>다른 코드가 <code>import</code> 하는 순수 Python 라이브러리. 부작용 없음.</p>
+    <p><strong>주요 서브패키지:</strong> <code>io/</code>, <code>preprocessing/</code>, <code>qc/</code>, <code>features/</code>, <code>models/</code>, <code>validation/</code>, <code>visualization/</code>, <code>cli/</code></p>
+  </div>
+
+  <div class="card" style="border-left-color: var(--ok);">
+    <span class="role-tag tag-run">③ 실행자(CLI)</span>
+    <h4>scripts/</h4>
+    <p>사람이 CLI로 실행하는 얇은 엔트리포인트. <code>src/sers/</code> 를 import해서 사용.</p>
+    <p><strong>서브폴더:</strong> <code>training/</code>, <code>evaluation/</code>, <code>experiments/</code>, <code>analysis/</code>, <code>pipeline/</code>, <code>figures/</code>, <code>deployment/</code>, <code>db/</code>, <code>qc_validation/</code></p>
+  </div>
+
+  <div class="card" style="border-left-color: var(--danger);">
+    <span class="role-tag tag-out">④ 학습된 가중치</span>
+    <h4>artifacts/</h4>
+    <p>production inference가 로드하는 <strong>직렬화된 학습 상태</strong>. Semver 버저닝.</p>
+    <p><code>usersnet/v1.0.0/</code> + <code>current</code> symlink<br>
+       <code>baselines/lr-fusion/v1.0.0/</code>, <code>resnet18/</code>, <code>sersnet-ensemble/</code></p>
+  </div>
+
+  <div class="card" style="border-left-color: var(--danger);">
+    <span class="role-tag tag-out">④ 실험 결과</span>
+    <h4>results/</h4>
+    <p>사람이 읽는 실험별 수치·예측·진단 그림.</p>
+    <p><code>runs/{YYYY-MM-DD}_{model}_v{ver}_{mode}/</code> · <code>comparisons/</code> · <code>benchmarks/</code></p>
+  </div>
+
+  <div class="card" style="border-left-color: var(--danger);">
+    <span class="role-tag tag-out">④ 출간물</span>
+    <h4>figures/</h4>
+    <p>논문·포스터·슬라이드용 <strong>최종 렌더링</strong>. 재실행으로 생기는 실험 그림은 여기 오지 않음.</p>
+    <p><code>paper/</code>, <code>poster/</code>, <code>slides/</code></p>
+  </div>
+
+  <div class="card" style="border-left-color: var(--muted);">
+    <span class="role-tag tag-cfg">⚙️ 설정</span>
+    <h4>config/</h4>
+    <p>YAML/JSON/TOML 런타임 설정. 코드가 아닌 값.</p>
+    <p><code>config.yaml</code>, <code>environment.yml</code></p>
+  </div>
+</div>
+
+
+<!-- ==================== PART 3 ==================== -->
+<h2 id="part3">3. 한 번의 학습 실행 흐름도</h2>
+
+<p>"<code>sers train --model usersnet</code>" 을 한 번 실행하면 아래처럼 움직입니다.</p>
+
+<div class="flow">   [사용자 명령]
+   $ sers train --model usersnet
+                │
+                ▼
+   ┌─────────────────────────────────────┐
+   │ scripts/training/train_usersnet.py  │   ← ③ 실행자
+   │  (읽고 → 학습 → 저장)                │
+   └──────┬─────────┬─────────┬──────────┘
+          │         │         │
+   읽기 ◄─┘    import       쓰기 ──┐
+          │         │              │
+          ▼         ▼              ▼
+   ┌──────────┐ ┌──────────────┐  ┌───────────────────────┐
+   │  data/   │ │src/sers/     │  │artifacts/usersnet/    │
+   │ raw,     │ │models/       │  │  v1.0.1/   ← 새 weights│
+   │ clinical │ │  usersnet/   │  │  manifest.json         │
+   │          │ │  stacking.py │  └───────────────────────┘
+   │  ① 입력  │ │  ② 정의      │
+   └──────────┘ └──────────────┘  ┌───────────────────────┐
+                                   │results/runs/          │
+                                   │ 2026-04-15_usersnet_  │
+                                   │   v1.0.1_holdout/     │
+                                   │   manifest.json       │
+                                   │   metrics.json        │
+                                   │   predictions/*.npz   │
+                                   │   figures/*.png       │
+                                   │   logs/*.log          │
+                                   └───────────────────────┘
+                                          ④ 산출물
+</div>
+
+<div class="notice">
+  <span class="label">💡 포인트:</span>
+  script 자체는 <code>scripts/</code> 에 그대로 남고, 실행마다
+  <code>results/runs/{run-id}/</code> 가 <strong>새로 하나씩</strong> 생깁니다.
+  script는 "영구 저장소", results는 "실행 기록소".
+</div>
+
+
+<!-- ==================== PART 4 ==================== -->
+<h2 id="part4">4. scripts/ → results/ 대응표</h2>
+
+<p>각 실행 스크립트가 어디에 산출물을 만드는지 한눈에:</p>
+
+<table>
+<thead>
+<tr><th>실행자 (scripts/)</th><th>출력 목적지</th><th>설명</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>scripts/training/train_usersnet.py</code></td>
+  <td><code>results/runs/{date}_usersnet_v{ver}_{split}/</code> + <code>artifacts/usersnet/v{ver}/</code></td>
+  <td>uSERS-Net 학습 (production)</td>
+</tr>
+<tr>
+  <td><code>scripts/training/build_usersnet_production.py</code></td>
+  <td><code>artifacts/usersnet/v{ver}/</code></td>
+  <td>전체 데이터로 최종 production 빌드</td>
+</tr>
+<tr>
+  <td><code>scripts/training/_legacy/train_resnet.py</code></td>
+  <td><code>results/runs/{date}_resnet18_.../</code> + <code>artifacts/baselines/resnet18/</code></td>
+  <td>ResNet baseline 학습</td>
+</tr>
+<tr>
+  <td><code>scripts/training/_legacy/build_lr_fusion.py</code></td>
+  <td><code>artifacts/baselines/lr-fusion/v1.0.0/</code></td>
+  <td>구 LR+Clinical 재빌드</td>
+</tr>
+<tr>
+  <td><code>scripts/training/_legacy/run_sersnet_ensemble.py</code></td>
+  <td><code>artifacts/baselines/sersnet-ensemble/v1.0.0/</code></td>
+  <td>0.8·LR_fusion + 0.2·ResNet 블렌딩</td>
+</tr>
+<tr>
+  <td><code>scripts/evaluation/eval_usersnet_holdout.py</code></td>
+  <td>기존 run 폴더에 <code>metrics.json</code>, <code>predictions/</code> 갱신</td>
+  <td>Train/Val/Test 60/20/20 최종 평가</td>
+</tr>
+<tr>
+  <td><code>scripts/analysis/xai_fusion_analysis.py</code></td>
+  <td><code>results/analysis/xai_{date}/</code></td>
+  <td>FiLM/CrossAttn SHAP 해석</td>
+</tr>
+<tr>
+  <td><code>scripts/analysis/confounding_analysis.py</code></td>
+  <td><code>results/analysis/confounding_{date}/</code></td>
+  <td>연령·성별 교란 분석</td>
+</tr>
+<tr>
+  <td><code>scripts/figures/plot_overall_comparison.py</code></td>
+  <td><code>figures/paper/</code> 또는 <code>results/comparisons/.../figures/</code></td>
+  <td>논문용 모델 비교 figure</td>
+</tr>
+<tr>
+  <td><code>scripts/experiments/_archive/2026-03_step5_ensemble.py</code></td>
+  <td><code>results/_archive/step5_ensemble/</code></td>
+  <td>완료된 ablation (아카이브)</td>
+</tr>
+<tr>
+  <td><code>sers compare --models a,b,c</code></td>
+  <td><code>results/comparisons/{date}_{a_vs_b_vs_c}/report.md</code></td>
+  <td>🆕 자동 비교 리포트</td>
+</tr>
+</tbody>
+</table>
+
+
+<!-- ==================== PART 5 ==================== -->
+<h2 id="part5">5. 자주 묻는 질문에 대한 답</h2>
+
+<details>
+<summary>Q1. <code>models/</code>는 "우리 데이터를 학습하는 디렉토리"인가?</summary>
+<p><strong>아닙니다.</strong></p>
+<ul>
+  <li><code>src/sers/models/</code> 는 <strong>학습될 설계도(청사진)</strong>가 담긴 디렉토리 — 학습을 "하는" 게 아니라, 학습에 필요한 <em>아키텍처 정의</em>를 제공.</li>
+  <li>데이터는 <code>data/</code> 에만 있음 — models/ 에는 데이터가 없음.</li>
+  <li>학습을 실행하는 주체는 <code>scripts/training/*.py</code>.</li>
+</ul>
+<p>그리고 루트 레벨의 <code>models/</code> 는 이제 4개 파일만 남은 <strong>deprecation 호환 껍데기</strong>입니다 (§6 참조).</p>
+</details>
+
+<details>
+<summary>Q2. <code>results/</code> 는 각 모델이나 실험마다 하나씩 생기는가?</summary>
+<p><strong>맞습니다.</strong> <code>results/runs/</code> 밑에 실행마다 <code>{YYYY-MM-DD}_{model}_v{ver}_{mode}</code> 형식의 폴더가 새로 생깁니다.</p>
+<pre>results/
+├── runs/
+│   ├── 2026-04-14_usersnet_v1.0.0_holdout/    ← 한 번의 실행
+│   ├── 2026-04-15_usersnet_v1.1.0_holdout/    ← 재학습 (clinical fusion)
+│   └── 2026-04-16_resnet18_v1.0.0_holdout/    ← baseline 비교
+├── comparisons/    ← sers compare 출력
+├── benchmarks/     ← 표준 벤치마크 추적
+└── _archive/       ← 옛 실험 결과</pre>
+<p>Run-id는 <strong>불변(immutable)</strong>입니다. 덮어쓰지 않고 새 폴더가 쌓임 → 실험 감사 추적.</p>
+</details>
+
+<details>
+<summary>Q3. <code>scripts/</code> 안의 내용이 <code>results/</code> 실험별로 이동하는가?</summary>
+<p><strong>부분적으로 맞음.</strong> script <em>코드</em>는 그대로 scripts/에 남고, script가 <em>생산한 산출물</em>이 results/로 갑니다.</p>
+<table>
+  <tr><th>항목</th><th>사는 곳</th></tr>
+  <tr><td>script 코드 (<code>train_usersnet.py</code>)</td><td><code>scripts/training/</code> — 영구 보관</td></tr>
+  <tr><td>script 실행 결과 (metrics, 예측)</td><td><code>results/runs/{run-id}/</code> — 매 실행 새 폴더</td></tr>
+</table>
+<p>비유하면, <code>train_usersnet.py</code>는 <strong>레시피</strong>(한 번 작성, 영구), <code>results/runs/2026-04-14.../</code>는 <strong>그 레시피로 요리한 결과물</strong>.</p>
+</details>
+
+<details>
+<summary>Q4. 새 모델을 추가하려면 어디부터 건드려야 하나?</summary>
+<ol>
+  <li><code>src/sers/models/_registry.py</code> 에 <code>ModelSpec</code> 엔트리 추가</li>
+  <li><code>docs/MODEL_STATUS.md</code> 에 같은 키 + 사유 기재 <em>(parity 테스트가 강제)</em></li>
+  <li>모델 정의 모듈 생성: <code>src/sers/models/{카테고리}/{이름}/</code></li>
+  <li>학습 스크립트 생성: <code>scripts/training/{train_name}.py</code></li>
+  <li><code>pytest tests/test_model_registry.py</code> 실행해서 통과 확인</li>
+</ol>
+</details>
+
+
+<!-- ==================== PART 6 ==================== -->
+<h2 id="part6"><code>models/</code>는 왜 아직 남아 있는가?</h2>
+
+<div class="notice notice-danger">
+  <span class="label">⚠️ Deprecated:</span>
+  루트의 <code>models/</code> 는 <strong>호환 전용 껍데기</strong>입니다. 이 안에 새 코드·아티팩트·결과를 넣지 마세요.
+</div>
+
+<h3>현재 남은 4개 파일</h3>
+<table>
+  <thead><tr><th>파일</th><th>역할</th><th>동작</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>models/__init__.py</code></td>
+      <td>패키지 진입점 + DeprecationWarning</td>
+      <td><code>import models</code> 시 "top-level <code>models.*</code> is deprecated; use <code>sers.models.*</code>" 경고 발생</td>
+    </tr>
+    <tr>
+      <td><code>models/train.py</code></td>
+      <td><code>from models.train import load_processed_spectra, ...</code> 호환</td>
+      <td><code>scripts/training/_legacy/train_resnet.py</code> 를 동적 로드해서 심볼 재노출</td>
+    </tr>
+    <tr>
+      <td><code>models/train_stacking.py</code></td>
+      <td><code>from models.train_stacking import ...</code> 호환</td>
+      <td><code>scripts/training/train_usersnet.py</code> 를 동적 로드</td>
+    </tr>
+    <tr>
+      <td><code>models/run_train_val_test.py</code></td>
+      <td>archive 실험 import 호환</td>
+      <td><code>scripts/experiments/_archive/2026-04_train_val_test_split.py</code> 동적 로드</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>왜 즉시 삭제하지 않았나?</h3>
+<p>두 가지 이유로 <strong>단계적 제거</strong>를 선택했습니다.</p>
+
+<ol>
+  <li><strong>대량 import 의존성</strong> — <code>from models.train import ...</code> 패턴이
+    <code>scripts/analysis/</code>, <code>scripts/experiments/_archive/</code>,
+    <code>scripts/qc_validation/</code>, 외부 폴더(<code>AACR/</code>, <code>publications/</code>, <code>metabolite_profiling/</code>)까지
+    총 <strong>30여 개 파일</strong>에 퍼져 있었습니다. 한 번에 sed 로 바꾸지 않고 점진적으로 사용처를 줄여나가기 위함.</li>
+  <li><strong>현재 train.py (구 ResNet) 의 라이브러리성 함수</strong> —
+    <code>load_processed_spectra</code>, <code>get_feature_columns</code>, <code>aggregate_replicates</code>,
+    <code>resolve_aliases</code>, <code>train_fold</code>, <code>create_labels</code> 등은
+    원래는 <code>src/sers/</code> 라이브러리로 추출됐어야 할 코드인데, 현재는 스크립트 내부에 바인딩돼 있습니다.
+    shim은 이 함수들이 계속 import 되도록 우회 경로를 제공합니다.</li>
+</ol>
+
+<h3>제거 타임라인</h3>
+<table>
+  <tr><th>단계</th><th>조건</th><th>조치</th></tr>
+  <tr>
+    <td>v0 (지금)</td>
+    <td>재구성 직후</td>
+    <td>shim 작동 + DeprecationWarning 발생</td>
+  </tr>
+  <tr>
+    <td>v1</td>
+    <td><code>from models.*</code> 사용처가 0 으로 줄면</td>
+    <td><code>models/</code> 전체 삭제</td>
+  </tr>
+  <tr>
+    <td>v1 선행 조건</td>
+    <td>-</td>
+    <td><code>train.py</code> 내부 라이브러리 함수들을 <code>src/sers/models/_legacy/resnet_v1/training_lib.py</code> 로 추출</td>
+  </tr>
+</table>
+
+<div class="notice notice-ok">
+  <span class="label">✅ 새 코드 작성 원칙:</span>
+  <code>from models.X import ...</code> 대신
+  <code>from sers.models.X import ...</code> 를 사용하세요.
+  Deprecation 경고가 보이면 그 파일이 아직 옛 경로를 쓴다는 신호 — 업데이트 대상.
+</div>
+
+
+<!-- ==================== PART 7 ==================== -->
+<h2 id="part7">7. 판정 프레임워크 — 새 파일이 어디로 갈지</h2>
+
+<p>애매한 파일이 생기면 <strong>7가지 질문</strong>에 순서대로 답하세요. 첫 YES 답이 목적지.</p>
+
+<pre>Q1. 다른 파이썬 코드가 import 하는가?     ──► src/sers/
+Q2. CLI에서 사람이 실행하는 .py 인가?       ──► scripts/
+Q3. production inference가 로드하는가?      ──► artifacts/
+Q4. 실험별로 비교할 수치/예측/진단인가?     ──► results/
+Q5. 논문·포스터·슬라이드에 들어가는 이미지? ──► figures/
+Q6. YAML/JSON/TOML 설정값인가?              ──► config/
+Q7. 입력 원본·중간 데이터인가?              ──► data/
+</pre>
+
+<div class="notice">
+  <span class="label">원칙:</span>
+  한 파일이 두 질문에 YES 면 <strong>그 파일은 쪼개야 한다</strong>는 신호입니다.
+  예: "이 <code>.py</code>는 import도 되고 CLI로도 실행된다" → 라이브러리 부분(<code>src/</code>)과
+  CLI 래퍼(<code>scripts/</code>)로 분리.
+</div>
+
+<h3>자주 헷갈리는 경계 케이스</h3>
+<table>
+  <thead><tr><th>상황</th><th>판정</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>학습된 <code>*.joblib</code></td>
+      <td>"production inference가 로드?" → YES 면 <code>artifacts/</code>, NO 면 <code>results/{run}/</code></td>
+    </tr>
+    <tr>
+      <td>혼동행렬 PNG</td>
+      <td>실험 품질 점검용 → <code>results/runs/{id}/figures/</code> · 논문 수록 → <code>figures/paper/</code></td>
+    </tr>
+    <tr>
+      <td><code>build_production_*.py</code></td>
+      <td><code>__main__</code> + argparse 있음 → <code>scripts/training/</code> (모델 정의 아님)</td>
+    </tr>
+    <tr>
+      <td><code>*_utils.py</code></td>
+      <td>다른 파일이 import 함 → <code>src/sers/</code></td>
+    </tr>
+    <tr>
+      <td>Jupyter notebook</td>
+      <td>탐색 → <code>notebooks/</code> · 재현 분석 → 코드 <code>scripts/figures/</code>, 결과 <code>results/</code></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<div class="foot">
+  <p>
+    참조 문서:
+    <code>docs/DIRECTORY_CONVENTIONS.md</code> (정본) ·
+    <code>docs/MODEL_STATUS.md</code> ·
+    <code>docs/REORG_PLAN.md</code>
+  </p>
+  <p>
+    변경 문의: <code>src/sers/models/_registry.py</code> 가 모델 단일 진실 원천.
+    <code>tests/test_model_registry.py</code> 가 registry ↔ MODEL_STATUS.md 동기화 강제.
+  </p>
+</div>
+
+</div>
+</body>
+</html>

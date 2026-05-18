@@ -24,25 +24,41 @@
             {% else %}{{ s.model_sers_only }}{% endif %}
         </span>
     </div>
+<<<<<<< Updated upstream
     <div class="patient-bar-item">
         <span class="patient-bar-label">{{ s.analysis_standard }}:</span>
         <span class="patient-bar-value">{{ s.standard_decision_rule }}</span>
     </div>
+=======
+>>>>>>> Stashed changes
 </div>
 
 <div class="card">
     <h2 class="card-title">{{ s.results_title }}</h2>
 
     <!-- Primary Result -->
-    <div class="result-primary {{ 'positive' if prediction.cancer_detected else 'negative' }}">
+    <div class="result-primary {% if not qc_summary.valid %}invalid{% elif prediction.cancer_detected %}positive{% else %}negative{% endif %}">
         <div class="result-icon">
-            {% if prediction.cancer_detected %}&#9888;{% else %}&#10003;{% endif %}
+            {% if not qc_summary.valid %}&#9888;{% elif prediction.cancer_detected %}&#9888;{% else %}&#10003;{% endif %}
         </div>
         <div class="result-label">
-            {{ s.positive if prediction.cancer_detected else s.negative }}
+            {% if not qc_summary.valid %}
+                {{ s.invalid_decision }}
+            {% elif final_decision == 'strong_positive' %}
+                {{ s.strong_positive }}
+            {% elif prediction.cancer_detected %}
+                {{ s.positive }}
+            {% else %}
+                {{ s.negative }}
+            {% endif %}
         </div>
         <div class="result-sub">
+<<<<<<< Updated upstream
             {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
+=======
+            {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
+            &middot; {{ s.ssi }}: {{ "%.1f"|format(ssi) }} / 10
+>>>>>>> Stashed changes
             {% if prediction.majority_vote %} &middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
         </div>
     </div>
@@ -63,26 +79,47 @@
         </div>
     </div>
 
-    {% if prediction.cancer_detected %}
+    <!-- QC Summary -->
+    <div class="qc-summary-grid">
+        <div><span>{{ s.qc_total_count }}</span><strong>{{ qc_summary.total }}회</strong></div>
+        <div><span>{{ s.qc_pass_count }}</span><strong>{{ qc_summary.passed }}회</strong></div>
+        <div><span>{{ s.qc_fail_count }}</span><strong>{{ qc_summary.failed }}회</strong></div>
+        <div><span>{{ s.qc_pass_rate }}</span><strong>{{ "%.1f"|format(qc_summary.pass_rate) }}%</strong></div>
+        <div><span>{{ s.qc_min_valid_count }}</span><strong>{{ qc_summary.min_valid_count }}회</strong></div>
+        <div><span>{{ s.qc_validity }}</span><strong>{{ s.qc_valid if qc_summary.valid else s.qc_invalid }}</strong></div>
+    </div>
+
+    <div class="card-subsection">
+        <h3>{{ s.qc_failure_reasons }}</h3>
+        <div class="reason-list">
+            <span>{{ s.qc_reason_low_intensity }} {{ qc_summary.reason_counts.low_intensity }}건</span>
+            <span>{{ s.qc_reason_spike_noise }} {{ qc_summary.reason_counts.spike_noise }}건</span>
+            <span>{{ s.qc_reason_saturation }} {{ qc_summary.reason_counts.saturation }}건</span>
+            <span>{{ s.qc_reason_low_correlation }} {{ qc_summary.reason_counts.low_correlation }}건</span>
+            <span>{{ s.qc_reason_other }} {{ qc_summary.reason_counts.other }}건</span>
+        </div>
+    </div>
+
+    {% if prediction.cancer_detected and cancer_types_sorted %}
     <!-- Cancer Type Section -->
     <div style="margin-bottom: 24px;">
         <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">{{ s.estimated_type }}</div>
 
         <div style="padding: 16px; background: #FEF2F2; border-radius: var(--radius); margin-bottom: 16px;">
             <div style="font-size: 20px; font-weight: 700; color: var(--positive-bg);">
-                {{ s['cancer_' + prediction.cancer_type_prediction] }}
-                ({{ prediction.cancer_type_prediction }})
+                {{ s['cancer_' + type_confidence.top.code] }}
+                ({{ type_confidence.top.code }})
             </div>
             <div style="font-size: 14px; color: var(--text-secondary); margin-top: 4px;">
                 {{ s.confidence }}:
-                {% if prediction.cancer_type_confidence >= 0.7 %}
+                {% if type_confidence.level == 'high' %}
                     <strong style="color: var(--positive-bg);">{{ s.confidence_high }}</strong>
-                {% elif prediction.cancer_type_confidence >= 0.4 %}
+                {% elif type_confidence.level == 'medium' %}
                     <strong style="color: var(--warning-bg);">{{ s.confidence_medium }}</strong>
                 {% else %}
                     <strong style="color: var(--text-muted);">{{ s.confidence_low }}</strong>
                 {% endif %}
-                ({{ "%.1f"|format(prediction.cancer_type_confidence * 100) }}%)
+                ({{ "%.1f"|format(type_confidence.top.prob * 100) }}%)
             </div>
         </div>
 
@@ -102,6 +139,17 @@
             </div>
             {% endfor %}
         </div>
+
+        {% if type_confidence.top %}
+        <div class="type-rationale">
+            <strong>{{ s.top_type_rationale }}:</strong>
+            {{ s['cancer_' + type_confidence.top.code] }} {{ "%.1f"|format(type_confidence.top.prob * 100) }}%,
+            {% if type_confidence.second.code %}
+            2순위 {{ s['cancer_' + type_confidence.second.code] }} {{ "%.1f"|format(type_confidence.second.prob * 100) }}%,
+            {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}%p
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -166,10 +214,16 @@
         <a href="/patient/{{ session.id }}/report" class="btn btn-primary" style="text-decoration:none;">
             &#128196; {{ s.generate_report }}
         </a>
+        <a href="/patient/{{ session.id }}/report.csv" class="btn btn-secondary" style="text-decoration:none;">
+            {{ s.csv_download }}
+        </a>
         <a href="/patient/new" class="btn btn-secondary" style="text-decoration:none;">
             {{ s.new_patient }}
         </a>
     </div>
+    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+        {{ s.download_path_notice }}
+    </p>
 </div>
 
 <script>

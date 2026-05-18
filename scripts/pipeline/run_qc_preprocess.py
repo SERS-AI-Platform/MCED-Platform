@@ -63,6 +63,14 @@ from src.sers.preprocessing import (
     calibrate_spectra_batch,
 )
 
+COHORT_GROUPS = {
+    'cohort1628': ['CRC', 'LUN', 'CPAN', "YPAN", "OVA","BRE", "BLC", "PRO",
+                    "NOR","DIA","HBP","H.D",'YNOR'],
+    'cohort1598': ['CRC', 'LUN', 'CPAN', "YPAN", "OVA", "BLC", "PRO",
+                    "NOR","DIA","HBP","H.D",'YNOR'],
+    'cohort1539': ['CRC', 'LUN', 'CPAN', "OVA", "BLC", "PRO",
+                    "NOR","DIA","HBP","H.D"]
+}
 
 # ─── Logging ───
 def setup_logging(log_file: str = "pipeline_qc_preprocess.log"):
@@ -182,6 +190,19 @@ Examples:
         default="config/config.yaml",
         help="Path to config.yaml (default: config/config.yaml)",
     )
+
+    parser.add_argument(
+        "--cohort",
+        choices=['cohort1628','cohort1598','cohort1539'],
+        default="cohort1628",
+        help="Cohort name for config overrides (default: cohort1628)",
+    )
+
+    parser.add_argument(
+        "--groups", "-g",
+        default=None,
+        help="Comma-separated group codes to include, e.g CRC,LUN,CPAN,NOR"
+    )
     parser.add_argument(
         "--normalization", "-n",
         choices=["snv", "minmax", "l2", "area", "none"],
@@ -266,6 +287,34 @@ def main():
         raw_spectra, meta_df = load_raw_spectra(
             data_dir, config.folder_to_group
         )
+        
+        selected_groups = None
+        if args.groups:
+            selected_groups = [g.strip().upper() for g in args.groups.split(",") if g.strip()]
+        elif args.cohort != "cohort1628":
+            selected_groups = COHORT_GROUPS.get(args.cohort)
+        
+        if selected_groups:
+            before = len(raw_spectra)
+
+            keep_meta = meta_df['group'].str.upper().isin(selected_groups)
+            meta_df = meta_df.loc[keep_meta].copy()
+            
+            keep_keys = set(
+                zip(meta_df['group'], meta_df['sample_id'], meta_df['replicate'])
+            )
+            raw_spectra = {
+                key: value for key, value in raw_spectra.items()
+                if key in keep_keys
+            }
+
+            logger.info(
+                f"Cohort: {args.cohort}, groups = {selected_groups} "
+                f" Kept: {len(raw_spectra)}/{before}"   
+            )
+            
+            if not raw_spectra:
+                raise DataNotFoundError(f"No spectra left after filtering to groups: {selected_groups}")
 
         n_spectra = len(raw_spectra)
         n_samples = meta_df.groupby(["group", "sample_id"]).ngroups

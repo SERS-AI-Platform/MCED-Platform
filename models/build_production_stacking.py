@@ -14,13 +14,17 @@ Architecture:
   Output: Stage 1 cancer prob + Stage 2 cancer type probs
 
 Usage:
-    python models/build_production_stacking.py
+    python models/build_usersnet_production.py \\
+      --project-root /home/user/SERS-AI \\
+      --data-dir /home/user/SERS-AI/results/preprocessing_dacr_all \\
+      --artifact-name usersnet_dacr_all_v1
 """
 
 from __future__ import annotations
 
 import sys
 import json
+import argparse
 import logging
 import warnings
 from datetime import datetime
@@ -38,16 +42,27 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Global paths (will be set in main())
+_DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = _DEFAULT_PROJECT_ROOT
+DATA_DIR = _DEFAULT_PROJECT_ROOT / "data" / "raw_data"
+DATA_TYPE = "raw_spectrum"  # or "processed_csv"
+ARTIFACT_DIR = _DEFAULT_PROJECT_ROOT / "artifacts" / "usersnet" / "v1.0.0"
+
+if str(_DEFAULT_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_DEFAULT_PROJECT_ROOT))
 
 from src.sers.preprocessing import trim_spectrum, baseline_correction, normalize_spectrum, resample
 from src.sers.io import find_spectra, read_spectrum, parse_filename
 
 # Import base model builder and peak extraction from stacking modules
+<<<<<<< Updated upstream:models/build_production_stacking.py
 from models.stacking_utils import build_classifier
 from models.train_stacking import (
+=======
+from sers.models.usersnet.stacking import build_classifier
+from scripts.training.train_usersnet import (
+>>>>>>> Stashed changes:scripts/training/build_usersnet_production.py
     extract_peak_features, train_base_model_ext,
     EXTENDED_BASE_MODELS, KNOWN_PEAKS,
 )
@@ -86,9 +101,28 @@ def preprocess_channel(x, y, grid, deriv_order):
     return resample(x_tr, y_tr, grid)
 
 
-def load_data(grid):
-    """Load all spectra as 3-channel arrays + metadata."""
-    data_dir = PROJECT_ROOT / "data" / "raw_data"
+def load_data(grid, data_dir=None):
+    """Load all spectra as 3-channel arrays + metadata.
+    
+    Args:
+        grid: Wavenumber array for resampling
+        data_dir: Path to raw data directory. If None, uses global DATA_DIR.
+    
+    Supports two data types (set via global DATA_TYPE):
+        - "raw_spectrum": Load from raw folder structure
+        - "processed_csv": Load from preprocessed CSV (not yet implemented)
+    """
+    if data_dir is None:
+        data_dir = DATA_DIR
+    else:
+        data_dir = Path(data_dir)
+    
+    if DATA_TYPE == "processed_csv":
+        raise NotImplementedError(
+            "processed_csv data type not yet implemented. "
+            "Currently only 'raw_spectrum' is supported."
+        )
+    
     all_X, meta_rows, failed = [], [], 0
 
     for folder_name, group in THERMO_MAP.items():
@@ -156,6 +190,35 @@ def create_labels(df, cancer_types, non_cancer):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Build Stacking V2 production model artifacts"
+    )
+    parser.add_argument("--project-root", type=Path, default=None,
+                        help="Project root directory (default: auto-detect from script location)")
+    parser.add_argument("--data-dir", type=Path, default=None,
+                        help="Data directory with raw spectra (default: <project-root>/data/raw_data)")
+    parser.add_argument("--data-type", choices=["raw_spectrum", "processed_csv"], default="raw_spectrum",
+                        help="Data format: 'raw_spectrum' or 'processed_csv'")
+    parser.add_argument("--artifact-name", type=str, default="v1.0.0",
+                        help="Artifact directory name under artifacts/usersnet/ (default: v1.0.0)")
+    args = parser.parse_args()
+
+    # ── Resolve paths ──
+    global PROJECT_ROOT, DATA_DIR, DATA_TYPE, ARTIFACT_DIR
+    
+    if args.project_root is None:
+        PROJECT_ROOT = _DEFAULT_PROJECT_ROOT
+    else:
+        PROJECT_ROOT = args.project_root.expanduser().resolve()
+    
+    if args.data_dir is None:
+        DATA_DIR = PROJECT_ROOT / "data" / "raw_data"
+    else:
+        DATA_DIR = args.data_dir.expanduser().resolve()
+    
+    DATA_TYPE = args.data_type
+    ARTIFACT_DIR = PROJECT_ROOT / "artifacts" / "usersnet" / args.artifact_name
+    
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-7s | %(message)s",
@@ -163,14 +226,26 @@ def main():
         handlers=[logging.StreamHandler(sys.stdout)],
     )
 
+<<<<<<< Updated upstream:models/build_production_stacking.py
     out_dir = PROJECT_ROOT / "models" / "production_stacking"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+=======
+>>>>>>> Stashed changes:scripts/training/build_usersnet_production.py
     logger.info("=" * 64)
     logger.info("  Building Stacking V2 Production Model")
     logger.info("=" * 64)
+    logger.info(f"Project root:  {PROJECT_ROOT}")
+    logger.info(f"Data directory: {DATA_DIR}")
+    logger.info(f"Data type:     {DATA_TYPE}")
+    logger.info(f"Artifact dir:  {ARTIFACT_DIR}")
+    logger.info("=" * 64)
 
-    # Load common grid
+    # Create artifact directory
+    out_dir = ARTIFACT_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("=" * 64)
     grid_path = PROJECT_ROOT / "results" / "preprocessing" / "common_grid.csv"
     if not grid_path.exists():
         grid_path = PROJECT_ROOT / "results" / "common_grid.csv"

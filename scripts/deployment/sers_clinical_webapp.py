@@ -14,6 +14,8 @@ Requires:
 from __future__ import annotations
 
 import json
+import csv
+import io
 import sys
 import tempfile
 import argparse
@@ -22,7 +24,7 @@ from pathlib import Path
 from datetime import datetime
 
 from fastapi import FastAPI, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -34,6 +36,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from scripts.deployment import clinical_db as db
 from scripts.deployment import clinical_auth as auth
 from scripts.deployment import clinical_report as report
+from scripts.deployment import clinical_qc as qc_utils
+from scripts.deployment import clinical_decision as decision_utils
 from scripts.deployment.clinical_i18n import get_strings, get_lang, LANG_COOKIE
 from scripts.deployment.sers_predict import (
     ProductionPredictor,
@@ -74,6 +78,19 @@ def get_patient_ssi_score(patient_decision: dict, probability_threshold: float |
 
     return score
 
+# Usability-test clinical workflow constants.
+# Operating mode selection was removed from the user workflow; the validated
+# decision policy remains fixed internally for this formative build.
+CLINICAL_DEFAULT_MODE = "screening"
+REQUIRED_SPECTRA_COUNT = 5
+MIN_QC_PASS_COUNT = qc_utils.DEFAULT_MIN_VALID_COUNT
+
+MANUAL_CANDIDATES = [
+    BASE_DIR / "manuals" / "software_ifu.pdf",
+    Path("/mnt/c/Users/user/OneDrive - solum/바탕 화면/AI BD/사용적합성/소프트웨어 사용설명서_IFU.pdf"),
+    Path("/mnt/c/Users/user/OneDrive - solum/바탕 화면/AI BD/사용적합성/소프트웨어 사용설명서_IFU.docx"),
+]
+
 
 def get_predictor() -> ProductionPredictor:
     global predictor
@@ -101,7 +118,11 @@ def template_context(request: Request, **kwargs) -> dict:
         "user": user,
         "lang": lang,
         "s": s,
+<<<<<<< Updated upstream
         "decision_profile": STANDARD_DECISION_PROFILE,
+=======
+        "idle_timeout_minutes": auth.SESSION_EXPIRY_MINUTES,
+>>>>>>> Stashed changes
         **kwargs,
     }
 
@@ -199,7 +220,11 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         return templates.TemplateResponse("login.html", ctx)
 
     response = RedirectResponse("/patient/new", status_code=303)
+<<<<<<< Updated upstream
     response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, max_age=8 * 3600)
+=======
+    response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, max_age=auth.SESSION_EXPIRY_MINUTES * 60)
+>>>>>>> Stashed changes
     return response
 
 
@@ -213,6 +238,7 @@ async def logout(request: Request):
     return response
 
 
+<<<<<<< Updated upstream
 # --- Operating Mode ---
 
 @app.get("/mode", response_class=HTMLResponse)
@@ -228,6 +254,8 @@ async def mode_submit(request: Request, mode: str = Form(...)):
     return RedirectResponse("/patient/new", status_code=303)
 
 
+=======
+>>>>>>> Stashed changes
 # --- Patient Registration ---
 
 @app.get("/patient/new", response_class=HTMLResponse)
@@ -254,14 +282,22 @@ async def patient_submit(
 
     user = auth.get_current_user(request)
     pred = get_predictor()
+<<<<<<< Updated upstream
     threshold = pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"]
+=======
+    threshold = pred.operating_modes[CLINICAL_DEFAULT_MODE]["threshold"]
+>>>>>>> Stashed changes
 
     session_id = db.create_session(
         patient_id=patient_id,
         age=age,
         sex=sex,
         bmi=bmi,
+<<<<<<< Updated upstream
         operating_mode=STANDARD_DECISION_PROFILE,
+=======
+        operating_mode=CLINICAL_DEFAULT_MODE,
+>>>>>>> Stashed changes
         created_by=user["user_id"],
         threshold=threshold,
     )
@@ -328,6 +364,16 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
 
     if not filepaths:
         return JSONResponse({"error": "No valid CSV files"}, 400)
+    if len(filepaths) != REQUIRED_SPECTRA_COUNT:
+        return JSONResponse(
+            {
+                "error": (
+                    f"Exactly {REQUIRED_SPECTRA_COUNT} CSV files are required "
+                    "for the usability-test workflow."
+                )
+            },
+            400,
+        )
 
     db.update_session_status(session_id, "uploaded")
     db.log_audit(
@@ -343,7 +389,11 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
         age=session["age"],
         sex=session["sex"],
         bmi=session["bmi"],
+<<<<<<< Updated upstream
         mode=STANDARD_DECISION_PROFILE,
+=======
+        mode=CLINICAL_DEFAULT_MODE,
+>>>>>>> Stashed changes
     )
 
     # Update spectra QC info
@@ -371,7 +421,10 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
 
     db.update_session_status(session_id, "qc_done")
 
-    # Save prediction if status is OK
+    passed_count = result.get("qc_summary", {}).get("passed", 0)
+
+    # Save available prediction output. The results/report pages decide whether
+    # it is usable for interpretation based on the clinical QC validity rule.
     if result.get("status") == "ok":
         patient_decision = result.get("patient_decision", {})
         ssi_score = patient_decision.get(
@@ -404,6 +457,8 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
         session_id=session_id,
         detail={
             "status": result.get("status"),
+            "qc_passed": passed_count,
+            "qc_required": MIN_QC_PASS_COUNT,
             "cancer_detected": result.get("patient_decision", {}).get("cancer_detected"),
             "ssi_score": result.get("patient_decision", {}).get("ssi_score"),
             "model_probability_mean": result.get("patient_decision", {}).get("model_probability_mean"),
@@ -427,15 +482,16 @@ async def qc_page(request: Request, session_id: str):
         return RedirectResponse("/patient/new", status_code=303)
 
     spectra = db.get_spectra_for_session(session_id)
-    qc_passed = sum(1 for sp in spectra if sp.get("qc_pass"))
-    qc_total = len(spectra)
+    qc_summary = qc_utils.build_qc_summary(spectra, MIN_QC_PASS_COUNT)
 
     ctx = template_context(
         request,
         session=session,
         spectra=spectra,
-        qc_passed=qc_passed,
-        qc_total=qc_total,
+        qc_summary=qc_summary,
+        qc_passed=qc_summary["passed"],
+        qc_total=qc_summary["total"],
+        min_qc_pass_count=MIN_QC_PASS_COUNT,
         show_stepper=True,
         current_step="qc",
         completed_steps=["patient", "upload"],
@@ -460,6 +516,7 @@ async def results_page(request: Request, session_id: str):
         return RedirectResponse(f"/patient/{session_id}/qc", status_code=303)
 
     spectra = db.get_spectra_for_session(session_id)
+    qc_summary = qc_utils.build_qc_summary(spectra, MIN_QC_PASS_COUNT)
 
     # Flatten prediction for template
     result_json = prediction_row["result_json"]
@@ -486,17 +543,23 @@ async def results_page(request: Request, session_id: str):
         cancer_types_sorted.append({"code": code, "prob": prob})
 
     per_replicate = result_json.get("per_replicate", [])
-    qc_passed = sum(1 for sp in spectra if sp.get("qc_pass"))
+    type_confidence = decision_utils.type_confidence(cancer_types_sorted)
+    ssi = decision_utils.screening_index_to_ssi(prediction.get("screening_index"))
+    final_decision = decision_utils.final_decision(prediction, qc_summary["valid"])
 
     ctx = template_context(
         request,
         session=session,
         prediction=prediction,
         cancer_types_sorted=cancer_types_sorted,
+        type_confidence=type_confidence,
+        ssi=ssi,
+        final_decision=final_decision,
         per_replicate=per_replicate,
         spectra=spectra,
-        qc_passed=qc_passed,
-        qc_total=len(spectra),
+        qc_summary=qc_summary,
+        qc_passed=qc_summary["passed"],
+        qc_total=qc_summary["total"],
         show_stepper=True,
         current_step="results",
         completed_steps=["patient", "upload", "qc"],
@@ -539,6 +602,98 @@ async def report_page(request: Request, session_id: str):
         return HTMLResponse(content=pdf_bytes.decode("utf-8"))
 
 
+@app.get("/patient/{session_id}/report.csv")
+async def report_csv(request: Request, session_id: str):
+    """Download a CSV summary of the current report result."""
+    redirect = auth.require_auth(request)
+    if redirect:
+        return redirect
+
+    session = db.get_session(session_id)
+    if not session:
+        return JSONResponse({"error": "Session not found"}, 404)
+
+    prediction_row = db.get_prediction(session_id)
+    pred = prediction_row["result_json"] if prediction_row else {}
+    patient_decision = pred.get("patient_decision", {})
+    prediction = {
+        "cancer_detected": patient_decision.get("cancer_detected", False),
+        "screening_index": patient_decision.get("screening_index", 0.0),
+        "majority_vote": patient_decision.get("majority_vote"),
+        "cancer_type_probabilities": pred.get("cancer_type_probabilities", {}) or {},
+    }
+
+    spectra = db.get_spectra_for_session(session_id)
+    qc_summary = qc_utils.build_qc_summary(spectra, MIN_QC_PASS_COUNT)
+    ssi = decision_utils.screening_index_to_ssi(prediction.get("screening_index"))
+    final_decision = decision_utils.final_decision(prediction, qc_summary["valid"])
+    cancer_types_sorted = [
+        {"code": code, "prob": prob}
+        for code, prob in sorted(
+            prediction["cancer_type_probabilities"].items(),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+    ]
+    type_confidence = decision_utils.type_confidence(cancer_types_sorted)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["section", "item", "value"])
+    writer.writerow(["검사 정보", "patient_id", session["patient_id"]])
+    writer.writerow(["검사 정보", "age", session["age"]])
+    writer.writerow(["검사 정보", "sex", session["sex"]])
+    writer.writerow(["QC 요약", "total", qc_summary["total"]])
+    writer.writerow(["QC 요약", "passed", qc_summary["passed"]])
+    writer.writerow(["QC 요약", "failed", qc_summary["failed"]])
+    writer.writerow(["QC 요약", "pass_rate", f"{qc_summary['pass_rate']:.1f}%"])
+    writer.writerow(["QC 요약", "min_valid_count", qc_summary["min_valid_count"]])
+    writer.writerow(["QC 요약", "valid", qc_summary["valid"]])
+    for reason, count in qc_summary["reason_counts"].items():
+        writer.writerow(["QC 실패 사유", reason, count])
+    writer.writerow(["검사 결과", "screening_index", prediction["screening_index"]])
+    writer.writerow(["검사 결과", "SSI", ssi])
+    writer.writerow(["검사 결과", "majority_vote", prediction["majority_vote"]])
+    writer.writerow(["검사 결과", "final_decision", final_decision])
+    if type_confidence["top"]:
+        writer.writerow(["암종별 확률", "top_type", type_confidence["top"]["code"]])
+        writer.writerow(["암종별 확률", "top_type_confidence", type_confidence["level"]])
+        writer.writerow(["암종별 확률", "top_second_gap", f"{type_confidence['gap']:.4f}"])
+    for ct in cancer_types_sorted:
+        code = ct["code"]
+        prob = ct["prob"]
+        writer.writerow(["암종별 확률", code, prob])
+    if not qc_summary["valid"]:
+        writer.writerow(["권고", "recommendation", "본 검사는 최종 판정에 사용하지 않으며, 재검을 권고합니다."])
+        writer.writerow(["권고", "recommended_retest_type", "검체/기판 재준비 후 재측정"])
+
+    content = "\ufeff" + buffer.getvalue()
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="SERS_Report_{session_id[:8]}.csv"'},
+    )
+
+
+@app.get("/manual")
+async def manual_download():
+    """Download the current software IFU/manual if available."""
+    for path in MANUAL_CANDIDATES:
+        if path.exists():
+            filename = path.name
+            media_type = "application/pdf" if path.suffix.lower() == ".pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            return FileResponse(
+                path,
+                media_type=media_type,
+                filename=filename,
+            )
+    return HTMLResponse(
+        "<h2>사용설명서 파일을 찾을 수 없습니다.</h2>"
+        "<p>배포 전 software_ifu.pdf를 scripts/deployment/manuals/에 배치하세요.</p>",
+        status_code=404,
+    )
+
+
 # --- Audit Log ---
 
 @app.get("/audit", response_class=HTMLResponse)
@@ -561,9 +716,15 @@ async def health():
         "status": "healthy",
         "model_loaded": pred is not None,
         "cancer_types": pred.cancer_types if pred else [],
+<<<<<<< Updated upstream
         "decision_profile": STANDARD_DECISION_PROFILE,
         "ssi_threshold": SSI_DECISION_CUTOFF,
         "model_probability_threshold": pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"] if pred else None,
+=======
+        "decision_policy": CLINICAL_DEFAULT_MODE,
+        "required_spectra": REQUIRED_SPECTRA_COUNT,
+        "min_qc_pass_count": MIN_QC_PASS_COUNT,
+>>>>>>> Stashed changes
         "timestamp": datetime.now().isoformat(),
     }
 

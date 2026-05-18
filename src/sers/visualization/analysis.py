@@ -29,6 +29,34 @@ from .spectra import build_mean_spectrum_profile
 # Peak-difference plots (shared core)
 # ===================================================================
 
+def _merge_nearby_peaks(
+    peak_indices: np.ndarray,
+    axis: np.ndarray,
+    diff: np.ndarray,
+    merge_threshold_cm: float = 15.0,
+) -> List[tuple]:
+    """Merge nearby peak indices into (start_idx, end_idx, center_idx) regions.
+
+    Peaks within *merge_threshold_cm* are grouped; the center is the index
+    with the largest absolute difference within the group.
+    """
+    if len(peak_indices) == 0:
+        return []
+    sorted_idx = peak_indices[np.argsort(axis[peak_indices])]
+    regions: List[tuple] = []
+    current = [sorted_idx[0]]
+    for idx in sorted_idx[1:]:
+        if axis[idx] - axis[current[-1]] <= merge_threshold_cm:
+            current.append(idx)
+        else:
+            best = current[int(np.argmax(np.abs(diff[current])))]
+            regions.append((min(current), max(current), best))
+            current = [idx]
+    best = current[int(np.argmax(np.abs(diff[current])))]
+    regions.append((min(current), max(current), best))
+    return regions
+
+
 def _plot_peak_difference_core(
     spectra_df: pd.DataFrame,
     output_path: Path,
@@ -41,6 +69,8 @@ def _plot_peak_difference_core(
     title: str = "Peak Difference",
     target_color: str = "#c53030",
     reference_color: str = "#2b6cb0",
+    n_target: int = 0,
+    n_reference: int = 0,
 ) -> pd.DataFrame:
     """Shared implementation for cancer-vs-noncancer and group-vs-reference plots."""
     feature_cols = extract_feature_columns(spectra_df, prefix=feature_prefix)
@@ -61,50 +91,121 @@ def _plot_peak_difference_core(
     reference_std = X[reference_mask].std(axis=0)
     diff = target_mean - reference_mean
 
+    n_t = n_target or int(target_mask.sum())
+    n_r = n_reference or int(reference_mask.sum())
+
     top_k = min(top_k, len(feature_cols))
     top_idx = np.argsort(np.abs(diff))[-top_k:][::-1]
 
-    # --- Plot ---
-    fig, ax = plt.subplots(figsize=(14.5, 7.5))
+    # Merge nearby peaks into regions (tight threshold to keep distinct clusters)
+    regions = _merge_nearby_peaks(top_idx, axis, diff, merge_threshold_cm=8.0)
 
-    ax.plot(axis, reference_mean, color=reference_color,
-            linewidth=PAPER_LINEWIDTH, label=reference_label)
+    # --- Plot ---
+    plt.rcParams.update({
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+    })
+    fig, (ax, ax_diff) = plt.subplots(
+        2, 1, figsize=(16, 9), height_ratios=[3, 1],
+        sharex=True, gridspec_kw={"hspace": 0.08},
+    )
+    fig.patch.set_facecolor("white")
+
+    # --- Top panel: mean spectra with ±1 std ---
     ax.fill_between(axis, reference_mean - reference_std,
                     reference_mean + reference_std,
-                    color=reference_color, alpha=0.12)
+                    color=reference_color, alpha=0.10, linewidth=0)
+    ax.plot(axis, reference_mean, color=reference_color,
+            linewidth=PAPER_LINEWIDTH,
+            label=f"{reference_label}  (n={n_r})")
 
-    ax.plot(axis, target_mean, color=target_color,
-            linewidth=PAPER_LINEWIDTH, label=target_label)
     ax.fill_between(axis, target_mean - target_std,
                     target_mean + target_std,
-                    color=target_color, alpha=0.12)
+                    color=target_color, alpha=0.10, linewidth=0)
+    ax.plot(axis, target_mean, color=target_color,
+            linewidth=PAPER_LINEWIDTH,
+            label=f"{target_label}  (n={n_t})")
+
+    # Highlight peak regions as shaded bands
+    y_lo, y_hi = ax.get_ylim()
+    for start_i, end_i, center_i in regions:
+        wn_lo = axis[max(start_i - 2, 0)]
+        wn_hi = axis[min(end_i + 2, len(axis) - 1)]
+        ax.axvspan(wn_lo, wn_hi, color="#ffb703", alpha=0.12, zorder=0)
+
+    apply_publication_style(ax, ylabel="Mean Intensity (a.u.)", title=title)
+    ax.set_facecolor("white")
+    ax.grid(True, alpha=0.15, linewidth=0.5)
+    ax.legend(loc="upper right", fontsize=PAPER_LEGEND_SIZE, frameon=True,
+              fancybox=True, shadow=False, edgecolor="#cccccc",
+              facecolor="white", framealpha=0.95)
+
+    # --- Bottom panel: difference curve ---
+    ax_diff.fill_between(axis, 0, diff, where=(diff >= 0),
+                         color=target_color, alpha=0.25, linewidth=0,
+                         label=f"↑ Higher in {target_label.replace(' mean', '')}")
+    ax_diff.fill_between(axis, 0, diff, where=(diff < 0),
+                         color=reference_color, alpha=0.25, linewidth=0,
+                         label=f"↓ Higher in {reference_label.replace(' mean', '')}")
+    ax_diff.plot(axis, diff, color="#333333", linewidth=1.2, alpha=0.8)
+    ax_diff.axhline(0.0, color="#999999", linestyle="-", linewidth=0.8, alpha=0.5)
 
     apply_publication_style(
-        ax,
+        ax_diff,
         xlabel="Raman Shift (cm\u207b\u00b9)",
-        ylabel="Mean Intensity (a.u.)",
-        title=title,
+        ylabel="\u0394 Intensity",
     )
-    ax.grid(True, alpha=0.25)
+    ax_diff.set_facecolor("white")
+    ax_diff.grid(True, alpha=0.15, linewidth=0.5)
+    ax_diff.legend(loc="lower right", fontsize=PAPER_LEGEND_SIZE - 1,
+                   frameon=True, fancybox=True, edgecolor="#cccccc",
+                   facecolor="white", framealpha=0.95, ncol=2)
 
-    ax2 = ax.twinx()
-    diff_label = f"{target_label} \u2212 {reference_label}"
-    ax2.plot(axis, diff, color="#222222", linewidth=1.6, alpha=0.8, label=diff_label)
-    ax2.axhline(0.0, color="#444444", linestyle="--", linewidth=1, alpha=0.6)
-    apply_publication_style(ax2, ylabel="Difference (a.u.)")
+    # Horizontal peak annotations on the difference panel
+    # Shade regions first, then annotate
+    for start_i, end_i, center_i in regions:
+        wn_lo = axis[max(start_i - 2, 0)]
+        wn_hi = axis[min(end_i + 2, len(axis) - 1)]
+        ax_diff.axvspan(wn_lo, wn_hi, color="#ffb703", alpha=0.12, zorder=0)
 
-    for idx in top_idx:
-        wn = axis[idx]
-        ax.axvline(wn, color="#ffb703", linestyle=":", linewidth=1, alpha=0.8)
-        ax2.text(wn, diff[idx], f"{wn:.0f}",
-                 fontsize=PAPER_ANNOTATION_SIZE, rotation=90,
-                 va="bottom" if diff[idx] >= 0 else "top", ha="center")
+    # Expand y-limits to make room for annotations
+    diff_ymin, diff_ymax = ax_diff.get_ylim()
+    diff_pad = (diff_ymax - diff_ymin) * 0.35
+    ax_diff.set_ylim(diff_ymin - diff_pad, diff_ymax + diff_pad)
+    diff_ymin, diff_ymax = ax_diff.get_ylim()
+    diff_range = diff_ymax - diff_ymin
 
-    lines1, labels1 = ax.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines1 + lines2, labels1 + labels2,
-              loc="upper right", fontsize=PAPER_LEGEND_SIZE, frameon=True)
+    used_positions: list = []
+    for start_i, end_i, center_i in regions:
+        wn = axis[center_i]
+        d = diff[center_i]
 
+        # Place label above/below the diff curve
+        offset = 0.15 * diff_range
+        y_base = d + (offset if d >= 0 else -offset)
+        va = "bottom" if d >= 0 else "top"
+
+        # Nudge if overlapping with previous labels
+        for prev_wn, prev_y in used_positions:
+            if abs(wn - prev_wn) < 80 and abs(y_base - prev_y) < 0.12 * diff_range:
+                y_base += (0.14 * diff_range if d >= 0 else -0.14 * diff_range)
+        used_positions.append((wn, y_base))
+
+        ax_diff.annotate(
+            f"{wn:.0f} cm\u207b\u00b9",
+            xy=(wn, d), xytext=(wn, y_base),
+            fontsize=PAPER_ANNOTATION_SIZE,
+            fontweight="bold",
+            color="#333333",
+            ha="center", va=va,
+            clip_on=False,
+            arrowprops=dict(arrowstyle="-", color="#999999",
+                            linewidth=0.8, shrinkA=0, shrinkB=2),
+            bbox=dict(boxstyle="round,pad=0.25", fc="white",
+                      ec="#dddddd", alpha=0.90, linewidth=0.6),
+        )
+
+    fig.subplots_adjust(hspace=0.08)
     save_figure(fig, output_path)
 
     return pd.DataFrame({
@@ -163,12 +264,27 @@ def plot_group_peak_difference(
     feature_prefix: str = "x_",
     top_k: int = 15,
     title: Optional[str] = None,
-    target_color: str = "#c53030",
-    reference_color: str = "#2b6cb0",
+    target_color: Optional[str] = None,
+    reference_color: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Plot mean spectra for one target group versus a reference set."""
+    """Plot mean spectra for one target group versus a reference set.
+
+    Colors are resolved from config/config.yaml group_colors when not
+    explicitly provided.
+    """
+    from ..config import load_config
+
     if group_col not in spectra_df.columns:
         raise KeyError(f"Missing group column: {group_col}")
+
+    cfg = load_config()
+    gc = cfg.display.group_colors
+
+    # Resolve colors from config if not provided
+    if target_color is None:
+        target_color = gc.get(target_group, "#c53030")
+    if reference_color is None:
+        reference_color = cfg.display.category_colors.get("non_cancer", "#2b6cb0")
 
     target_mask = (spectra_df[group_col].astype(str) == str(target_group)).to_numpy()
     if reference_groups is None:
@@ -176,10 +292,10 @@ def plot_group_peak_difference(
         reference_label = "Reference mean"
     else:
         reference_mask = spectra_df[group_col].isin(reference_groups).to_numpy()
-        if len(reference_groups) == 1:
-            reference_label = f"{reference_groups[0]} mean"
-        else:
-            reference_label = "Other diagnoses mean"
+        reference_label = " + ".join(reference_groups) + " mean"
+
+    n_target = int(target_mask.sum())
+    n_reference = int(reference_mask.sum())
 
     return _plot_peak_difference_core(
         spectra_df=spectra_df,
@@ -190,9 +306,11 @@ def plot_group_peak_difference(
         reference_label=reference_label,
         feature_prefix=feature_prefix,
         top_k=top_k,
-        title=title or f"{target_group} vs Reference Peak Difference",
+        title=title or f"{target_group} vs Non-cancer Peak Difference",
         target_color=target_color,
         reference_color=reference_color,
+        n_target=n_target,
+        n_reference=n_reference,
     )
 
 

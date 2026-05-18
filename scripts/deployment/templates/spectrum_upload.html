@@ -47,6 +47,7 @@
             <button type="button" class="btn btn-primary" id="analyzeBtn" disabled onclick="confirmAnalysis()">
                 {{ s.start_analysis }}
             </button>
+            <p class="form-hint" id="fileCountHint" style="margin-top: 8px;">{{ s.upload_requires_five }}</p>
         </div>
     </form>
 </div>
@@ -79,7 +80,7 @@ dropZone.addEventListener('drop', (e) => {
 
 function handleFiles(newFiles) {
     for (const f of newFiles) {
-        if (f.name.toLowerCase().endsWith('.csv') && files.length < 20) {
+        if (f.name.toLowerCase().endsWith('.csv') && files.length < 5) {
             files.push(f);
         }
     }
@@ -98,7 +99,9 @@ function renderFiles() {
             <button type="button" class="file-remove" onclick="removeFile(${i})">&#10005;</button>
         </div>`
     ).join('');
-    analyzeBtn.disabled = files.length === 0;
+    analyzeBtn.disabled = files.length !== 5;
+    document.getElementById('fileCountHint').textContent =
+        files.length === 5 ? '{{ s.upload_ready }}' : `${files.length}/5 — {{ s.upload_requires_five }}`;
 }
 
 function confirmAnalysis() {
