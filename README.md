@@ -110,44 +110,53 @@ docker compose -f infra/docker-compose.yml up --build
 
 ```
 SERS-AI/
-├── main.py                           # Pipeline entry point
+├── main.py                           # Legacy/top-level pipeline entry point
 ├── pyproject.toml                    # Package metadata
 ├── README.md
 │
-├── src/sers/                         # Core library
+├── src/sers/                         # Reusable core library ("engine")
 │   ├── config.py                     # Centralized path & config management
-│   ├── preprocessing.py              # Signal processing
 │   ├── io.py                         # File I/O
-│   ├── visualization.py
+│   ├── preprocessing.py              # Preprocessing pipeline and utilities
+│   ├── signal.py                     # Low-level spectral signal helpers
 │   ├── qc/                           # Quality control module
-│   └── validation/                   # Protocol validation
+│   ├── models/usersnet/              # Stable uSERS-Net/STK-V2 helper import path
+│   ├── visualization/                # Plotting and interpretation helpers
+│   └── validation/                   # Data/protocol validation
 │
-├── models/                           # ML training code
-│   ├── train.py                      # Main training script
-│   ├── test.py                       # Evaluation
-│   ├── model.py                      # Model definitions
-│   ├── tune_torch.py                 # Hyperparameter tuning
-│   └── results/                      # Model outputs (gitignored)
-│       ├── 01_benchmarks/            # Formal model comparisons
-│       ├── 02_tuning/                # Hyperparameter search
-│       ├── 03_learning_curves/       # Data efficiency analysis
-│       ├── 04_comparisons/           # Cross-experiment summaries
-│       ├── 05_subset_analysis/       # Targeted experiments
-│       └── _archive/                 # Superseded early experiments
+├── scripts/                          # Runnable workflows ("buttons")
+│   ├── pipeline/                     # Preprocessing, QC, clinical standardization
+│   │   ├── run_qc_preprocess.py      # Main QC + preprocessing runner
+│   │   └── ...
+│   ├── training/                     # Active model training entry points
+│   │   ├── train_usersnet.py         # Active uSERS-Net/STK-V2 training
+│   │   ├── build_usersnet_production.py
+│   │   └── _legacy/                  # Legacy training entry points kept for reference
+│   ├── evaluation/                   # Held-out and post-training evaluation
+│   ├── analysis/                     # Reproducible analysis/figure support
+│   ├── qc_validation/                # QC threshold and validation studies
+│   ├── deployment/                   # Inference API, clinical web app, packaging
+│   ├── db/                           # Database setup/upload utilities
+│   └── visualization/                # R/figure export workflows
+│
+├── models/                           # Compatibility layer and shared model helpers
+│   ├── stacking_utils.py             # STK-V2 helper implementation still used by active code
+│   ├── model.py                      # Legacy ResNet compatibility shim
+│   ├── build_production_stacking.py  # Alternate/legacy production artifact builder
+│   └── legacy/                       # Archived model architectures and old scripts
+│
+├── artifacts/                        # Production model artifacts (joblib, manifest, grids)
+├── figures/                          # Project-level generated figures
+├── publications/                     # Publication/poster figure generation
+├── metabolite_profiling/             # Metabolite profiling subproject
 │
 ├── config/                           # Configuration files
 │   ├── config.yaml                   # Pipeline & dataset config
 │   ├── environment.yml               # Conda environment
 │   └── environment.lock.yml          # Locked dependencies
 │
-├── scripts/                          # Utility & analysis scripts
-│   ├── run_qc_preprocess.py          # QC preprocessing runner
-│   ├── explore_data.py               # Dataset exploration
-│   ├── db_create.py                  # Database setup
-│   └── ...
-│
 ├── data/                             # Raw & clinical data (gitignored)
-├── results/                          # QC & preprocessing output (gitignored)
+├── results/                          # Preprocessing, QC, training, and analysis outputs
 ├── logs/                             # Log files (gitignored)
 ├── notebooks/                        # Jupyter notebooks
 │
@@ -156,18 +165,24 @@ SERS-AI/
 │   ├── MODEL_WORKFLOW.md             # Training workflow guide
 │   └── CHANGELOG.md
 │
-├── dashboard/                        # Executive dashboards
-│   ├── SERS_AI_Executive_Dashboard.html
-│   ├── dashboard_data.json
-│   └── img/                          # Dashboard images
-│
 ├── infra/                            # Infrastructure
 │   ├── Dockerfile
+│   ├── Dockerfile.api
 │   ├── docker-compose.yml
 │   └── DOCKER_QUICKSTART.sh
 │
-└── tests/                            # Test suite (planned)
+└── tests/                            # Pytest suite
 ```
+
+### Directory Roles
+
+- `src/sers/` contains reusable library code. If multiple scripts need the same logic, move it here.
+- `scripts/` contains executable workflows. A script should orchestrate library calls and write outputs, not become the main home for reusable logic.
+- `scripts/training/` is the active place for model training and production-model build entry points.
+- `models/` is no longer the primary training entry-point directory. It currently holds compatibility shims, shared STK-V2 helpers, and archived model code.
+- `artifacts/` stores model artifacts used by inference; `results/` stores reproducible run outputs and analysis products.
+
+Rule of thumb: `scripts/training` is the button, `src/sers` is the engine, and `models` is a transition/compatibility area unless a file explicitly documents otherwise.
 
 ## Development
 
@@ -175,8 +190,11 @@ SERS-AI/
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run available test asset
-python models/test.py
+# Run active uSERS-Net training smoke path
+python scripts/training/train_usersnet.py --dry-run
+
+# Run tests
+pytest
 
 # Lint
 ruff check src/
@@ -184,8 +202,6 @@ ruff check src/
 # Type check
 mypy src/
 ```
-
-Automated `tests/`-based pytest suite is not yet included in this repository (예정).
 
 ## License
 
