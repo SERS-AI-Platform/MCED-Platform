@@ -39,9 +39,10 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 COPY src/ src/
 COPY config/config.yaml config/config.yaml
-COPY scripts/sers_predict.py scripts/sers_predict.py
-COPY scripts/sers_webapp.py scripts/sers_webapp.py
-COPY models/production/ models/production/
+COPY scripts/deployment/sers_predict.py scripts/deployment/sers_predict.py
+COPY scripts/deployment/sers_webapp.py scripts/deployment/sers_webapp.py
+COPY artifacts/usersnet/ artifacts/usersnet/
+COPY artifacts/baselines/ artifacts/baselines/
 
 RUN useradd -m -u 1000 sers && chown -R sers:sers /app
 USER sers
@@ -51,4 +52,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["python", "scripts/sers_webapp.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "scripts/deployment/sers_webapp.py", "--host", "0.0.0.0", "--port", "8000"]

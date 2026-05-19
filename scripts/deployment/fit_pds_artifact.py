@@ -8,10 +8,10 @@ wavenumber grid the target production model uses.
 
 Usage:
     python scripts/deployment/fit_pds_artifact.py  \
-        --grid models/production_stacking/common_grid.npy  \
-        --out  models/production_stacking/calibration/pds.npz
+        --grid artifacts/usersnet/current/common_grid.npy  \
+        --out  artifacts/usersnet/current/calibration/pds.npz
 
-By default writes artifacts for BOTH production/ and production_stacking/ models.
+By default writes artifacts for the active LR fallback and uSERS-Net artifacts.
 """
 from __future__ import annotations
 import argparse
@@ -33,7 +33,7 @@ from src.sers.calibration_transfer import PDSTransfer, paired_correlation, paire
 from src.sers.io import find_spectra, parse_filename, read_spectrum
 from src.sers.preprocessing import preprocess_single_spectrum
 # Reuse constants + folder maps from the analysis script
-from scripts.analysis.cross_instrument_calibration import (
+from scripts.analysis.calibration.cross_instrument_calibration import (
     MEDICAL_FOLDER_MAP, MEDICAL_SHIFT, NOR_MAX_REPLICATE, THERMO_FOLDER_MAP,
 )
 
@@ -193,7 +193,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--grid", type=Path, default=None,
                     help="Specific common_grid.npy to fit to. If omitted, fits for "
-                         "both production/ and production_stacking/.")
+                         "the active LR fallback and uSERS-Net artifacts.")
     ap.add_argument("--out", type=Path, default=None,
                     help="Output .npz path (required with --grid)")
     args = ap.parse_args()
@@ -203,9 +203,18 @@ def main():
             raise SystemExit("--out is required when --grid is given")
         fit_and_save_pds(args.grid, args.out)
     else:
-        for prod_dir in ["production", "production_stacking"]:
-            grid_path = PROJECT_ROOT / "models" / prod_dir / "common_grid.npy"
-            out_path = PROJECT_ROOT / "models" / prod_dir / "calibration" / "pds.npz"
+        targets = [
+            (
+                PROJECT_ROOT / "artifacts" / "baselines" / "lr-fusion" / "v1.0.0",
+                PROJECT_ROOT / "artifacts" / "baselines" / "lr-fusion" / "v1.0.0" / "calibration" / "pds.npz",
+            ),
+            (
+                PROJECT_ROOT / "artifacts" / "usersnet" / "current",
+                PROJECT_ROOT / "artifacts" / "usersnet" / "current" / "calibration" / "pds.npz",
+            ),
+        ]
+        for artifact_dir, out_path in targets:
+            grid_path = artifact_dir / "common_grid.npy"
             if grid_path.exists():
                 fit_and_save_pds(grid_path, out_path)
 

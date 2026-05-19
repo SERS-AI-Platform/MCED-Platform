@@ -73,7 +73,7 @@ def _add_common_options(func):
 
 
 def _build_train_args(model_name: str, **kwargs) -> list[str]:
-    """Build CLI args list for models/train.py."""
+    """Build CLI args list for the legacy single-model trainer."""
     args = ["--model", model_name]
 
     simple_map = {
@@ -155,7 +155,7 @@ def train_resnet18(stage2_loss_weight, head_hidden_dim, resnet_channels,
         args += ["--focal-gamma", str(focal_gamma)]
     if class_balance_beta is not None:
         args += ["--class-balance-beta", str(class_balance_beta)]
-    run_script("models/train.py", args)
+    run_script("models/legacy/scripts/train.py", args)
 
 
 # ── Logistic Regression ──
@@ -177,7 +177,7 @@ def train_lr(logreg_c, logreg_max_iter, **kwargs):
         args += ["--logreg-c", str(logreg_c)]
     if logreg_max_iter is not None:
         args += ["--logreg-max-iter", str(logreg_max_iter)]
-    run_script("models/train.py", args)
+    run_script("models/legacy/scripts/train.py", args)
 
 
 # ── Random Forest ──
@@ -202,7 +202,7 @@ def train_rf(rf_n_estimators, rf_max_depth, rf_min_samples_leaf, **kwargs):
         args += ["--rf-max-depth", str(rf_max_depth)]
     if rf_min_samples_leaf is not None:
         args += ["--rf-min-samples-leaf", str(rf_min_samples_leaf)]
-    run_script("models/train.py", args)
+    run_script("models/legacy/scripts/train.py", args)
 
 
 # ── XGBoost ──
@@ -239,7 +239,7 @@ def train_xgboost(xgb_n_estimators, xgb_max_depth, xgb_learning_rate,
     for flag, val in xgb_map.items():
         if val is not None:
             args += [flag, str(val)]
-    run_script("models/train.py", args)
+    run_script("models/legacy/scripts/train.py", args)
 
 
 # ── CNN1D ──
@@ -254,7 +254,7 @@ def train_cnn1d(**kwargs):
         sers train cnn1d --epochs 100 --lr 1e-3
     """
     args = _build_train_args("cnn1d", **kwargs)
-    run_script("models/train.py", args)
+    run_script("models/legacy/scripts/train.py", args)
 
 
 # ── Stacking Ensemble ──
@@ -329,7 +329,7 @@ def train_multichannel(epochs, lr, batch_size, device, aggregate,
         args += ["--cancer-types"] + list(cancer_types)
     if non_cancer_groups:
         args += ["--non-cancer-groups"] + list(non_cancer_groups)
-    run_script("models/train_multichannel.py", args)
+    run_script("models/legacy/scripts/train_multichannel.py", args)
 
 
 # ── Train/Val/Test ──
@@ -353,7 +353,7 @@ def train_tvt(n_repeats, seed, exclude_patients):
         args += ["--seed", str(seed)]
     if exclude_patients:
         args += ["--exclude-patients", exclude_patients]
-    run_script("models/run_train_val_test.py", args)
+    run_script("models/legacy/scripts/run_train_val_test.py", args)
 
 
 # ---------- sers benchmark ----------
@@ -387,4 +387,4 @@ def benchmark(models, n_splits, aggregate, epochs, no_mlflow):
         args += ["--epochs", str(epochs)]
     if no_mlflow:
         args.append("--no-mlflow")
-    run_script("models/train.py", args)
+    run_script("models/legacy/scripts/train.py", args)

@@ -24,9 +24,9 @@ KFONT <- font_add_google_or_local()
 showtext_auto(); showtext_opts(dpi = 300)
 
 ROOT <- "/home/user/SERS-AI"
-DAT  <- file.path(ROOT, "results/training/stacking_optimization_v2/r_data")
-SHAP_CSV <- file.path(ROOT, "results/training/stacking_optimization_v2/meta_shap_values.csv")
-OUT  <- file.path(ROOT, "results/figures/stk_v2_r")
+DAT  <- file.path(ROOT, "results/training/stacking_v2/r_data")
+SHAP_CSV <- file.path(ROOT, "results/training/stacking_v2/analysis/meta_shap_values.csv")
+OUT  <- file.path(ROOT, "results/figures/training/stacking_v2")
 dir.create(OUT, recursive = TRUE, showWarnings = FALSE)
 
 theme_kr <- function(base_size = 12) {

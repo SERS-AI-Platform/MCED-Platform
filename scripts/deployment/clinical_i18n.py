@@ -37,7 +37,6 @@ STRINGS = {
         "have_account": "이미 계정이 있으신가요?",
         "no_account": "계정이 없으신가요?",
 
-<<<<<<< Updated upstream
         # Decision standard
         "mode_title": "분석 기준",
         "mode_screening": "선별검사",
@@ -53,8 +52,6 @@ STRINGS = {
         "specificity": "특이도",
         "select": "선택",
 
-=======
->>>>>>> Stashed changes
         # Patient
         "patient_title": "환자 정보 입력",
         "patient_id": "환자번호",
@@ -79,11 +76,7 @@ STRINGS = {
         "upload_requires_five": "CSV 파일 5개를 선택해야 분석을 시작할 수 있습니다.",
         "upload_ready": "CSV 파일 5개가 선택되었습니다.",
         "start_analysis": "분석 시작",
-<<<<<<< Updated upstream
         "confirm_analysis": "환자 {patient_id}의 스펙트럼 {n}개를 표준 판정 기준으로 분석하시겠습니까?",
-=======
-        "confirm_analysis": "환자 {patient_id}의 스펙트럼 {n}개를 분석하시겠습니까?",
->>>>>>> Stashed changes
 
         # QC
         "qc_title": "품질 관리 확인",
@@ -114,35 +107,23 @@ STRINGS = {
 
         # Results
         "results_title": "분석 결과",
-<<<<<<< Updated upstream
         "positive": "추가 확인 권고",
         "negative": "기준 미만",
         "screening_index": "SSI 점수",
+        "ssi": "SSI",
+        "final_decision": "최종 판정",
+        "strong_positive": "강한 양성",
+        "positive_decision": "추가 확인 권고",
+        "negative_decision": "기준 미만",
+        "invalid_decision": "검사 무효",
         "estimated_type": "최상위 추정 암종",
         "confidence": "분류 확률",
         "confidence_high": "높은 분류 확률",
         "confidence_medium": "중간 분류 확률",
         "confidence_low": "낮은 분류 확률",
         "type_probabilities": "암종 분류 확률",
-=======
-        "positive": "양성",
-        "negative": "음성",
-        "screening_index": "선별 지수",
-        "ssi": "SSI",
-        "final_decision": "최종 판정",
-        "strong_positive": "강한 양성",
-        "positive_decision": "양성",
-        "negative_decision": "음성",
-        "invalid_decision": "검사 무효",
-        "estimated_type": "추정 암종",
-        "confidence": "신뢰도",
-        "confidence_high": "높음",
-        "confidence_medium": "중간",
-        "confidence_low": "낮음",
-        "type_probabilities": "암종별 확률",
         "top_type_rationale": "유력 암종 근거",
         "probability_gap": "확률 차이",
->>>>>>> Stashed changes
         "replicate_details": "반복 측정 상세",
         "disclaimer": "본 결과는 선별검사 목적의 모델 기반 참고 지표입니다. SSI 점수와 암종 분류 확률은 최종 진단이나 강한/약한 양성 등급을 의미하지 않으며, 최종 판단은 임상 전문의의 평가에 따릅니다.",
 
@@ -155,10 +136,6 @@ STRINGS = {
         "cancer_CPAN": "췌장암",
         "cancer_PAN": "췌장암",
         "cancer_OVA": "난소암",
-<<<<<<< Updated upstream
-=======
-        "cancer_BRE": "유방암",
->>>>>>> Stashed changes
         "cancer_BLC": "방광암",
 
         # Report
@@ -227,7 +204,6 @@ STRINGS = {
         "have_account": "Already have an account?",
         "no_account": "Don't have an account?",
 
-<<<<<<< Updated upstream
         "mode_title": "Analysis Standard",
         "mode_screening": "Screening",
         "mode_screening_desc": "Sensitivity-first — Target Sensitivity ≥ 95%",
@@ -242,8 +218,6 @@ STRINGS = {
         "specificity": "Specificity",
         "select": "Select",
 
-=======
->>>>>>> Stashed changes
         "patient_title": "Patient Information",
         "patient_id": "Patient ID",
         "age": "Age",
@@ -266,11 +240,7 @@ STRINGS = {
         "upload_requires_five": "Select exactly 5 CSV files to start analysis.",
         "upload_ready": "5 CSV files selected.",
         "start_analysis": "Start Analysis",
-<<<<<<< Updated upstream
         "confirm_analysis": "Analyze {n} spectra for patient {patient_id} using the standard decision rule?",
-=======
-        "confirm_analysis": "Analyze {n} spectra for patient {patient_id}?",
->>>>>>> Stashed changes
 
         "qc_title": "Quality Control Review",
         "qc_pass": "Pass",
@@ -299,35 +269,23 @@ STRINGS = {
         "view_results": "View Results",
 
         "results_title": "Analysis Results",
-<<<<<<< Updated upstream
         "positive": "Further Evaluation Recommended",
         "negative": "Below Decision Threshold",
         "screening_index": "SSI Score",
+        "ssi": "SSI",
+        "final_decision": "Final Decision",
+        "strong_positive": "Strong Positive",
+        "positive_decision": "Further Evaluation Recommended",
+        "negative_decision": "Below Decision Threshold",
+        "invalid_decision": "Invalid Test",
         "estimated_type": "Top Estimated Cancer Type",
         "confidence": "Classification Probability",
         "confidence_high": "High classification probability",
         "confidence_medium": "Moderate classification probability",
         "confidence_low": "Low classification probability",
         "type_probabilities": "Cancer Type Classification Probabilities",
-=======
-        "positive": "Positive",
-        "negative": "Negative",
-        "screening_index": "Screening Index",
-        "ssi": "SSI",
-        "final_decision": "Final Decision",
-        "strong_positive": "Strong Positive",
-        "positive_decision": "Positive",
-        "negative_decision": "Negative",
-        "invalid_decision": "Invalid Test",
-        "estimated_type": "Estimated Cancer Type",
-        "confidence": "Confidence",
-        "confidence_high": "High",
-        "confidence_medium": "Medium",
-        "confidence_low": "Low",
-        "type_probabilities": "Cancer Type Probabilities",
         "top_type_rationale": "Top Type Rationale",
         "probability_gap": "Probability Gap",
->>>>>>> Stashed changes
         "replicate_details": "Replicate Details",
         "disclaimer": "This result is a model-based screening reference. The SSI score and cancer type probabilities are not a final diagnosis and do not represent strong/weak positive grades. Final interpretation should be made by a clinical specialist.",
 
@@ -339,10 +297,6 @@ STRINGS = {
         "cancer_CPAN": "Pancreatic",
         "cancer_PAN": "Pancreatic",
         "cancer_OVA": "Ovarian",
-<<<<<<< Updated upstream
-=======
-        "cancer_BRE": "Breast",
->>>>>>> Stashed changes
         "cancer_BLC": "Bladder",
 
         "generate_report": "Generate Report",

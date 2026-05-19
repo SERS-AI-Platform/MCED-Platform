@@ -18,7 +18,7 @@ def run_script(script_path: str, args: list[str] | None = None) -> None:
     Parameters
     ----------
     script_path : str
-        Path relative to PROJECT_ROOT (e.g. "models/train.py").
+        Path relative to PROJECT_ROOT (e.g. "scripts/training/train_usersnet.py").
     args : list[str], optional
         CLI arguments to pass to the script.
     """

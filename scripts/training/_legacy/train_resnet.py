@@ -2233,9 +2233,9 @@ def main():
     logger.info(f"  Output: {experiment_dir}/")
     if args.benchmark_models:
         logger.info(f"  Benchmark summary: {benchmark_dir / 'benchmark_summary.csv'}")
-        logger.info(f"  Next: python models/test.py -i {experiment_dir / model_names[0]}")
+        logger.info(f"  Next: python models/legacy/scripts/test.py -i {experiment_dir / model_names[0]}")
     else:
-        logger.info(f"  Next: python models/test.py -i {experiment_dir / model_names[0]}")
+        logger.info(f"  Next: python models/legacy/scripts/test.py -i {experiment_dir / model_names[0]}")
     logger.info(f"{'=' * 64}")
     return 0
 

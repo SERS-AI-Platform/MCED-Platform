@@ -30,9 +30,8 @@ def production(stacking, output_dir, fit_pds, grid, pds_out):
         run_script("scripts/training/build_usersnet_production.py")
     else:
         args = []
-        if output_dir:
-            args += ["--output-dir", output_dir]
-        run_script("scripts/training/_legacy/build_lr_fusion.py", args)
+        args += ["--output-dir", output_dir or "artifacts/baselines/lr-fusion/v1.0.0"]
+        run_script("models/legacy/scripts/build_production_model.py", args)
 
     if fit_pds:
         pds_args = []

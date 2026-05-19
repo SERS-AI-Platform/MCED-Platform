@@ -41,12 +41,12 @@ if errorlevel 1 (
 REM Verify model artifacts exist
 echo.
 echo [2/4] Verifying model artifacts...
-if not exist "models\production_stacking\manifest.json" (
-    echo WARNING: Stacking model not found at models\production_stacking
+if not exist "artifacts\usersnet\current\manifest.json" (
+    echo WARNING: uSERS-Net model not found at artifacts\usersnet\current
     echo Build will continue with LR fallback model only.
 )
-if not exist "models\production\manifest.json" (
-    echo ERROR: No production model found at models\production
+if not exist "artifacts\baselines\lr-fusion\v1.0.0\manifest.json" (
+    echo ERROR: No LR fallback model found at artifacts\baselines\lr-fusion\v1.0.0
     pause
     exit /b 1
 )

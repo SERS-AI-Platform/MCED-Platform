@@ -24,13 +24,10 @@
             {% else %}{{ s.model_sers_only }}{% endif %}
         </span>
     </div>
-<<<<<<< Updated upstream
     <div class="patient-bar-item">
         <span class="patient-bar-label">{{ s.analysis_standard }}:</span>
         <span class="patient-bar-value">{{ s.standard_decision_rule }}</span>
     </div>
-=======
->>>>>>> Stashed changes
 </div>
 
 <div class="card">
@@ -53,12 +50,7 @@
             {% endif %}
         </div>
         <div class="result-sub">
-<<<<<<< Updated upstream
             {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
-=======
-            {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
-            &middot; {{ s.ssi }}: {{ "%.1f"|format(ssi) }} / 10
->>>>>>> Stashed changes
             {% if prediction.majority_vote %} &middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
         </div>
     </div>

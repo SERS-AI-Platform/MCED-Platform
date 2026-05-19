@@ -8,7 +8,7 @@ from pathlib import Path
 
 # When running PyInstaller, __file__ may not be defined.
 # Use SPECPATH which is the directory of this .spec file.
-PROJECT_ROOT = Path(SPECPATH).resolve().parents[1]
+PROJECT_ROOT = Path(SPECPATH).resolve().parents[2]
 
 # Files to bundle (templates, static files, model artifacts)
 datas = [
@@ -16,18 +16,17 @@ datas = [
     (str(PROJECT_ROOT / 'scripts' / 'deployment' / 'templates'), 'scripts/deployment/templates'),
     (str(PROJECT_ROOT / 'scripts' / 'deployment' / 'static'), 'scripts/deployment/static'),
 
-    # Model artifacts (Stacking V2)
-    (str(PROJECT_ROOT / 'models' / 'production_stacking'), 'models/production_stacking'),
+    # Model artifacts (uSERS-Net / STK-V2)
+    (str(PROJECT_ROOT / 'artifacts' / 'usersnet' / 'current'), 'artifacts/usersnet/current'),
 
     # Fallback LR model
-    (str(PROJECT_ROOT / 'models' / 'production'), 'models/production'),
+    (str(PROJECT_ROOT / 'artifacts' / 'baselines' / 'lr-fusion' / 'v1.0.0'),
+     'artifacts/baselines/lr-fusion/v1.0.0'),
 
     # Source code
     (str(PROJECT_ROOT / 'src' / 'sers'), 'src/sers'),
-    (str(PROJECT_ROOT / 'scripts' / 'analysis' / 'stacking_ensemble.py'),
-     'scripts/analysis'),
-    (str(PROJECT_ROOT / 'scripts' / 'analysis' / 'weekend_experiments' / 'stacking_optimization.py'),
-     'scripts/analysis/weekend_experiments'),
+    (str(PROJECT_ROOT / 'scripts' / 'training' / 'train_usersnet.py'),
+     'scripts/training'),
 ]
 
 hiddenimports = [

@@ -10,7 +10,7 @@ Usage:
     python scripts/sers_predict.py *.CSV --output results.json --quiet
 
 Prerequisites:
-    python models/build_production_model.py   # Run once to build model artifacts
+    python scripts/training/build_usersnet_production.py
 """
 
 from __future__ import annotations
@@ -68,13 +68,13 @@ class ProductionPredictor:
 
     def __init__(self, artifact_dir: Path | str = None):
         if artifact_dir is None:
-            artifact_dir = PROJECT_ROOT / "models" / "production"
+            artifact_dir = PROJECT_ROOT / "artifacts" / "baselines" / "lr-fusion" / "v1.0.0"
         self.artifact_dir = Path(artifact_dir)
 
         if not self.artifact_dir.exists():
             raise FileNotFoundError(
                 f"Model artifacts not found at {self.artifact_dir}\n"
-                f"Run: python models/build_production_model.py"
+                f"Run: sers production -o artifacts/baselines/lr-fusion/v1.0.0"
             )
 
         # Load manifest
@@ -660,13 +660,13 @@ class StackingPredictor(ProductionPredictor):
 
     def __init__(self, artifact_dir: Path | str = None):
         if artifact_dir is None:
-            artifact_dir = PROJECT_ROOT / "models" / "production_stacking"
+            artifact_dir = PROJECT_ROOT / "artifacts" / "usersnet" / "current"
         self.artifact_dir = Path(artifact_dir)
 
         if not self.artifact_dir.exists():
             raise FileNotFoundError(
                 f"Stacking model artifacts not found at {self.artifact_dir}\n"
-                f"Run: python models/build_production_stacking.py"
+                f"Run: python scripts/training/build_usersnet_production.py"
             )
 
         with open(self.artifact_dir / "manifest.json") as f:

@@ -56,4 +56,4 @@ def test(input, processed_csv, device, tsne_dim, no_shap, no_feature_selection,
         args.append("--no-feature-selection")
     if no_gradcam:
         args.append("--no-gradcam")
-    run_script("models/test.py", args)
+    run_script("models/legacy/scripts/test.py", args)

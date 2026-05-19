@@ -9,10 +9,15 @@ SSI_SCALE = 10.0
 
 
 def screening_index_to_ssi(screening_index: float | None) -> float:
-    """Convert patient-level cancer probability to the 0-10 SSI display scale."""
+    """Return SSI on the 0-10 display scale.
+
+    Older saved rows may store a 0-1 probability-like screening index, while
+    current predictions store SSI directly.
+    """
     value = float(screening_index or 0.0)
-    value = min(max(value, 0.0), 1.0)
-    return round(value * SSI_SCALE, 1)
+    if value <= 1.0:
+        return round(min(max(value, 0.0), 1.0) * SSI_SCALE, 1)
+    return round(min(max(value, 0.0), SSI_SCALE), 1)
 
 
 def final_decision(prediction: dict, qc_valid: bool) -> str:

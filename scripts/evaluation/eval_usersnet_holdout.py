@@ -47,7 +47,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.sers.preprocessing import trim_spectrum, baseline_correction, normalize_spectrum, resample
 from src.sers.io import find_spectra, read_spectrum, parse_filename
 from sers.models.usersnet.stacking import build_classifier
-from models.train_stacking import (
+from scripts.training.train_usersnet import (
     extract_peak_features, train_base_model_ext,
     EXTENDED_BASE_MODELS, KNOWN_PEAKS,
 )
@@ -87,7 +87,7 @@ THERMO_MAP = {
 GROUP_ALIASES = {"CPAN": "PAN", "YPAN": "PAN", "YNOR": "NOR"}
 
 OUTPUT_DIR = PROJECT_ROOT / "results" / "training" / "stacking_v2_holdout"
-FIG_DIR = PROJECT_ROOT / "figures" / "training" / "stacking_v2_holdout"
+FIG_DIR = PROJECT_ROOT / "results" / "figures" / "training" / "stacking_v2_holdout"
 
 
 # ─────────────────────────────────────────────────────────────────

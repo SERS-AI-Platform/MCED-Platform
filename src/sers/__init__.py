@@ -59,27 +59,37 @@ from .analysis import (
     generate_dataset_report,
     get_group_statistics,
 )
-from .visualization import (
-    build_mean_spectrum_profile,
-    build_shap_spectrum_profile,
-    compute_gradient_shap_values,
-    plot_binary_shap_summary,
-    plot_class_shap_summary,
-    plot_cancer_peak_difference,
-    plot_confusion_summary_bar,
-    plot_group_peak_difference,
-    plot_mean_spectrum,
-    plot_mean_spectra_overlay,
-    plot_multiclass_shap_summary,
-    plot_peak_intensity_overview,
-    plot_peak_intensity_profile,
-    plot_shap_feature_importance_bar,
-    plot_shap_mean_magnitude_spectrum,
-    plot_shap_mean_signed_spectrum,
-    summarize_confusion_pairs,
-    summarize_spectrum_peaks,
-    summarize_shap_feature_importance,
-)
+
+_VISUALIZATION_EXPORTS = {
+    "build_mean_spectrum_profile",
+    "build_shap_spectrum_profile",
+    "compute_gradient_shap_values",
+    "plot_binary_shap_summary",
+    "plot_class_shap_summary",
+    "plot_cancer_peak_difference",
+    "plot_confusion_summary_bar",
+    "plot_group_peak_difference",
+    "plot_mean_spectrum",
+    "plot_mean_spectra_overlay",
+    "plot_multiclass_shap_summary",
+    "plot_peak_intensity_overview",
+    "plot_peak_intensity_profile",
+    "plot_shap_feature_importance_bar",
+    "plot_shap_mean_magnitude_spectrum",
+    "plot_shap_mean_signed_spectrum",
+    "summarize_confusion_pairs",
+    "summarize_spectrum_peaks",
+    "summarize_shap_feature_importance",
+}
+
+
+def __getattr__(name):
+    """Lazy-load visualization helpers so model/training imports stay headless."""
+    if name in _VISUALIZATION_EXPORTS:
+        from . import visualization
+
+        return getattr(visualization, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [

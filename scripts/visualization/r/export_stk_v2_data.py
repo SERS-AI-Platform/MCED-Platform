@@ -5,9 +5,14 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
-SRC = ROOT / "results" / "training" / "stacking_optimization_v2"
-OOF_DIR = ROOT / "results" / "weekend_experiments" / "stacking_optimization"
-OUT = SRC / "r_data"
+RUN_DIR = ROOT / "results" / "training" / "stacking_v2"
+SRC = RUN_DIR / "analysis"
+LEGACY_OOF_DIR = (
+    ROOT / "results" / "legacy" / "hidden_2026-05-19"
+    / "top_level" / "weekend_experiments" / "stacking_optimization"
+)
+OOF_DIR = RUN_DIR if (RUN_DIR / "best_ensemble_config.json").exists() else LEGACY_OOF_DIR
+OUT = RUN_DIR / "r_data"
 OUT.mkdir(exist_ok=True)
 
 # 1. Per-base top features (long format)
