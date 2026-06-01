@@ -37,17 +37,19 @@ SELECT * FROM (VALUES
     ('SMCXD06_폐암 3.xlsx',            'LUN',  'SMCXD06', 'SNUH'),
     ('SMCXD06_대장암.xlsx',            'CRC',  'SMCXD06', 'CBNUH'),
     ('SMCMD06_췌장암.xlsx',            'CPAN', 'SMCMD06', 'CBNUH'),
+    ('SMCXD01_유방암.xlsx',            'BRE',  'SMCXD01', 'IJBPH'),
+    ('SMCXD06_방광암.xlsm',            'BLC',  'SMCXD06', 'CBNUH'),
     ('SMCXD03_정상인 1.xlsx',          'NOR',  'SMCXD03', 'YPNUH'),
     ('SMCXD03_정상인 2.xlsx',          'NOR',  'SMCXD03', 'YPNUH'),
     ('SMCXD03_당뇨 1.xlsx',            'DIA',  'SMCXD03', 'YPNUH'),
     ('SMCXD03_당뇨 2.xlsx',            'DIA',  'SMCXD03', 'YPNUH'),
     ('SMCXD03_고혈압.xlsx',            'HBP',  'SMCXD03', 'YPNUH'),
-    ('SMCXD05_당뇨+고혈압.xlsx',       'HD',   'SMCXD05', 'YPNUH')
+    ('SMCXD05_당뇨+고혈압.xlsx',       'H.D.', 'SMCXD05', 'YPNUH')
 ) AS t(source_file, disease_group, protocol, hospital_code);
 
 -- ---------------------------------------------------------------------
 -- 통합 임상 테이블
--- WHY: 9개 질환그룹(PRO/OVA/LUN/CRC/CPAN/NOR/DIA/HBP/HD) 공통 스키마
+-- WHY: config group_metadata 기준 질환그룹 공통 스키마
 --      blood_ = 혈액검사, urine_ = 소변검사, hx_ = 과거력
 -- ---------------------------------------------------------------------
 DROP TABLE IF EXISTS std.clinical_unified;
@@ -193,4 +195,4 @@ CREATE INDEX idx_cu_solum_label   ON std.clinical_unified(solum_label);
 CREATE INDEX idx_cu_resource_code ON std.clinical_unified(resource_code);
 
 COMMENT ON TABLE std.clinical_unified IS
-  '9개 질환그룹 통합 임상 테이블 (PRO/OVA/LUN/CRC/CPAN/NOR/DIA/HBP/HD) — blood_=혈액, urine_=소변';
+  'config group_metadata 기준 통합 임상 테이블 — blood_=혈액, urine_=소변';

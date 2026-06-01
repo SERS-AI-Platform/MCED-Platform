@@ -32,7 +32,7 @@ INSERT INTO std.clinical_unified (
     surgery_name, histologic_type, diagnosis_name
 )
 SELECT
-    disease_group, protocol, source_file,
+    'CRC', protocol, source_file,
     no::TEXT, provider_code::TEXT, lot_no::TEXT,
     CASE WHEN UPPER(TRIM(sex::TEXT)) IN ('M','남','남자') THEN 'M'
          WHEN UPPER(TRIM(sex::TEXT)) IN ('F','여','여자') THEN 'F'
@@ -65,7 +65,14 @@ SELECT
     t_stage::TEXT, n_stage::TEXT, m_stage::TEXT,
     surgery_name::TEXT, histologic_type::TEXT, diagnosis_name::TEXT
 FROM raw.raw_col
-WHERE no IS NOT NULL;
+WHERE no IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM std.clinical_unified cu
+      WHERE cu.disease_group = 'CRC'
+        AND cu.source_file = raw.raw_col.source_file
+        AND cu.source_no = raw.raw_col.no::TEXT
+  );
 
 -- --- solum_label ----------------------------------------------------
 UPDATE std.clinical_unified
