@@ -26,9 +26,25 @@ from matplotlib.gridspec import GridSpec
 from sklearn.metrics import roc_curve, auc as _auc
 
 try:
-    from .utils import reconstruct_stacking_oof, get_palette_and_labels
+    from .utils import (
+        NATURE_MUTED,
+        add_panel_label,
+        apply_nature_style,
+        get_palette_and_labels,
+        reconstruct_stacking_oof,
+        save_nature_figure,
+        style_axis,
+    )
 except ImportError:
-    from utils import reconstruct_stacking_oof, get_palette_and_labels
+    from utils import (  # type: ignore
+        NATURE_MUTED,
+        add_panel_label,
+        apply_nature_style,
+        get_palette_and_labels,
+        reconstruct_stacking_oof,
+        save_nature_figure,
+        style_axis,
+    )
 
 
 def boot_ci_recall(y_true: np.ndarray, y_pred: np.ndarray, n=2000, seed=42):
@@ -51,6 +67,7 @@ def main():
     ap.add_argument('--fig-dir', type=str, default=None, help='Figure output dir (default: results/figures/training/stacking_v2)')
     ap.add_argument('--dpi', type=int, default=300)
     args = ap.parse_args()
+    apply_nature_style()
 
     # Defaults consistent with repo config.py (RESULTS_DIR/FIG_DIR)
     project_root = Path(__file__).resolve().parents[0]
@@ -86,25 +103,25 @@ def main():
         metrics_rows.append({'cancer': c, 'n_pos': int(y_true_bin.sum()), 'recall': r, 'ci_lo': lo, 'ci_hi': hi})
 
     # OVR ROC for each class using probabilities
-    fig = plt.figure(figsize=(14.5, 5.6))
-    gs = GridSpec(1, 2, width_ratios=[1, 1.2], wspace=0.28)
+    fig = plt.figure(figsize=(7.35, 3.55))
+    gs = GridSpec(1, 2, width_ratios=[1, 1.22], wspace=0.30)
 
     # Left: bar plot
     ax0 = fig.add_subplot(gs[0])
     xs = np.arange(n_classes)
     bar_colors = [colors[c] for c in order]
-    ax0.bar(xs, recalls, color=bar_colors, edgecolor='black', linewidth=0.6)
+    ax0.bar(xs, recalls, color=bar_colors, edgecolor='white', linewidth=0.5, width=0.72)
     ax0.errorbar(xs, recalls, yerr=[np.array(recalls) - np.array(ci_lo), np.array(ci_hi) - np.array(recalls)],
-                fmt='none', ecolor='black', elinewidth=1.0, capsize=3)
-    for x, r, n in zip(xs, recalls, [m['n_pos'] for m in metrics_rows]):
-        ax0.text(x, r + 0.03, f"{r:.3f}\n(n={n})", ha='center', fontsize=9)
-        ax0.set_xticks(xs)
-        ax0.set_xticklabels(labels_disp, rotation=0)
-        ax0.set_ylim(0, 1.1)
-        ax0.set_ylabel('Sensitivity (Recall)')
-        ax0.set_title('STK-V2 — Per-cancer Sensitivity (OOF)', fontweight='bold')
-        ax0.grid(alpha=0.25, axis='y')
-        ax0.set_axisbelow(True)
+                fmt='none', ecolor=NATURE_MUTED, elinewidth=0.75, capsize=2.3, capthick=0.75)
+    for x, r in zip(xs, recalls):
+        ax0.text(x, min(r + 0.025, 1.085), f"{r:.2f}", ha='center', fontsize=6.8, color=NATURE_MUTED)
+    ax0.set_xticks(xs)
+    ax0.set_xticklabels(labels_disp, rotation=0)
+    ax0.set_ylim(0, 1.10)
+    ax0.set_ylabel('Sensitivity')
+    ax0.set_title('Per-cancer sensitivity')
+    style_axis(ax0, grid='y')
+    add_panel_label(ax0, 'a', x=-0.18, y=1.08)
 
     # Right: OVR ROC curves
     ax1 = fig.add_subplot(gs[1])
@@ -115,19 +132,21 @@ def main():
         p = s2_prob[cancer_mask, ci]
         fpr, tpr, _ = roc_curve(y_true_bin, p)
         roc_auc = _auc(fpr, tpr)
-        ax1.plot(fpr, tpr, lw=2, color=colors[c], label=f"{c} (AUC={roc_auc:.3f})")
-    ax1.plot([0, 1], [0, 1], color='#999', lw=1, ls='--')
+        ax1.plot(fpr, tpr, lw=1.15, color=colors[c], label=f"{c} {roc_auc:.2f}")
+    ax1.plot([0, 1], [0, 1], color=NATURE_MUTED, lw=0.8, ls=(0, (3, 3)))
     ax1.set_xlim(0, 1)
     ax1.set_ylim(0, 1)
-    ax1.set_xlabel('False Positive Rate')
-    ax1.set_ylabel('True Positive Rate')
-    ax1.set_title('STK-V2 — One-vs-Rest ROC (Cancer-only, OOF)', fontweight='bold')
-    ax1.legend(fontsize=8, ncol=2, loc='lower right')
-    ax1.grid(alpha=0.25)
+    ax1.set_aspect('equal', adjustable='box')
+    ax1.set_xlabel('False positive rate')
+    ax1.set_ylabel('True positive rate')
+    ax1.set_title('One-vs-rest ROC')
+    style_axis(ax1, grid='both')
+    ax1.legend(fontsize=6.3, ncol=1, loc='lower right', title='AUROC', title_fontsize=6.5)
+    add_panel_label(ax1, 'b', x=-0.16, y=1.08)
 
     out_png = fig_dir / 'stk_v2_fig2_type_id.png'
-    plt.tight_layout()
-    plt.savefig(out_png, dpi=args.dpi, bbox_inches='tight')
+    fig.subplots_adjust(left=0.08, right=0.99, bottom=0.16, top=0.86, wspace=0.32)
+    save_nature_figure(fig, out_png, dpi=args.dpi)
     plt.close(fig)
 
     pd.DataFrame(metrics_rows).to_csv(fig_dir / 'stk_v2_fig2_type_id_metrics.csv', index=False, encoding='utf-8-sig')

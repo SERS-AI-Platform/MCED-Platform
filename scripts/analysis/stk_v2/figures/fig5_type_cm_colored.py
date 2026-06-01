@@ -21,9 +21,25 @@ from matplotlib.colors import to_rgba
 from sklearn.metrics import confusion_matrix
 
 try:
-    from .utils import reconstruct_stacking_oof, get_palette_and_labels
+    from .utils import (
+        NATURE_TEXT,
+        apply_nature_style,
+        get_palette_and_labels,
+        reconstruct_stacking_oof,
+        save_nature_figure,
+        softened_color,
+        style_matrix_axis,
+    )
 except ImportError:
-    from utils import reconstruct_stacking_oof, get_palette_and_labels
+    from utils import (  # type: ignore
+        NATURE_TEXT,
+        apply_nature_style,
+        get_palette_and_labels,
+        reconstruct_stacking_oof,
+        save_nature_figure,
+        softened_color,
+        style_matrix_axis,
+    )
 
 
 def main():
@@ -32,6 +48,7 @@ def main():
     ap.add_argument('--fig-dir', type=str, default=None, help='Figure output dir (default: results/figures/training/stacking_v2)')
     ap.add_argument('--dpi', type=int, default=300)
     args = ap.parse_args()
+    apply_nature_style()
 
     run_dir = Path(args.run_dir) if args.run_dir else Path('results') / 'training' / 'stacking_v2'
     fig_dir = Path(args.fig_dir) if args.fig_dir else Path('results') / 'figures' / 'training' / 'stacking_v2'
@@ -54,39 +71,40 @@ def main():
     rgba = np.ones((n, n, 4))
     for i, cancer in enumerate(order):
         base = np.array(to_rgba(colors[cancer]))
+        base[:3] = softened_color(colors[cancer], amount=0.08)
         for j in range(n):
             v = cm_norm[i, j]
             rgba[i, j] = (1 - v) * np.array([1, 1, 1, 1]) + v * base
             rgba[i, j, 3] = 1.0
 
-    fig, ax = plt.subplots(figsize=(7.7, 6.6))
+    fig, ax = plt.subplots(figsize=(4.85, 4.45))
     ax.imshow(rgba, aspect='equal')
 
     for (i, j), v in np.ndenumerate(cm):
         norm_v = cm_norm[i, j]
+        if int(v) == 0 and norm_v < 0.005:
+            continue
         txt = f"{v}\n({norm_v:.2f})"
-        col = 'black' if norm_v < 0.55 else 'white'
-        ax.text(j, i, txt, ha='center', va='center', color=col, fontsize=10,
+        col = NATURE_TEXT if norm_v < 0.55 else 'white'
+        ax.text(j, i, txt, ha='center', va='center', color=col, fontsize=7.4,
                 fontweight='bold' if i == j else 'normal')
 
     ax.set_xticks(range(n)); ax.set_yticks(range(n))
-    ax.set_xticklabels(labels_disp, fontsize=10)
-    ax.set_yticklabels(labels_disp, fontsize=10)
+    ax.set_xticklabels(labels_disp)
+    ax.set_yticklabels(labels_disp)
 
     for tick, cancer in zip(ax.get_yticklabels(), order):
         tick.set_color(colors[cancer]); tick.set_fontweight('bold')
     for tick, cancer in zip(ax.get_xticklabels(), order):
         tick.set_color(colors[cancer]); tick.set_fontweight('bold')
 
-    ax.set_xlabel('Predicted'); ax.set_ylabel('True')
-    ax.set_xticks(np.arange(-0.5, n), minor=True)
-    ax.set_yticks(np.arange(-0.5, n), minor=True)
-    ax.grid(which='minor', color='white', linewidth=1.2)
-    ax.tick_params(which='minor', length=0)
+    ax.set_xlabel('Predicted class'); ax.set_ylabel('True class')
+    ax.set_title('Cancer-type confusion matrix')
+    style_matrix_axis(ax, n, n)
 
     plt.tight_layout()
     out_png = fig_dir / 'stk_v2_fig5_type_cm_colored.png'
-    plt.savefig(out_png, dpi=args.dpi, bbox_inches='tight')
+    save_nature_figure(fig, out_png, dpi=args.dpi)
     plt.close(fig)
 
     pd.DataFrame(cm, index=labels_disp, columns=labels_disp).to_csv(fig_dir / 'stk_v2_fig5_type_cm_counts.csv', encoding='utf-8-sig')

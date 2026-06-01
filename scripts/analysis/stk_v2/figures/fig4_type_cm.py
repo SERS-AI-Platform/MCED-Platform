@@ -23,9 +23,39 @@ from matplotlib.gridspec import GridSpec
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 
 try:
-    from .utils import reconstruct_stacking_oof, get_palette_and_labels
+    from .utils import (
+        NATURE_BLUE,
+        NATURE_GOLD,
+        NATURE_MUTED,
+        NATURE_RED,
+        NATURE_TEAL,
+        NATURE_TEXT,
+        add_panel_label,
+        apply_nature_style,
+        get_palette_and_labels,
+        light_colormap,
+        reconstruct_stacking_oof,
+        save_nature_figure,
+        style_axis,
+        style_matrix_axis,
+    )
 except ImportError:
-    from utils import reconstruct_stacking_oof, get_palette_and_labels
+    from utils import (  # type: ignore
+        NATURE_BLUE,
+        NATURE_GOLD,
+        NATURE_MUTED,
+        NATURE_RED,
+        NATURE_TEAL,
+        NATURE_TEXT,
+        add_panel_label,
+        apply_nature_style,
+        get_palette_and_labels,
+        light_colormap,
+        reconstruct_stacking_oof,
+        save_nature_figure,
+        style_axis,
+        style_matrix_axis,
+    )
 
 
 def main():
@@ -34,6 +64,7 @@ def main():
     ap.add_argument('--fig-dir', type=str, default=None, help='Figure output dir (default: results/figures/training/stacking_v2)')
     ap.add_argument('--dpi', type=int, default=300)
     args = ap.parse_args()
+    apply_nature_style()
 
     run_dir = Path(args.run_dir) if args.run_dir else Path('results') / 'training' / 'stacking_v2'
     fig_dir = Path(args.fig_dir) if args.fig_dir else Path('results') / 'figures' / 'training' / 'stacking_v2'
@@ -70,88 +101,92 @@ def main():
         per_sensitivity[idx] = tp / (tp + fn) if (tp + fn) > 0 else 0
         per_specificity[idx] = tn / (tn + fp) if (tn + fp) > 0 else 0
 
-    fig = plt.figure(figsize=(11.4, 5.8))
+    fig = plt.figure(figsize=(7.35, 3.75))
     gs = GridSpec(1, 2, width_ratios=[1.25, 1.0], wspace=0.32)
     ax_cm = fig.add_subplot(gs[0])
     ax_f1 = fig.add_subplot(gs[1])
 
-    im = ax_cm.imshow(cm_norm, cmap='Blues', vmin=0, vmax=1, aspect='auto')
+    im = ax_cm.imshow(cm_norm, cmap=light_colormap('fig4_confusion_blue', NATURE_BLUE), vmin=0, vmax=1, aspect='equal')
     for (i, j), v in np.ndenumerate(cm):
         norm_v = cm_norm[i, j]
-        txt = f"{v}({norm_v:.2f})"
+        if int(v) == 0 and norm_v < 0.005:
+            continue
+        txt = f"{v}\n{norm_v:.2f}"
         ax_cm.text(j, i, txt,
                    ha='center', va='center',
-                   color='white' if norm_v > 0.5 else 'black',
-                   fontsize=9,
+                   color='white' if norm_v > 0.62 else NATURE_TEXT,
+                   fontsize=6.8,
                    fontweight='bold' if i == j else 'normal')
 
     ax_cm.set_xticks(range(n_classes)); ax_cm.set_yticks(range(n_classes))
     ax_cm.set_xticklabels(labels_disp, rotation=0)
     ax_cm.set_yticklabels(labels_disp)
     ax_cm.set_xlabel('Predicted'); ax_cm.set_ylabel('True')
-    plt.colorbar(im, ax=ax_cm, fraction=0.046, pad=0.04, label='Row-normalized')
+    ax_cm.set_title('Confusion matrix')
+    style_matrix_axis(ax_cm, n_classes, n_classes)
+    add_panel_label(ax_cm, 'a', x=-0.18, y=1.08)
 
     xs = np.arange(n_classes)
     bar_colors = [colors[c] for c in order]
-    ax_f1.bar(xs, per_f1, color=bar_colors, edgecolor='black', linewidth=0.6)
+    ax_f1.bar(xs, per_f1, color=bar_colors, edgecolor='white', linewidth=0.5, width=0.72)
     for x, f, n in zip(xs, per_f1, cm.sum(axis=1)):
-        ax_f1.text(x, f + 0.02, f"{f:.3f}\n(n={int(n)})", ha='center', fontsize=8.5)
+        ax_f1.text(x, min(f + 0.025, 1.085), f"{f:.2f}", ha='center', fontsize=6.6, color=NATURE_MUTED)
 
-    ax_f1.axhline(macro_f1, color='#C0392B', lw=1.5, ls='--', label=f"Macro F1 = {macro_f1:.3f}")
-    ax_f1.axhline(weighted_f1, color='#444', lw=1.2, ls=':', label=f"Weighted F1 = {weighted_f1:.3f}")
+    ax_f1.axhline(macro_f1, color=NATURE_RED, lw=1.0, ls='--', label=f"Macro F1 {macro_f1:.2f}")
+    ax_f1.axhline(weighted_f1, color=NATURE_MUTED, lw=0.95, ls=':', label=f"Weighted F1 {weighted_f1:.2f}")
     ax_f1.set_xticks(xs); ax_f1.set_xticklabels(labels_disp)
-    ax_f1.set_ylim(0, 1.1)
+    ax_f1.set_ylim(0, 1.12)
     ax_f1.set_ylabel('F1 score')
-    ax_f1.grid(alpha=0.25, axis='y'); ax_f1.set_axisbelow(True)
-    ax_f1.legend(loc='lower right', fontsize=8.5)
+    ax_f1.set_title('Per-cancer F1')
+    style_axis(ax_f1, grid='y')
+    ax_f1.legend(loc='upper left', bbox_to_anchor=(0.00, -0.18), ncol=2, columnspacing=1.0, handlelength=1.7)
+    add_panel_label(ax_f1, 'b', x=-0.18, y=1.08)
 
-    plt.tight_layout()
+    fig.subplots_adjust(left=0.07, right=0.99, bottom=0.24, top=0.86, wspace=0.30)
     out_png = fig_dir / 'stk_v2_fig4_type_cm_f1.png'
-    plt.savefig(out_png, dpi=args.dpi, bbox_inches='tight')
+    save_nature_figure(fig, out_png, dpi=args.dpi)
     plt.close(fig)
 
     # ── Figure 2: Sensitivity/Specificity 바 차트 ──
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(5.35, 3.1))
     xs = np.arange(n_classes)
     width = 0.35
 
-    ax.bar(xs - width/2, per_sensitivity, width, label='Sensitivity', color='#2E86AB', edgecolor='black', linewidth=0.6)
-    ax.bar(xs + width/2, per_specificity, width, label='Specificity', color='#A23B72', edgecolor='black', linewidth=0.6)
+    ax.bar(xs - width/2, per_sensitivity, width, label='Sensitivity', color=NATURE_BLUE, edgecolor='white', linewidth=0.5)
+    ax.bar(xs + width/2, per_specificity, width, label='Specificity', color=NATURE_RED, edgecolor='white', linewidth=0.5)
 
     ax.set_xticks(xs)
     ax.set_xticklabels(labels_disp)
     ax.set_ylim(0, 1.1)
     ax.set_ylabel('Score')
-    ax.set_title('Stage 2: Sensitivity vs Specificity by Cancer Type', fontweight='bold', fontsize=12)
-    ax.legend(loc='lower right', fontsize=10)
-    ax.grid(alpha=0.25, axis='y')
-    ax.set_axisbelow(True)
+    ax.set_title('Sensitivity and specificity')
+    ax.legend(loc='lower right')
+    style_axis(ax, grid='y')
 
     plt.tight_layout()
     out_png2 = fig_dir / 'stk_v2_fig4_type_sens_spec.png'
-    plt.savefig(out_png2, dpi=args.dpi, bbox_inches='tight')
+    save_nature_figure(fig, out_png2, dpi=args.dpi)
     plt.close(fig)
 
     # ── Figure 3: Precision/Recall 바 차트 ──
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(5.35, 3.1))
     xs = np.arange(n_classes)
     width = 0.35
 
-    ax.bar(xs - width/2, per_prec, width, label='Precision', color='#F18F01', edgecolor='black', linewidth=0.6)
-    ax.bar(xs + width/2, per_rec, width, label='Recall', color='#C73E1D', edgecolor='black', linewidth=0.6)
+    ax.bar(xs - width/2, per_prec, width, label='Precision', color=NATURE_GOLD, edgecolor='white', linewidth=0.5)
+    ax.bar(xs + width/2, per_rec, width, label='Recall', color=NATURE_RED, edgecolor='white', linewidth=0.5)
 
     ax.set_xticks(xs)
     ax.set_xticklabels(labels_disp)
     ax.set_ylim(0, 1.1)
     ax.set_ylabel('Score')
-    ax.set_title('Stage 2: Precision vs Recall by Cancer Type', fontweight='bold', fontsize=12)
-    ax.legend(loc='lower right', fontsize=10)
-    ax.grid(alpha=0.25, axis='y')
-    ax.set_axisbelow(True)
+    ax.set_title('Precision and recall')
+    ax.legend(loc='lower right')
+    style_axis(ax, grid='y')
 
     plt.tight_layout()
     out_png3 = fig_dir / 'stk_v2_fig4_type_prec_rec.png'
-    plt.savefig(out_png3, dpi=args.dpi, bbox_inches='tight')
+    save_nature_figure(fig, out_png3, dpi=args.dpi)
     plt.close(fig)
 
     # ── Figure 4: 모든 메트릭 Heatmap (암종 × 메트릭) ──
@@ -164,8 +199,8 @@ def main():
     ])
     metric_names = ['Sensitivity', 'Specificity', 'Precision', 'Recall', 'F1']
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(metrics_data.T, cmap='RdYlGn', vmin=0, vmax=1, aspect='auto')
+    fig, ax = plt.subplots(figsize=(5.2, 3.25))
+    im = ax.imshow(metrics_data.T, cmap=light_colormap('fig4_metric_teal', NATURE_TEAL), vmin=0, vmax=1, aspect='auto')
 
     # 각 셀에 값 표시
     for i in range(len(labels_disp)):
@@ -173,21 +208,24 @@ def main():
             val = metrics_data[i, j]
             ax.text(i, j, f'{val:.3f}',
                    ha='center', va='center',
-                   color='white' if val < 0.5 else 'black',
-                   fontsize=9, fontweight='bold')
+                   color='white' if val > 0.68 else NATURE_TEXT,
+                   fontsize=6.9, fontweight='bold' if val > 0.90 else 'normal')
 
     ax.set_xticks(range(n_classes))
-    ax.set_xticklabels(labels_disp, rotation=45, ha='right')
+    ax.set_xticklabels(labels_disp, rotation=0)
     ax.set_yticks(range(len(metric_names)))
     ax.set_yticklabels(metric_names)
-    ax.set_xlabel('Cancer Type', fontweight='bold')
-    ax.set_ylabel('Metric', fontweight='bold')
-    ax.set_title('Stage 2: Performance Metrics Heatmap', fontweight='bold', fontsize=12)
+    ax.set_xlabel('Cancer type')
+    ax.set_ylabel('Metric')
+    ax.set_title('Performance metrics')
+    style_matrix_axis(ax, len(metric_names), n_classes)
 
-    plt.colorbar(im, ax=ax, label='Score', fraction=0.046, pad=0.04)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.035)
+    cbar.set_label('Score', fontsize=7.2)
+    cbar.ax.tick_params(labelsize=6.8, length=2, width=0.5)
     plt.tight_layout()
     out_png4 = fig_dir / 'stk_v2_fig4_type_metrics_heatmap.png'
-    plt.savefig(out_png4, dpi=args.dpi, bbox_inches='tight')
+    save_nature_figure(fig, out_png4, dpi=args.dpi)
     plt.close(fig)
 
     # Save CSVs

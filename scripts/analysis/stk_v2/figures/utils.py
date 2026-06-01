@@ -23,11 +23,141 @@ import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, to_rgb
 import numpy as np
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
+
+
+NATURE_TEXT = '#1A1A1A'
+NATURE_MUTED = '#5F6368'
+NATURE_GRID = '#D9DEE2'
+NATURE_BLUE = '#2B6CB0'
+NATURE_RED = '#C94842'
+NATURE_TEAL = '#2A9D8F'
+NATURE_GOLD = '#D99A21'
+NATURE_PURPLE = '#7B3294'
+NATURE_GRAY = '#6E7781'
+
+NATURE_CANCER_COLORS = {
+    'CRC': '#2B6CB0',
+    'LUN': '#2A9D8F',
+    'BLC': '#D99A21',
+    'PRO': '#CC79A7',
+    'PAN': '#C94842',
+    'OVA': '#7B3294',
+    'BRE': '#56A6D6',
+}
+
+
+def nature_rcparams() -> dict[str, object]:
+    """Matplotlib defaults tuned for compact journal figures."""
+    return {
+        'font.family': 'sans-serif',
+        'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
+        'font.size': 8,
+        'axes.titlesize': 9,
+        'axes.labelsize': 8,
+        'axes.titleweight': 'bold',
+        'axes.labelcolor': NATURE_TEXT,
+        'axes.edgecolor': NATURE_TEXT,
+        'axes.linewidth': 0.65,
+        'xtick.labelsize': 7.5,
+        'ytick.labelsize': 7.5,
+        'xtick.color': NATURE_TEXT,
+        'ytick.color': NATURE_TEXT,
+        'xtick.major.size': 3,
+        'ytick.major.size': 3,
+        'xtick.major.width': 0.6,
+        'ytick.major.width': 0.6,
+        'xtick.direction': 'out',
+        'ytick.direction': 'out',
+        'legend.fontsize': 7,
+        'legend.frameon': False,
+        'legend.handlelength': 1.4,
+        'legend.borderaxespad': 0.3,
+        'figure.dpi': 150,
+        'figure.facecolor': 'white',
+        'savefig.dpi': 300,
+        'savefig.bbox': 'tight',
+        'savefig.pad_inches': 0.04,
+        'savefig.facecolor': 'white',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42,
+        'svg.fonttype': 'none',
+    }
+
+
+def apply_nature_style() -> None:
+    """Apply the shared STK-V2 journal figure style."""
+    mpl.rcParams.update(nature_rcparams())
+
+
+def style_axis(ax: plt.Axes, *, grid: str | None = None) -> None:
+    """Apply light, print-friendly axes styling."""
+    for side in ('top', 'right'):
+        ax.spines[side].set_visible(False)
+    for side in ('left', 'bottom'):
+        ax.spines[side].set_linewidth(0.65)
+        ax.spines[side].set_color(NATURE_TEXT)
+    ax.tick_params(axis='both', colors=NATURE_TEXT, width=0.6, length=3)
+    if grid:
+        ax.grid(axis=grid, color=NATURE_GRID, linewidth=0.55, alpha=0.75)
+        ax.set_axisbelow(True)
+
+
+def style_matrix_axis(ax: plt.Axes, n_rows: int, n_cols: int) -> None:
+    """Draw crisp cell boundaries for matrix-style panels."""
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
+    ax.grid(which='minor', color='white', linewidth=0.9)
+    ax.tick_params(which='minor', length=0)
+    ax.tick_params(axis='both', length=0)
+
+
+def add_panel_label(ax: plt.Axes, label: str, *, x: float = -0.12, y: float = 1.08) -> None:
+    ax.text(
+        x, y, label,
+        transform=ax.transAxes,
+        ha='left', va='top',
+        fontsize=11,
+        fontweight='bold',
+        color=NATURE_TEXT,
+    )
+
+
+def light_colormap(name: str, color: str) -> LinearSegmentedColormap:
+    """Single-hue colormap with a white low end for annotated heatmaps."""
+    return LinearSegmentedColormap.from_list(name, ['#FFFFFF', '#EAF1F6', color])
+
+
+def softened_color(color: str, amount: float = 0.35) -> tuple[float, float, float]:
+    """Blend a color toward white by amount."""
+    rgb = np.array(to_rgb(color))
+    return tuple((1 - amount) * rgb + amount * np.ones(3))
+
+
+def save_nature_figure(
+    fig: plt.Figure,
+    out: Path,
+    *,
+    dpi: int = 300,
+    aliases: list[Path] | None = None,
+    save_pdf: bool = True,
+) -> None:
+    """Save PNG plus an editable PDF companion for manuscript workflows."""
+    paths = [Path(out), *[Path(p) for p in aliases or []]]
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=dpi, bbox_inches='tight', facecolor='white', edgecolor='none')
+        if save_pdf and path.suffix.lower() != '.pdf':
+            fig.savefig(path.with_suffix('.pdf'), bbox_inches='tight', facecolor='white', edgecolor='none')
 
 
 def _make_meta_learners(n_classes: int):
@@ -247,15 +377,7 @@ def get_palette_and_labels():
         cancer_colors.update({'BRE': '#D4527A', 'BLC': '#E8960C'})
         labels = [AACR_LABELS.get(c, c) for c in order]
     except Exception:
-        cancer_colors = {
-            'CRC': '#E74C3C',
-            'LUN': '#3498DB',
-            'BLC': '#E8960C',
-            'PRO': '#9B59B6',
-            'PAN': '#F39C12',
-            'OVA': '#8E44AD',
-            'BRE': '#D4527A',
-        }
+        cancer_colors = dict(NATURE_CANCER_COLORS)
         labels = order
 
     return order, internal_idx, cancer_colors, labels
