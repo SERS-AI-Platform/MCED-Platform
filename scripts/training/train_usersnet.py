@@ -112,6 +112,22 @@ KNOWN_PEAKS = [
     (1651.1, "amide_I", 20),
 ]
 
+PEAK_RATIOS = [
+    ("phe_urea", "adenine"), ("phe_urea", "creatinine"),
+    ("hippuric", "creatinine"), ("CS_stretch", "creatinine"),
+    ("amide_I", "CH2_deform"), ("adenine", "purine_CC"),
+    ("tyrosine", "phe_urea"),
+]
+
+
+def peak_feature_names() -> list[str]:
+    """Match extract_peak_features layout: areas, heights, widths, shifts, ratios."""
+    names: list[str] = []
+    for kind in ("area", "height", "fwhm", "shift"):
+        names.extend([f"{peak_name}_{kind}" for _, peak_name, _ in KNOWN_PEAKS])
+    names.extend([f"ratio_{num}_over_{den}" for num, den in PEAK_RATIOS])
+    return names
+
 # ---------------------------------------------------------------------------
 # Extended base models
 # ---------------------------------------------------------------------------
@@ -177,12 +193,7 @@ def extract_peak_features(X, wavenumbers):
 
     features = [peak_areas, peak_heights, peak_fwhms, peak_shifts]
     pn2i = {p[1]: i for i, p in enumerate(KNOWN_PEAKS)}
-    for na, nb in [
-        ("phe_urea", "adenine"), ("phe_urea", "creatinine"),
-        ("hippuric", "creatinine"), ("CS_stretch", "creatinine"),
-        ("amide_I", "CH2_deform"), ("adenine", "purine_CC"),
-        ("tyrosine", "phe_urea"),
-    ]: 
+    for na, nb in PEAK_RATIOS:
         features.append(
             peak_areas[:, pn2i[na]:pn2i[na] + 1]
             / (peak_areas[:, pn2i[nb]:pn2i[nb] + 1] + 1e-10)
@@ -1024,6 +1035,7 @@ def run_fixed_split(
     sids_train = sample_ids[train_idx]
     sids_val = sample_ids[val_idx]
     sids_test = sample_ids[test_idx]
+    groups_train = groups_arr[train_idx] if groups_arr is not None else None
     groups_val = groups_arr[val_idx] if groups_arr is not None else None
     groups_test = groups_arr[test_idx] if groups_arr is not None else None
 
@@ -1043,6 +1055,27 @@ def run_fixed_split(
     X_peak_train = X_peak_all[train_idx]
     X_peak_val   = X_peak_all[val_idx]
     X_peak_test  = X_peak_all[test_idx]
+    atomic_save_npz(
+        OUTPUT_DIR / "fixed_peak_features.npz",
+        X_peak_train=X_peak_train,
+        X_peak_val=X_peak_val,
+        X_peak_test=X_peak_test,
+        y_bin_train=np.asarray(y_bin_train, dtype=np.int64),
+        y_bin_val=np.asarray(y_bin_val, dtype=np.int64),
+        y_bin_test=np.asarray(y_bin_test, dtype=np.int64),
+        y_type_train=np.asarray(y_type_train, dtype=np.int64),
+        y_type_val=np.asarray(y_type_val, dtype=np.int64),
+        y_type_test=np.asarray(y_type_test, dtype=np.int64),
+        sample_ids_train=np.asarray(sids_train, dtype=object),
+        sample_ids_val=np.asarray(sids_val, dtype=object),
+        sample_ids_test=np.asarray(sids_test, dtype=object),
+        groups_train=np.asarray(groups_train, dtype=object) if groups_train is not None else np.asarray([], dtype=object),
+        groups_val=np.asarray(groups_val, dtype=object) if groups_val is not None else np.asarray([], dtype=object),
+        groups_test=np.asarray(groups_test, dtype=object) if groups_test is not None else np.asarray([], dtype=object),
+        feature_names=np.asarray(peak_feature_names(), dtype=object),
+        cancer_types=np.asarray(CANCER_TYPES, dtype=object),
+    )
+    logger.info("  Saved fixed_peak_features.npz")
 
     # ════════════════════════════════════════════
     # Level 0: Base models — train → predict val & test
