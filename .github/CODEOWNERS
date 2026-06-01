@@ -1,0 +1,12 @@
+# 코드 소유자 (CODEOWNERS)
+# PR이 해당 경로를 건드리면 자동으로 리뷰 요청이 갑니다.
+# 형식:  <경로>  <@github-사용자명>
+#
+# 팀원이 합류하면 전문 영역별로 추가하세요. 예:
+#   /src/sers/qc/          @engineer-handle
+#   /scripts/db/           @engineer-handle
+#   /data/clinical_data/   @clinical-handle
+#   /docs/clinical_use/    @clinical-handle
+
+# 기본 소유자 — 모든 파일 (팀원 추가 시 위에 더 구체적인 규칙을 넣으세요)
+* @yooninsu
