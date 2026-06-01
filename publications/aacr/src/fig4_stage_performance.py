@@ -1,248 +1,190 @@
-"""
-Figure 4: TNM stage-wise cancer detection sensitivity.
-Dot plot showing Early (Stage I-II) vs Late (Stage III-IV) sensitivity per cancer type.
-"""
+"""Figure 4: Non-YPAN internal test performance with 95% CI."""
 
-import sys, os
+from __future__ import annotations
+
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve
+import matplotlib.colors as mcolors
+from sklearn.metrics import confusion_matrix
+
 from nature_style import (
-    apply_style, apply_nature_style, add_panel_label, save_figure,
-    CANCER_COLORS, CANCER_LABELS, SINGLE_COL, DOUBLE_COL, FONT_SIZE, ROOT,
+    apply_style,
+    apply_nature_style,
+    add_panel_label,
+    save_figure,
+    CANCER_COLORS,
+    CANCER_LABELS,
+    DOUBLE_COL,
+    FONT_SIZE,
+    ROOT,
 )
+from stk_v2_fixed_non_ypan import (
+    DISPLAY_CANCERS,
+    binary_metric_table,
+    cancer_type_sensitivity_table,
+    load_cancer_types,
+    load_test_predictions,
+)
+
 
 apply_style()
 
-# ── Config ──
-CANCER_ORDER = ["CRC", "LUN", "PAN", "PRO", "OVA"]  # by n staged, descending
-FOLD_GROUP_MAP = {"PAN": "CPAN"}  # clinical -> fold prediction group name
-ALPHA = 0.8  # ensemble blend weight
+
+def _blend_with_white(hex_color: str, amount: float) -> tuple[float, float, float]:
+    rgb = np.asarray(mcolors.to_rgb(hex_color), dtype=float)
+    amount = float(np.clip(amount, 0.0, 1.0))
+    return tuple((1.0 - amount) * np.ones(3) + amount * rgb)
 
 
-def map_to_major_stage(s):
-    """Map stage string to roman numeral I/II/III/IV."""
-    if pd.isna(s):
-        return None
-    s = str(s).strip().upper()
-    if s.startswith("IV"):
-        return "IV"
-    if s.startswith("III"):
-        return "III"
-    if s.startswith("II"):
-        return "II"
-    if s.startswith("I"):
-        return "I"
-    return None
+def _relative_luminance(rgb: tuple[float, float, float]) -> float:
+    r, g, b = rgb
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def stage_to_binary(stage):
-    """Map I/II -> 'Early', III/IV -> 'Late'."""
-    if stage in ("I", "II"):
-        return "Early (I-II)"
-    if stage in ("III", "IV"):
-        return "Late (III-IV)"
-    return None
+def main() -> None:
+    d = load_test_predictions()
+    labels = load_cancer_types()
+    y_bin = d["y_bin"].astype(int)
+    y_type = d["y_type"].astype(int)
+    s2_prob = d["s2_prob"].astype(float)
+    cancer = y_bin == 1
+    pred_type = s2_prob[cancer].argmax(axis=1)
+    label_to_idx = {label: i for i, label in enumerate(labels)}
+    present_raw = {
+        labels[i]
+        for i in (set(y_type[cancer].tolist()) | set(pred_type.tolist()))
+        if 0 <= i < len(labels)
+    }
+    present_labels = [g for g in DISPLAY_CANCERS if g in present_raw and g in label_to_idx]
+    present_idx = [label_to_idx[g] for g in present_labels]
 
+    binary_df = binary_metric_table()
+    type_df = cancer_type_sensitivity_table()
+    type_df["label"] = type_df["cancer_type"].map(lambda x: CANCER_LABELS.get(x, x))
 
-def wilson_ci(p, n, z=1.96):
-    """Wilson score 95% CI."""
-    if n == 0:
-        return 0, 0
-    denom = 1 + z**2 / n
-    center = (p + z**2 / (2 * n)) / denom
-    spread = z * np.sqrt((p * (1 - p) + z**2 / (4 * n)) / n) / denom
-    return max(0, center - spread), min(1, center + spread)
+    out_dir = os.path.join(ROOT, "publications", "aacr", "figures")
+    os.makedirs(out_dir, exist_ok=True)
+    binary_df.to_csv(os.path.join(out_dir, "fig4_binary_metrics_ci.csv"), index=False)
+    type_df.to_csv(os.path.join(out_dir, "fig4_cancer_type_sensitivity_ci.csv"), index=False)
 
+    fig = plt.figure(figsize=(DOUBLE_COL, 2.55))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.16, 1.0, 1.22], wspace=0.52)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[0, 2])
 
-# ── Load ensemble predictions ──
-npz_path = os.path.join(ROOT, "results", "training", "step5_ensemble", "fold_predictions.npz")
-d = np.load(npz_path, allow_pickle=True)
+    add_panel_label(ax1, "a")
+    ordered_metrics = ["AUROC", "Accuracy", "Sensitivity", "Specificity", "Precision", "F1"]
+    sub = binary_df.set_index("metric").loc[ordered_metrics].reset_index()
+    x = np.arange(len(sub))
+    y = sub["value"].values
+    err = np.vstack([
+        np.maximum(0, y - sub["ci_low"].values),
+        np.maximum(0, sub["ci_high"].values - y),
+    ])
+    ax1.errorbar(
+        x, y, yerr=err, fmt="o", color="#2C3E50",
+        ecolor="#2C3E50", elinewidth=0.9, capsize=3,
+        markerfacecolor="#2C3E50", markeredgecolor="white", markeredgewidth=0.6,
+    )
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(sub["metric"], rotation=40, ha="right")
+    ax1.set_ylim(0.78, 1.02)
+    ax1.set_ylabel("Score")
+    ax1.set_title("Cancer Detection Metrics", fontsize=FONT_SIZE["title"], pad=8)
+    ax1.axhline(0.9, color="#DDDDDD", lw=0.6, ls="--", zorder=0)
+    apply_nature_style(ax1)
 
-binary_prob = ALPHA * d["val_bp_lr"] + (1 - ALPHA) * d["val_bp_rn"]
-binary_labels = d["binary_labels"]
-groups = d["groups"]
-sample_ids = d["sample_ids"]
+    add_panel_label(ax2, "b")
+    type_order = [g for g in DISPLAY_CANCERS if g in set(type_df["cancer_type"])]
+    type_sub = type_df.set_index("cancer_type").loc[type_order].reset_index()
+    x2 = np.arange(len(type_sub))
+    y2 = type_sub["sensitivity"].values
+    err2 = np.vstack([
+        np.maximum(0, y2 - type_sub["ci_low"].values),
+        np.maximum(0, type_sub["ci_high"].values - y2),
+    ])
+    colors = [CANCER_COLORS.get(g, "#333333") for g in type_sub["cancer_type"]]
+    for xi, yi, lohi, color, row in zip(x2, y2, err2.T, colors, type_sub.to_dict("records")):
+        ax2.errorbar(
+            xi, yi, yerr=np.array([[lohi[0]], [lohi[1]]]), fmt="o",
+            color=color, ecolor=color, elinewidth=0.9, capsize=3,
+            markerfacecolor=color, markeredgecolor="white", markeredgewidth=0.6,
+        )
+        ax2.text(xi, min(1.02, yi + lohi[1] + 0.035), f"n={int(row['n'])}",
+                 ha="center", fontsize=FONT_SIZE["annotation"], color=color)
+    ax2.set_xticks(x2)
+    ax2.set_xticklabels(type_sub["cancer_type"], rotation=0, ha="center")
+    ax2.set_ylim(0.43, 1.08)
+    ax2.set_ylabel("Sensitivity")
+    ax2.set_title("Cancer Type Sensitivity", fontsize=FONT_SIZE["title"], pad=8)
+    ax2.axhline(0.9, color="#DDDDDD", lw=0.6, ls="--", zorder=0)
+    apply_nature_style(ax2)
 
-# Compute optimal threshold via Youden's J
-fpr, tpr, thresholds = roc_curve(binary_labels, binary_prob)
-j_scores = tpr - fpr
-opt_threshold = thresholds[np.argmax(j_scores)]
-print(f"Optimal threshold: {opt_threshold:.4f}")
+    add_panel_label(ax3, "c")
+    cm = confusion_matrix(y_type[cancer], pred_type, labels=present_idx)
+    row_sum = cm.sum(axis=1, keepdims=True)
+    cm_norm = np.divide(cm, row_sum, out=np.zeros_like(cm, dtype=float), where=row_sum > 0)
+    pd.DataFrame(cm, index=present_labels, columns=present_labels).to_csv(
+        os.path.join(out_dir, "fig4_confusion_matrix_counts.csv")
+    )
+    pd.DataFrame(cm_norm, index=present_labels, columns=present_labels).to_csv(
+        os.path.join(out_dir, "fig4_confusion_matrix_row_normalized.csv")
+    )
 
-# Predictions
-preds = (binary_prob >= opt_threshold).astype(int)
-
-# ── Build (group, sample_id) -> stage mapping ──
-# Load sers_patient_features for patient_id lookup
-feat = pd.read_csv(os.path.join(ROOT, "data", "clinical_data", "standardized",
-                                "sers_patient_features.csv"))
-
-stage_map = {}  # (fold_group, sample_id) -> major_stage
-
-for cancer in CANCER_ORDER:
-    fold_group = FOLD_GROUP_MAP.get(cancer, cancer)
-    clin_path = os.path.join(ROOT, "data", "clinical_data", "standardized",
-                             f"{cancer}_clinical_standardized.csv")
-    clin = pd.read_csv(clin_path)
-
-    if cancer in ("PRO", "CRC"):
-        # patient_id = "PRO 1" format -> extract int
-        for _, row in clin.iterrows():
-            if pd.notna(row.get("stage")):
-                try:
-                    sid = int(str(row["patient_id"]).split()[-1])
-                    stage = map_to_major_stage(row["stage"])
-                    if stage:
-                        stage_map[(fold_group, sid)] = stage
-                except (ValueError, IndexError):
-                    pass
-
-    elif cancer == "PAN":
-        # patient_id = "CPAN 1" format
-        for _, row in clin.iterrows():
-            if pd.notna(row.get("stage")):
-                try:
-                    sid = int(str(row["patient_id"]).split()[-1])
-                    stage = map_to_major_stage(row["stage"])
-                    if stage:
-                        stage_map[("CPAN", sid)] = stage
-                except (ValueError, IndexError):
-                    pass
-
-    elif cancer in ("OVA", "LUN"):
-        # Use sers_patient_features to map patient_id -> sample_id
-        feat_sub = feat[feat["group"] == fold_group][["sample_id", "patient_id"]]
-        pid_to_sid = dict(zip(feat_sub["patient_id"].astype(str), feat_sub["sample_id"]))
-
-        for _, row in clin.iterrows():
-            if pd.notna(row.get("stage")):
-                pid = str(row["patient_id"])
-                # Try direct patient_id match (e.g., "LUN 1" format)
-                if pid in pid_to_sid:
-                    sid = pid_to_sid[pid]
-                else:
-                    # Try extracting int if it's "LUN X" format
-                    try:
-                        sid = int(pid.split()[-1])
-                    except (ValueError, IndexError):
-                        continue
-
-                stage = map_to_major_stage(row["stage"])
-                if stage:
-                    stage_map[(fold_group, sid)] = stage
-
-print(f"Total staged samples mapped: {len(stage_map)}")
-
-# ── Compute per-cancer, per-stage sensitivity ──
-results = []
-
-for cancer in CANCER_ORDER:
-    fold_group = FOLD_GROUP_MAP.get(cancer, cancer)
-
-    for stage_bin_label in ["Early (I-II)", "Late (III-IV)"]:
-        # Find samples matching this cancer + stage
-        n_correct = 0
-        n_total = 0
-
-        for i in range(len(groups)):
-            if groups[i] != fold_group:
-                continue
-            sid = sample_ids[i]
-            stage = stage_map.get((fold_group, sid))
-            if stage is None:
-                continue
-            stage_bin = stage_to_binary(stage)
-            if stage_bin != stage_bin_label:
-                continue
-
-            # Count unique patients only (take first replicate prediction)
-            # Since fold predictions already aggregate, each row is unique
-            n_total += 1
-            if preds[i] == 1:  # correctly detected as cancer
-                n_correct += 1
-
-        if n_total > 0:
-            sens = n_correct / n_total
-            ci_lo, ci_hi = wilson_ci(sens, n_total)
+    n_cm = len(present_labels)
+    for (i, j), value in np.ndenumerate(cm):
+        norm_value = cm_norm[i, j]
+        pred_label = present_labels[j]
+        base_color = CANCER_COLORS.get(pred_label, "#808080")
+        if value == 0:
+            facecolor = "#FAFAFA"
         else:
-            sens, ci_lo, ci_hi = np.nan, np.nan, np.nan
+            strength = 0.18 + (0.72 if i == j else 0.56) * float(norm_value)
+            facecolor = _blend_with_white(base_color, strength)
+        ax3.add_patch(
+            plt.Rectangle(
+                (j - 0.5, i - 0.5), 1, 1,
+                facecolor=facecolor,
+                edgecolor="white",
+                linewidth=0.8,
+            )
+        )
+        text_color = "white" if value > 0 and _relative_luminance(mcolors.to_rgb(facecolor)) < 0.55 else "#222222"
+        ax3.text(
+            j, i, f"{value}\n{norm_value:.2f}",
+            ha="center", va="center",
+            fontsize=5.4,
+            color=text_color,
+        )
+    ax3.set_xlim(-0.5, n_cm - 0.5)
+    ax3.set_ylim(n_cm - 0.5, -0.5)
+    ax3.set_xticks(np.arange(len(present_labels)))
+    ax3.set_yticks(np.arange(len(present_labels)))
+    ax3.set_xticklabels(present_labels)
+    ax3.set_yticklabels(present_labels)
+    for tick, label in zip(ax3.get_xticklabels(), present_labels):
+        tick.set_color(CANCER_COLORS.get(label, "#333333"))
+        tick.set_fontweight("bold")
+    for tick, label in zip(ax3.get_yticklabels(), present_labels):
+        tick.set_color(CANCER_COLORS.get(label, "#333333"))
+        tick.set_fontweight("bold")
+    ax3.set_xlabel("Predicted Cancer Type")
+    ax3.set_ylabel("True Cancer Type")
+    ax3.set_title("Cancer Type Confusion Matrix", fontsize=FONT_SIZE["title"], pad=8)
+    apply_nature_style(ax3)
 
-        results.append({
-            "cancer": cancer,
-            "stage": stage_bin_label,
-            "sensitivity": sens,
-            "ci_lo": ci_lo,
-            "ci_hi": ci_hi,
-            "n": n_total,
-        })
+    fig.subplots_adjust(left=0.07, right=0.965, bottom=0.24, top=0.82)
+    save_figure(fig, "fig4_stage_performance")
+    plt.close(fig)
+    print("Figure 4 complete.")
 
-df = pd.DataFrame(results)
-print("\nStage-wise results:")
-print(df.to_string(index=False))
 
-# ── Plot: Dot plot ──
-fig, ax = plt.subplots(figsize=(SINGLE_COL * 1.3, SINGLE_COL * 1.0))
-add_panel_label(ax, "")
-
-x_positions = np.arange(len(CANCER_ORDER))
-early_color = "#4A90D9"
-late_color = "#D94A4A"
-offset = 0.12
-
-for stage_label, color, dx, marker in [
-    ("Early (I-II)", early_color, -offset, "o"),
-    ("Late (III-IV)", late_color, offset, "s"),
-]:
-    sub = df[df["stage"] == stage_label]
-    sub = sub.set_index("cancer").reindex(CANCER_ORDER).reset_index()
-
-    x = x_positions + dx
-    y = sub["sensitivity"].values
-    err_lo = y - sub["ci_lo"].values
-    err_hi = sub["ci_hi"].values - y
-
-    # Handle NaN
-    valid = ~np.isnan(y)
-
-    ax.errorbar(x[valid], y[valid],
-                yerr=[err_lo[valid], err_hi[valid]],
-                fmt=marker, color=color, markersize=6,
-                markeredgecolor="white", markeredgewidth=0.6,
-                capsize=3, capthick=0.8, elinewidth=0.8,
-                label=stage_label, zorder=5)
-
-    # Annotate n values
-    for j in range(len(CANCER_ORDER)):
-        n_val = sub.iloc[j]["n"]
-        s_val = sub.iloc[j]["sensitivity"]
-        if not np.isnan(s_val) and n_val > 0:
-            ax.text(x[j], s_val + err_hi[j] + 0.03,
-                    f"n={int(n_val)}", ha="center",
-                    fontsize=FONT_SIZE["annotation"] - 0.5,
-                    color=color, alpha=0.8)
-
-ax.set_xticks(x_positions)
-ax.set_xticklabels([CANCER_LABELS.get(c, c) for c in CANCER_ORDER])
-ax.set_ylabel("Detection Sensitivity")
-ax.set_title("Stage-wise Cancer Detection Performance", fontsize=FONT_SIZE["title"], pad=10)
-ax.set_ylim(0.5, 1.08)
-ax.axhline(y=0.9, color="#DDDDDD", linewidth=0.5, linestyle="--", zorder=0)
-ax.legend(loc="lower left", frameon=True, edgecolor="#DDDDDD",
-          fancybox=False, framealpha=0.9)
-apply_nature_style(ax, ylabel="Detection Sensitivity")
-
-# Add footnote for OVA
-ova_early_n = df[(df["cancer"] == "OVA") & (df["stage"] == "Early (I-II)")]["n"].values
-ova_late_n = df[(df["cancer"] == "OVA") & (df["stage"] == "Late (III-IV)")]["n"].values
-if len(ova_early_n) > 0 and len(ova_late_n) > 0:
-    fig.text(0.5, -0.02,
-             f"* Ovarian staging data limited (Early n={int(ova_early_n[0])}, Late n={int(ova_late_n[0])})",
-             ha="center", fontsize=FONT_SIZE["annotation"], color="#999999", fontstyle="italic")
-
-save_figure(fig, "fig4_stage_performance")
-plt.close()
-print("Figure 4 complete.")
+if __name__ == "__main__":
+    main()

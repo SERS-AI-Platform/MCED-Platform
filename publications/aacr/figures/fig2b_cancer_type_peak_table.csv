@@ -1,0 +1,25 @@
+cancer_type,rank,peak_position_cm-1,representative_assignment,candidate_assignments,shade_min_cm-1,shade_max_cm-1,feature_importance_score
+LUN,1,539,S-S stretching,S-S stretching; disulfide-rich protein; cysteine/cystine-related mode,524,554,5.757409446797242
+LUN,2,1000,Phenylalanine,Phenylalanine; urea; aromatic ring breathing,984,1014,5.696505786599965
+LUN,3,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,5.608646736147617
+LUN,4,849,Tyrosine,Tyrosine; protein ring mode; collagen/proline-related mode,834,864,4.984477396297407
+CRC,1,795,Hippuric acid,Hippuric acid; protein C-C/C-N mode; ring breathing mode,780,810,10.496580529333302
+CRC,2,618,C-S stretching,C-S stretching; protein sulfur-containing residues; creatinine-related mode,603,633,6.241202171776387
+CRC,3,1000,Phenylalanine,Phenylalanine; urea; aromatic ring breathing,984,1014,6.140712449602424
+CRC,4,448,Ring/skeletal deformation,Ring/skeletal deformation; protein or nucleic-acid ring modes,433,463,5.456050226681894
+BLC,1,1000,Phenylalanine,Phenylalanine; urea; aromatic ring breathing,984,1014,13.63990732968883
+BLC,2,683,Creatinine,Creatinine; nucleic-acid ring mode; amino-acid side-chain mode,668,698,8.408237296885812
+BLC,3,895,Uric acid,Uric acid; nucleic-acid backbone/ring mode; C-C skeletal mode,880,910,6.241508632854969
+BLC,4,849,Tyrosine,Tyrosine; protein ring mode; collagen/proline-related mode,834,864,5.384912654616394
+PRO,1,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,7.608700841051201
+PRO,2,1651,Amide I / protein,Amide I / protein; C=C lipid stretching; water/protein carbonyl mode,1631,1671,7.588120446986024
+PRO,3,934,Creatinine,Creatinine; protein C-C skeletal mode; carbohydrate-related mode,919,949,7.028740617059121
+PRO,4,1449,CH2 deformation / lipid,CH2 deformation / lipid; protein CH2/CH3 bending; collagen-related mode,1429,1469,6.51065492793004
+OVA,1,1148,Uric acid C-N stretching,Uric acid C-N stretching; protein C-N mode; nucleic-acid ring mode,1133,1163,10.28802909655073
+OVA,2,795,Hippuric acid,Hippuric acid; protein C-C/C-N mode; ring breathing mode,780,810,8.318775377752031
+OVA,3,934,Creatinine,Creatinine; protein C-C skeletal mode; carbohydrate-related mode,919,949,6.510700653309741
+OVA,4,1651,Amide I / protein,Amide I / protein; C=C lipid stretching; water/protein carbonyl mode,1631,1671,5.71331903255777
+PAN,1,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,5.785460333495019
+PAN,2,1651,Amide I / protein,Amide I / protein; C=C lipid stretching; water/protein carbonyl mode,1631,1671,5.64914287695497
+PAN,3,1148,Uric acid C-N stretching,Uric acid C-N stretching; protein C-N mode; nucleic-acid ring mode,1133,1163,5.500215853565201
+PAN,4,448,Ring/skeletal deformation,Ring/skeletal deformation; protein or nucleic-acid ring modes,433,463,4.741003848886239
