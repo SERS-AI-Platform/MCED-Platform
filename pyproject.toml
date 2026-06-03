@@ -55,9 +55,9 @@ all = [
 sers = "sers.cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/solum-healthcare/sers-analysis"
-Documentation = "https://github.com/solum-healthcare/sers-analysis#readme"
-Repository = "https://github.com/solum-healthcare/sers-analysis.git"
+Homepage = "https://github.com/SERS-AI-Platform/MCED-Platform"
+Documentation = "https://github.com/SERS-AI-Platform/MCED-Platform#readme"
+Repository = "https://github.com/SERS-AI-Platform/MCED-Platform.git"
 
 [tool.setuptools.packages.find]
 where = ["src"]
