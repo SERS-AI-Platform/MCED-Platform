@@ -1,116 +1,128 @@
-"""
-Figure 3: ROC curves for the Ensemble model.
-(a) Stage 1 — Cancer vs Non-Cancer binary screening.
-(b) Stage 2 — Per-cancer-type One-vs-Rest ROC.
-"""
+"""Figure 3: Non-YPAN internal test ROC curves with bootstrap 95% CI."""
 
-import sys, os
+from __future__ import annotations
+
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.special import softmax
-from sklearn.metrics import roc_curve, auc
+
 from nature_style import (
-    apply_style, apply_nature_style, add_panel_label, save_figure,
-    CANCER_COLORS, CANCER_LABELS, NON_CANCER_COLOR,
-    DOUBLE_COL, FONT_SIZE, LINE_WIDTH, ROOT,
+    apply_style,
+    apply_nature_style,
+    add_panel_label,
+    save_figure,
+    CANCER_COLORS,
+    CANCER_LABELS,
+    DOUBLE_COL,
+    FONT_SIZE,
+    LINE_WIDTH,
+    ROOT,
 )
+from stk_v2_fixed_non_ypan import (
+    DISPLAY_CANCERS,
+    bootstrap_roc_ci,
+    load_cancer_types,
+    load_test_predictions,
+)
+
 
 apply_style()
 
-# ── Load ensemble predictions ──
-npz_path = os.path.join(ROOT, "results", "training", "step5_ensemble", "fold_predictions.npz")
-d = np.load(npz_path, allow_pickle=True)
 
-alpha = 0.8
-binary_prob = alpha * d["val_bp_lr"] + (1 - alpha) * d["val_bp_rn"]
-binary_labels = d["binary_labels"]
+def _auc_label(name: str, stats: dict[str, np.ndarray | float]) -> str:
+    return (
+        f"{name} AUC={float(stats['auc']):.3f} "
+        f"(95% CI {float(stats['auc_ci_low']):.3f}-{float(stats['auc_ci_high']):.3f})"
+    )
 
-# Cancer logits: blend then softmax
-cancer_logits = alpha * d["val_cl_lr"] + (1 - alpha) * d["val_cl_rn"]
-cancer_type_labels = d["cancer_type_labels"]
 
-# Cancer type mapping: ['PRO', 'LUN', 'CRC', 'CPAN', 'OVA'] → index 0-4
-CANCER_TYPE_ORDER = ["PRO", "LUN", "CRC", "CPAN", "OVA"]
-DISPLAY_ORDER = ["PRO", "LUN", "CRC", "PAN", "OVA"]
+def main() -> None:
+    d = load_test_predictions()
+    cancer_types = load_cancer_types()
+    y_bin = d["y_bin"].astype(int)
+    y_type = d["y_type"].astype(int)
+    s1_prob = d["s1_prob"].astype(float)
+    s2_prob = d["s2_prob"].astype(float)
 
-# ── Figure: 2 panels ──
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(DOUBLE_COL, DOUBLE_COL * 0.42))
-fig.subplots_adjust(wspace=0.35)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(DOUBLE_COL, DOUBLE_COL * 0.43))
+    fig.subplots_adjust(wspace=0.35)
 
-# ── Panel (a): Stage 1 Binary ROC ──
-add_panel_label(ax1, "a")
+    add_panel_label(ax1, "a")
+    s1 = bootstrap_roc_ci(y_bin, s1_prob, n_bootstrap=1000, seed=42)
+    ax1.plot(s1["fpr"], s1["tpr"], color="#2C3E50", lw=LINE_WIDTH["roc"] + 0.4,
+             label=_auc_label("", s1).strip())
+    ax1.fill_between(
+        s1["fpr_grid"], s1["tpr_ci_low"], s1["tpr_ci_high"],
+        color="#2C3E50", alpha=0.14, linewidth=0,
+    )
+    ax1.plot([0, 1], [0, 1], "--", color="#BBBBBB", lw=LINE_WIDTH["thin"])
+    ax1.set_xlabel("1 - Specificity")
+    ax1.set_ylabel("Sensitivity")
+    ax1.set_title("Test Set Cancer Detection", fontsize=FONT_SIZE["title"], pad=8)
+    ax1.legend(loc="lower right", frameon=True, edgecolor="#DDDDDD",
+               fancybox=False, framealpha=0.9, fontsize=5.8)
+    ax1.set_xlim(-0.02, 1.02)
+    ax1.set_ylim(-0.02, 1.02)
+    ax1.set_aspect("equal")
+    apply_nature_style(ax1)
 
-fpr, tpr, thresholds = roc_curve(binary_labels, binary_prob)
-roc_auc = auc(fpr, tpr)
+    add_panel_label(ax2, "b")
+    cancer_mask = y_bin == 1
+    type_index = {ct: idx for idx, ct in enumerate(cancer_types)}
+    rows = [{
+        "task": "Cancer vs non-cancer",
+        "auc": float(s1["auc"]),
+        "auc_ci_low": float(s1["auc_ci_low"]),
+        "auc_ci_high": float(s1["auc_ci_high"]),
+        "n_positive": int(y_bin.sum()),
+        "n_negative": int((y_bin == 0).sum()),
+    }]
+    for ct in DISPLAY_CANCERS:
+        if ct not in type_index:
+            continue
+        idx = type_index[ct]
+        yy = (y_type[cancer_mask] == idx).astype(int)
+        if yy.sum() == 0 or yy.sum() == len(yy):
+            continue
+        stats = bootstrap_roc_ci(yy, s2_prob[cancer_mask, idx], n_bootstrap=1000, seed=100 + idx)
+        color = CANCER_COLORS.get(ct, "#333333")
+        label_name = ct
+        ax2.plot(stats["fpr"], stats["tpr"], color=color, lw=LINE_WIDTH["roc"],
+                 label=_auc_label(label_name, stats))
+        ax2.fill_between(
+            stats["fpr_grid"], stats["tpr_ci_low"], stats["tpr_ci_high"],
+            color=color, alpha=0.06, linewidth=0,
+        )
+        rows.append({
+            "task": ct,
+            "auc": float(stats["auc"]),
+            "auc_ci_low": float(stats["auc_ci_low"]),
+            "auc_ci_high": float(stats["auc_ci_high"]),
+            "n_positive": int(yy.sum()),
+            "n_negative": int(len(yy) - yy.sum()),
+        })
 
-# Youden's J
-j_scores = tpr - fpr
-opt_idx = np.argmax(j_scores)
-opt_fpr, opt_tpr = fpr[opt_idx], tpr[opt_idx]
-opt_t = thresholds[opt_idx]
+    pd.DataFrame(rows).to_csv(os.path.join(ROOT, "publications", "aacr", "figures", "fig3_roc_ci.csv"), index=False)
+    ax2.plot([0, 1], [0, 1], "--", color="#BBBBBB", lw=LINE_WIDTH["thin"])
+    ax2.set_xlabel("1 - Specificity")
+    ax2.set_ylabel("Sensitivity")
+    ax2.set_title("Test Set Cancer Type ROC", fontsize=FONT_SIZE["title"], pad=8)
+    ax2.legend(loc="lower right", frameon=True, edgecolor="#DDDDDD",
+               fancybox=False, framealpha=0.9, fontsize=5.7)
+    ax2.set_xlim(-0.02, 1.02)
+    ax2.set_ylim(-0.02, 1.02)
+    ax2.set_aspect("equal")
+    apply_nature_style(ax2)
 
-ax1.plot(fpr, tpr, color="#2C3E50", linewidth=LINE_WIDTH["roc"],
-         label=f"Ensemble (AUC = {roc_auc:.3f})")
-ax1.plot([0, 1], [0, 1], "--", color="#BBBBBB", linewidth=LINE_WIDTH["thin"])
-ax1.plot(opt_fpr, opt_tpr, "o", color="#D4A017", markersize=5, markeredgecolor="white",
-         markeredgewidth=0.8, zorder=5)
+    save_figure(fig, "fig3_roc_curves")
+    plt.close(fig)
+    print("Figure 3 complete.")
 
-# Annotate optimal point
-sens = opt_tpr
-spec = 1 - opt_fpr
-ax1.annotate(
-    f"Sens = {sens:.1%}\nSpec = {spec:.1%}",
-    xy=(opt_fpr, opt_tpr),
-    xytext=(opt_fpr + 0.15, opt_tpr - 0.12),
-    fontsize=FONT_SIZE["annotation"],
-    arrowprops=dict(arrowstyle="-", color="#666666", lw=0.5),
-    bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="#CCCCCC", lw=0.5),
-)
 
-ax1.set_xlabel("1 - Specificity")
-ax1.set_ylabel("Sensitivity")
-ax1.set_title("Stage 1: Cancer Screening", fontsize=FONT_SIZE["title"], pad=8)
-ax1.legend(loc="lower right", frameon=True, edgecolor="#DDDDDD",
-           fancybox=False, framealpha=0.9)
-ax1.set_xlim(-0.02, 1.02)
-ax1.set_ylim(-0.02, 1.02)
-ax1.set_aspect("equal")
-apply_nature_style(ax1)
-
-# ── Panel (b): Stage 2 Per-Cancer OvR ROC ──
-add_panel_label(ax2, "b")
-
-cancer_mask = cancer_type_labels >= 0
-ct_labels = cancer_type_labels[cancer_mask]
-ct_probs = softmax(cancer_logits[cancer_mask], axis=1)
-
-for idx, (fold_name, display_name) in enumerate(zip(CANCER_TYPE_ORDER, DISPLAY_ORDER)):
-    color = CANCER_COLORS[display_name]
-    label_display = CANCER_LABELS[display_name]
-
-    binary_ovr = (ct_labels == idx).astype(int)
-    prob_ovr = ct_probs[:, idx]
-
-    fpr_c, tpr_c, _ = roc_curve(binary_ovr, prob_ovr)
-    auc_c = auc(fpr_c, tpr_c)
-    n_samples = binary_ovr.sum()
-
-    ax2.plot(fpr_c, tpr_c, color=color, linewidth=LINE_WIDTH["roc"],
-             label=f"{label_display} (n={n_samples}, AUC = {auc_c:.3f})")
-
-ax2.plot([0, 1], [0, 1], "--", color="#BBBBBB", linewidth=LINE_WIDTH["thin"])
-ax2.set_xlabel("1 - Specificity")
-ax2.set_ylabel("Sensitivity")
-ax2.set_title("Stage 2: Cancer Type Identification", fontsize=FONT_SIZE["title"], pad=8)
-ax2.legend(loc="lower right", frameon=True, edgecolor="#DDDDDD",
-           fancybox=False, framealpha=0.9, fontsize=FONT_SIZE["annotation"])
-ax2.set_xlim(-0.02, 1.02)
-ax2.set_ylim(-0.02, 1.02)
-ax2.set_aspect("equal")
-apply_nature_style(ax2)
-
-save_figure(fig, "fig3_roc_curves")
-plt.close()
-print(f"Figure 3 complete. Optimal threshold = {opt_t:.3f}")
+if __name__ == "__main__":
+    main()

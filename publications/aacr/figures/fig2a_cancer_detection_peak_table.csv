@@ -1,0 +1,25 @@
+cancer_type,rank,peak_position_cm-1,representative_assignment,candidate_assignments,shade_min_cm-1,shade_max_cm-1,feature_importance_score
+LUN,1,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,10.62306635710071
+LUN,2,795,Hippuric acid,Hippuric acid; protein C-C/C-N mode; ring breathing mode,780,810,8.46027704992727
+LUN,3,618,C-S stretching,C-S stretching; protein sulfur-containing residues; creatinine-related mode,603,633,8.227973490896142
+LUN,4,1000,Phenylalanine,Phenylalanine; urea; aromatic ring breathing,984,1014,6.890236594511133
+CRC,1,795,Hippuric acid,Hippuric acid; protein C-C/C-N mode; ring breathing mode,780,810,9.502894621140245
+CRC,2,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,7.629947939790885
+CRC,3,618,C-S stretching,C-S stretching; protein sulfur-containing residues; creatinine-related mode,603,633,6.16883541695138
+CRC,4,1000,Phenylalanine,Phenylalanine; urea; aromatic ring breathing,984,1014,5.691148769320865
+BLC,1,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,10.78123387081627
+BLC,2,618,C-S stretching,C-S stretching; protein sulfur-containing residues; creatinine-related mode,603,633,10.714864740018244
+BLC,3,895,Uric acid,Uric acid; nucleic-acid backbone/ring mode; C-C skeletal mode,880,910,10.26819702384828
+BLC,4,1000,Phenylalanine,Phenylalanine; urea; aromatic ring breathing,984,1014,10.12327970745194
+PRO,1,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,13.9920725849457
+PRO,2,1651,Amide I / protein,Amide I / protein; C=C lipid stretching; water/protein carbonyl mode,1631,1671,13.388270215530898
+PRO,3,1449,CH2 deformation / lipid,CH2 deformation / lipid; protein CH2/CH3 bending; collagen-related mode,1429,1469,9.322872190803396
+PRO,4,1231,Amide III / protein,Amide III / protein; nucleic-acid base mode; CH bending,1211,1251,9.289002677893777
+OVA,1,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,12.022192803993798
+OVA,2,1651,Amide I / protein,Amide I / protein; C=C lipid stretching; water/protein carbonyl mode,1631,1671,9.465036073044272
+OVA,3,618,C-S stretching,C-S stretching; protein sulfur-containing residues; creatinine-related mode,603,633,9.03200736664756
+OVA,4,895,Uric acid,Uric acid; nucleic-acid backbone/ring mode; C-C skeletal mode,880,910,8.846594716480764
+PAN,1,795,Hippuric acid,Hippuric acid; protein C-C/C-N mode; ring breathing mode,780,810,8.731395858424584
+PAN,2,1597,Purine C=C/C=N,Purine C=C/C=N; adenine/guanine; aromatic amino-acid mode,1577,1617,8.041831549605355
+PAN,3,618,C-S stretching,C-S stretching; protein sulfur-containing residues; creatinine-related mode,603,633,6.310145784871146
+PAN,4,1651,Amide I / protein,Amide I / protein; C=C lipid stretching; water/protein carbonyl mode,1631,1671,6.172673531950651

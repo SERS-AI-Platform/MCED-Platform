@@ -60,7 +60,6 @@
     <div class="section">
         <div class="section-title">{{ s.test_conditions }}</div>
         <table>
-<<<<<<< Updated upstream
             <tr><th>{{ s.analysis_standard }}</th><td>{{ s.standard_decision_rule }} ({{ s.mode_balanced_desc }})</td></tr>
             <tr><th>{{ s.decision_threshold }}</th><td>{{ "%.1f"|format(prediction.ssi_threshold) }}</td></tr>
             <tr><th>모델</th><td>
@@ -68,10 +67,6 @@
                 {% elif session.model_variant == 'fusion' %}{{ s.model_fusion }}
                 {% else %}{{ s.model_sers_only }}{% endif %}
             </td></tr>
-=======
-            <tr><th>Decision Threshold</th><td>{{ "%.4f"|format(session.threshold) }}</td></tr>
-            <tr><th>모델 변형</th><td>{{ s.model_fusion if session.model_variant == 'fusion' else s.model_sers_only }}</td></tr>
->>>>>>> Stashed changes
         </table>
     </div>
 
@@ -114,12 +109,7 @@
                 {% endif %}
             </div>
             <div class="result-detail">
-<<<<<<< Updated upstream
                 {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
-=======
-                {{ s.screening_index }}: {{ "%.4f"|format(prediction.screening_index) }}
-                &middot; {{ s.ssi }}: {{ "%.1f"|format(ssi) }} / 10
->>>>>>> Stashed changes
                 {% if prediction.majority_vote %}&middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
             </div>
         </div>

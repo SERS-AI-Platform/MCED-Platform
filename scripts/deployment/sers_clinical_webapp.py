@@ -96,7 +96,7 @@ def get_predictor() -> ProductionPredictor:
     global predictor
     if predictor is None:
         # Prefer stacking model if available, fall back to LR
-        stacking_dir = PROJECT_ROOT / "models" / "production_stacking"
+        stacking_dir = PROJECT_ROOT / "artifacts" / "usersnet" / "current"
         if stacking_dir.exists():
             predictor = StackingPredictor(stacking_dir)
             logger.info(f"Stacking V2 model loaded: {predictor.cancer_types}, "
@@ -118,11 +118,8 @@ def template_context(request: Request, **kwargs) -> dict:
         "user": user,
         "lang": lang,
         "s": s,
-<<<<<<< Updated upstream
         "decision_profile": STANDARD_DECISION_PROFILE,
-=======
         "idle_timeout_minutes": auth.SESSION_EXPIRY_MINUTES,
->>>>>>> Stashed changes
         **kwargs,
     }
 
@@ -220,11 +217,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         return templates.TemplateResponse("login.html", ctx)
 
     response = RedirectResponse("/patient/new", status_code=303)
-<<<<<<< Updated upstream
-    response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, max_age=8 * 3600)
-=======
     response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, max_age=auth.SESSION_EXPIRY_MINUTES * 60)
->>>>>>> Stashed changes
     return response
 
 
@@ -238,7 +231,6 @@ async def logout(request: Request):
     return response
 
 
-<<<<<<< Updated upstream
 # --- Operating Mode ---
 
 @app.get("/mode", response_class=HTMLResponse)
@@ -254,8 +246,6 @@ async def mode_submit(request: Request, mode: str = Form(...)):
     return RedirectResponse("/patient/new", status_code=303)
 
 
-=======
->>>>>>> Stashed changes
 # --- Patient Registration ---
 
 @app.get("/patient/new", response_class=HTMLResponse)
@@ -282,22 +272,14 @@ async def patient_submit(
 
     user = auth.get_current_user(request)
     pred = get_predictor()
-<<<<<<< Updated upstream
     threshold = pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"]
-=======
-    threshold = pred.operating_modes[CLINICAL_DEFAULT_MODE]["threshold"]
->>>>>>> Stashed changes
 
     session_id = db.create_session(
         patient_id=patient_id,
         age=age,
         sex=sex,
         bmi=bmi,
-<<<<<<< Updated upstream
         operating_mode=STANDARD_DECISION_PROFILE,
-=======
-        operating_mode=CLINICAL_DEFAULT_MODE,
->>>>>>> Stashed changes
         created_by=user["user_id"],
         threshold=threshold,
     )
@@ -389,11 +371,7 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
         age=session["age"],
         sex=session["sex"],
         bmi=session["bmi"],
-<<<<<<< Updated upstream
         mode=STANDARD_DECISION_PROFILE,
-=======
-        mode=CLINICAL_DEFAULT_MODE,
->>>>>>> Stashed changes
     )
 
     # Update spectra QC info
@@ -716,15 +694,11 @@ async def health():
         "status": "healthy",
         "model_loaded": pred is not None,
         "cancer_types": pred.cancer_types if pred else [],
-<<<<<<< Updated upstream
         "decision_profile": STANDARD_DECISION_PROFILE,
         "ssi_threshold": SSI_DECISION_CUTOFF,
         "model_probability_threshold": pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"] if pred else None,
-=======
-        "decision_policy": CLINICAL_DEFAULT_MODE,
         "required_spectra": REQUIRED_SPECTRA_COUNT,
         "min_qc_pass_count": MIN_QC_PASS_COUNT,
->>>>>>> Stashed changes
         "timestamp": datetime.now().isoformat(),
     }
 

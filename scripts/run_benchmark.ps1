@@ -1,7 +1,7 @@
 param(
     [string]$PythonExe = "python",
     [string]$InputCsv = "results/processed_spectra.csv",
-    [string]$OutputRoot = "models/results/benchmark_all_spectra",
+    [string]$OutputRoot = "results/training/legacy/benchmark_all_spectra",
     [string[]]$CancerTypes = @("PRO", "LUN", "CRC", "CPAN", "OVA"),
     [string[]]$NonCancerGroups = @("NOR", "DIA", "HBP", "H.D."),
     [string[]]$Models = @("resnet18", "cnn1d", "xgboost"),
@@ -10,7 +10,7 @@ param(
 )
 
 $trainArgs = @(
-    "models/train.py",
+    "models/legacy/scripts/train.py",
     "--aggregate", $Aggregate,
     "--benchmark-models"
 ) + $Models + @(
@@ -29,7 +29,7 @@ if ($LASTEXITCODE -ne 0) {
 
 foreach ($model in $Models) {
     $testArgs = @(
-        "models/test.py",
+        "models/legacy/scripts/test.py",
         "-i", (Join-Path $OutputRoot $model),
         "--processed-csv", $InputCsv
     )

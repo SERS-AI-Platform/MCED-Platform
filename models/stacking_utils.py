@@ -18,9 +18,6 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
 from sklearn.model_selection import StratifiedGroupKFold
@@ -33,7 +30,7 @@ from sklearn.metrics import roc_auc_score, f1_score
 
 warnings.filterwarnings("ignore")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -50,6 +47,17 @@ FIG_OUTPUT_DIR = FIG_DIR / "analysis" / "stacking_ensemble"
 CANCER_TYPES = ("PRO", "LUN", "CRC", "PAN", "OVA", "BRE", "BLC")
 NON_CANCER_GROUPS = ("NOR", "DIA", "HBP", "H.D.")
 SG_WINDOW, SG_POLY = 11, 3
+MODEL_N_JOBS = -1
+XGB_DEVICE = "cpu"
+
+
+def configure_runtime(n_jobs: int | None = None, xgb_device: str | None = None):
+    """Configure CPU parallelism and optional XGBoost device for STK-V2 helpers."""
+    global MODEL_N_JOBS, XGB_DEVICE
+    if n_jobs is not None:
+        MODEL_N_JOBS = int(n_jobs)
+    if xgb_device is not None:
+        XGB_DEVICE = str(xgb_device)
 
 
 # =============================================================================
@@ -95,6 +103,126 @@ def load_raw_multichannel(data_dir, folder_map, grid, pattern="*.CSV", max_rep=N
     return X, df
 
 
+def _resolve_processed_csv_path(path_like) -> Path:
+    path = Path(path_like)
+    if path.is_file():
+        return path
+    if not path.is_dir():
+        raise FileNotFoundError(f"processed_csv path not found: {path}")
+
+    preferred = path / "processed_spectra.csv"
+    if preferred.exists():
+        return preferred
+
+    candidates = sorted(path.glob("processed_spectra*.csv"))
+    if not candidates:
+        raise FileNotFoundError(
+            f"No processed_spectra*.csv found in {path}; pass a CSV file path via --data-dir"
+        )
+    if len(candidates) > 1:
+        names = ", ".join(p.name for p in candidates[:8])
+        if len(candidates) > 8:
+            names += ", ..."
+        raise ValueError(
+            f"Multiple processed CSV files found in {path}: {names}. "
+            "Pass the exact CSV file path via --data-dir."
+        )
+    return candidates[0]
+
+
+def _processed_feature_columns(df: pd.DataFrame) -> list[str]:
+    feature_cols = [c for c in df.columns if str(c).startswith("x_")]
+    if not feature_cols:
+        raise ValueError("processed CSV must contain spectrum columns prefixed with 'x_'")
+
+    def sort_key(col: str):
+        suffix = str(col)[2:]
+        try:
+            return (0, float(suffix))
+        except ValueError:
+            return (1, suffix)
+
+    return sorted(feature_cols, key=sort_key)
+
+
+def _grid_from_feature_columns(feature_cols: list[str], fallback_grid: np.ndarray | None = None) -> np.ndarray:
+    parsed = []
+    for col in feature_cols:
+        try:
+            parsed.append(float(str(col)[2:]))
+        except ValueError:
+            parsed = []
+            break
+
+    if len(parsed) == len(feature_cols):
+        grid = np.asarray(parsed, dtype=float)
+        # Columns named x_0, x_1, ... are indices, not physical wavenumbers.
+        if grid.max(initial=0.0) > 300:
+            return grid
+
+    if fallback_grid is not None and len(fallback_grid) == len(feature_cols):
+        return np.asarray(fallback_grid, dtype=float)
+    return np.linspace(402.0, 2198.0, len(feature_cols))
+
+
+def _snv_rows(X: np.ndarray) -> np.ndarray:
+    mean = X.mean(axis=1, keepdims=True)
+    std = X.std(axis=1, keepdims=True)
+    return (X - mean) / (std + 1e-8)
+
+
+def load_processed_multichannel(csv_path_or_dir, target_grid=None):
+    """Load preprocessed spectrum CSV as STK-V2 3-channel arrays.
+
+    Supported columns:
+      - metadata: group, sample_id, optional replicate
+      - spectra: x_0...x_932 or physical columns such as x_402.00...x_2198.00
+
+    The first channel is the processed spectrum as stored. Derivative channels
+    are generated from that processed spectrum so the downstream STK-V2 feature
+    views keep the same shape as raw_spectrum mode.
+    """
+    csv_path = _resolve_processed_csv_path(csv_path_or_dir)
+    df = pd.read_csv(csv_path)
+    required = {"group", "sample_id"}
+    missing = sorted(required - set(df.columns))
+    if missing:
+        raise ValueError(f"processed CSV missing required columns: {missing}")
+
+    feature_cols = _processed_feature_columns(df)
+    source_grid = _grid_from_feature_columns(feature_cols, fallback_grid=target_grid)
+    if target_grid is None:
+        target_grid = source_grid
+    target_grid = np.asarray(target_grid, dtype=float)
+
+    X0 = df[feature_cols].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    X0 = np.nan_to_num(X0, nan=0.0, posinf=0.0, neginf=0.0)
+
+    if len(source_grid) != len(target_grid) or not np.allclose(source_grid, target_grid, rtol=0, atol=1e-6):
+        X0 = np.vstack([np.interp(target_grid, source_grid, row) for row in X0])
+
+    ch0 = X0.astype(np.float32)
+    window = min(SG_WINDOW, ch0.shape[1] if ch0.shape[1] % 2 == 1 else ch0.shape[1] - 1)
+    if window <= SG_POLY:
+        window = SG_POLY + 2 + ((SG_POLY + 2) % 2 == 0)
+    ch1 = savgol_filter(ch0, window, SG_POLY, deriv=1, axis=1)
+    ch2 = savgol_filter(ch0, window, SG_POLY, deriv=2, axis=1)
+    ch1 = _snv_rows(ch1).astype(np.float32)
+    ch2 = _snv_rows(ch2).astype(np.float32)
+
+    X = np.stack([ch0, ch1, ch2], axis=1).astype(np.float32)
+    meta = df[["group", "sample_id"]].copy()
+    meta["group"] = meta["group"].astype(str)
+    meta["sample_id"] = meta["sample_id"].astype(str)
+    if "replicate" in df.columns:
+        meta["replicate"] = df["replicate"].values
+    else:
+        meta["replicate"] = meta.groupby(["group", "sample_id"]).cumcount() + 1
+
+    logger.info(f"  Loaded {len(X)} processed spectra from {csv_path}, shape {X.shape}")
+    return X, meta, target_grid
+
+
 # =============================================================================
 # Base model definitions
 # =============================================================================
@@ -116,11 +244,13 @@ def build_classifier(model_type, task="binary", n_classes=7):
     if model_type == "lr":
         return make_pipeline(StandardScaler(), LogisticRegression(
             C=1.0, max_iter=2000, solver="saga", class_weight="balanced",
-            multi_class="multinomial" if task == "multiclass" else "auto"))
+            multi_class="multinomial" if task == "multiclass" else "auto",
+            n_jobs=MODEL_N_JOBS))
     elif model_type == "ridge":
         return make_pipeline(StandardScaler(), LogisticRegression(
             C=0.1, max_iter=2000, solver="saga", class_weight="balanced",
-            multi_class="multinomial" if task == "multiclass" else "auto"))
+            multi_class="multinomial" if task == "multiclass" else "auto",
+            n_jobs=MODEL_N_JOBS))
     elif model_type == "xgb":
         try:
             from xgboost import XGBClassifier
@@ -130,18 +260,20 @@ def build_classifier(model_type, task="binary", n_classes=7):
         if task == "binary":
             return XGBClassifier(n_estimators=300, max_depth=5, learning_rate=0.05,
                                  subsample=0.9, colsample_bytree=0.9, reg_lambda=1.0,
-                                 n_jobs=4, tree_method="hist", verbosity=0,
+                                 n_jobs=MODEL_N_JOBS, tree_method="hist",
+                                 device=XGB_DEVICE, verbosity=0,
                                  objective="binary:logistic", eval_metric="logloss")
         else:
             return XGBClassifier(n_estimators=300, max_depth=5, learning_rate=0.05,
                                  subsample=0.9, colsample_bytree=0.9, reg_lambda=1.0,
-                                 n_jobs=4, tree_method="hist", verbosity=0,
+                                 n_jobs=MODEL_N_JOBS, tree_method="hist",
+                                 device=XGB_DEVICE, verbosity=0,
                                  objective="multi:softprob", num_class=n_classes,
                                  eval_metric="mlogloss")
     elif model_type == "rf":
         return RandomForestClassifier(n_estimators=500, max_depth=None,
                                       min_samples_leaf=1, class_weight="balanced_subsample",
-                                      n_jobs=4, random_state=42)
+                                      n_jobs=MODEL_N_JOBS, random_state=42)
     raise ValueError(f"Unknown model type: {model_type}")
 
 
@@ -303,51 +435,6 @@ def run_stacking(X_3ch, df_meta, n_splits=5):
 
 
 # =============================================================================
-# Visualization
-# =============================================================================
-def plot_results(results, output_dir, data_name):
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-
-    # Sort: base models, then ensembles
-    base = [r for r in results if r["type"] == "base"]
-    ens = [r for r in results if r["type"] != "base"]
-    ordered = base + ens
-
-    names = [r["name"] for r in ordered]
-    aucs = [r["auc"] for r in ordered]
-    f1s = [r["f1_type"] for r in ordered]
-    colors = ["#90CAF9"] * len(base) + ["#FFB74D", "#E91E63"]
-
-    ax = axes[0]
-    ax.barh(range(len(names)), aucs, color=colors, alpha=0.9)
-    ax.set_yticks(range(len(names)))
-    ax.set_yticklabels(names)
-    ax.set_xlabel("AUC")
-    ax.set_title(f"Stage 1: Detection AUC ({data_name})", fontweight="bold")
-    ax.set_xlim(0.9, 1.0)
-    ax.grid(axis="x", alpha=0.3)
-    for i, v in enumerate(aucs):
-        ax.text(v + 0.001, i, f"{v:.4f}", va="center", fontsize=8)
-
-    ax = axes[1]
-    ax.barh(range(len(names)), f1s, color=colors, alpha=0.9)
-    ax.set_yticks(range(len(names)))
-    ax.set_yticklabels(names)
-    ax.set_xlabel("F1 Macro")
-    ax.set_title(f"Stage 2: Cancer Type F1 ({data_name})", fontweight="bold")
-    ax.set_xlim(0.6, 1.0)
-    ax.axvline(0.9, color="red", linestyle="--", alpha=0.5, label="Target 0.9")
-    ax.legend()
-    ax.grid(axis="x", alpha=0.3)
-    for i, v in enumerate(f1s):
-        ax.text(v + 0.005, i, f"{v:.4f}", va="center", fontsize=8)
-
-    plt.tight_layout()
-    fig.savefig(output_dir / f"stacking_results_{data_name}.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-
-# =============================================================================
 # Main
 # =============================================================================
 def main():
@@ -410,6 +497,8 @@ def main():
     results = run_stacking(X_3ch, df_meta, n_splits=args.n_splits)
 
     FIG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    from scripts.analysis.stk_v2.figures.stacking_results import plot_results
+
     plot_results(results, FIG_OUTPUT_DIR, args.data)
 
     report = {"timestamp": datetime.now().isoformat(), "data": args.data,

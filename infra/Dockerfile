@@ -45,8 +45,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
 # Copy only what's needed for inference
 COPY src/ src/
 COPY config/config.yaml config/config.yaml
-COPY scripts/sers_predict.py scripts/sers_predict.py
-COPY models/production/ models/production/
+COPY scripts/deployment/sers_predict.py scripts/deployment/sers_predict.py
+COPY artifacts/usersnet/ artifacts/usersnet/
+COPY artifacts/baselines/ artifacts/baselines/
 
 # Non-root user
 RUN useradd -m -u 1000 sers && chown -R sers:sers /app
@@ -54,6 +55,6 @@ USER sers
 
 # Health check
 HEALTHCHECK --interval=60s --timeout=5s --retries=2 \
-    CMD python -c "import json; json.load(open('models/production/manifest.json'))" || exit 1
+    CMD python -c "import json; json.load(open('artifacts/usersnet/current/manifest.json'))" || exit 1
 
-ENTRYPOINT ["python", "scripts/sers_predict.py"]
+ENTRYPOINT ["python", "scripts/deployment/sers_predict.py"]

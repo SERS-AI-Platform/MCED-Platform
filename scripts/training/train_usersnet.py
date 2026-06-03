@@ -7,9 +7,9 @@ Extended base models (10) x meta-learners (5) x nested CV (outer 5 x inner 3)
 for unbiased ensemble performance estimation.
 
 Usage:
-    python models/train_stacking.py
-    python models/train_stacking.py --dry-run
-    python models/train_stacking.py --val-group SPAN --meta-learner elasticnet
+    python scripts/training/train_usersnet.py
+    python scripts/training/train_usersnet.py --dry-run
+    python scripts/training/train_usersnet.py --val-group SPAN --meta-learner elasticnet
 """
 
 from __future__ import annotations
@@ -28,10 +28,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
 from scipy.signal import savgol_filter
 from scipy.optimize import curve_fit
 from scipy.special import voigt_profile
@@ -44,7 +40,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.metrics import (
+    roc_auc_score, f1_score, precision_score, recall_score,
+    confusion_matrix, roc_curve,
+)
 warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
@@ -54,7 +53,7 @@ warnings.filterwarnings("ignore")
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_DEFAULT_PROJECT_ROOT))
 
-from sers.models.usersnet.stacking import preprocess_channel, load_raw_multichannel, build_classifier, train_base_model, apply_sex_constraint, infer_sex_from_groups  # noqa: E402
+from sers.models.usersnet.stacking import preprocess_channel, load_raw_multichannel, load_processed_multichannel, build_classifier, train_base_model, configure_runtime, apply_sex_constraint, infer_sex_from_groups  # noqa: E402
 from src.sers.config import RESULTS_DIR, FIG_DIR  # noqa: E402
 
 # These will be set in main()
@@ -66,6 +65,8 @@ FIG_OUTPUT_DIR = FIG_DIR / "training" / "stacking_v2"
 CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
 _LEGACY_OUTPUT_DIR = RESULTS_DIR / "weekend_experiments" / "stacking_optimization"
 _LEGACY_CHECKPOINT_DIR = _LEGACY_OUTPUT_DIR / "checkpoints"
+MODEL_N_JOBS = -1
+XGB_DEVICE = "cpu"
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -95,6 +96,10 @@ THERMO_MAP = {
     "11 BLC (299개)": "BLC", "12. Y-Normal (YNOR)": "YNOR",
 }
 
+GROUP_ALIASES = {"CPAN": "PAN", "YPAN": "PAN", "YNOR": "NOR"}
+GROUP_EXPANSIONS = {"PAN": ["CPAN", "YPAN"], "NOR": ["NOR", "YNOR"]}
+EXCLUDE_SOURCE_GROUPS: set[str] = set()
+
 KNOWN_PEAKS = [
     (448.1, "ring_deform", 15), (538.7, "SS_stretch", 15),
     (617.7, "CS_stretch", 15), (683.3, "creatinine", 15),
@@ -106,6 +111,22 @@ KNOWN_PEAKS = [
     (1448.7, "CH2_deform", 20), (1597.1, "purine_CC", 20),
     (1651.1, "amide_I", 20),
 ]
+
+PEAK_RATIOS = [
+    ("phe_urea", "adenine"), ("phe_urea", "creatinine"),
+    ("hippuric", "creatinine"), ("CS_stretch", "creatinine"),
+    ("amide_I", "CH2_deform"), ("adenine", "purine_CC"),
+    ("tyrosine", "phe_urea"),
+]
+
+
+def peak_feature_names() -> list[str]:
+    """Match extract_peak_features layout: areas, heights, widths, shifts, ratios."""
+    names: list[str] = []
+    for kind in ("area", "height", "fwhm", "shift"):
+        names.extend([f"{peak_name}_{kind}" for _, peak_name, _ in KNOWN_PEAKS])
+    names.extend([f"ratio_{num}_over_{den}" for num, den in PEAK_RATIOS])
+    return names
 
 # ---------------------------------------------------------------------------
 # Extended base models
@@ -172,12 +193,7 @@ def extract_peak_features(X, wavenumbers):
 
     features = [peak_areas, peak_heights, peak_fwhms, peak_shifts]
     pn2i = {p[1]: i for i, p in enumerate(KNOWN_PEAKS)}
-    for na, nb in [
-        ("phe_urea", "adenine"), ("phe_urea", "creatinine"),
-        ("hippuric", "creatinine"), ("CS_stretch", "creatinine"),
-        ("amide_I", "CH2_deform"), ("adenine", "purine_CC"),
-        ("tyrosine", "phe_urea"),
-    ]: 
+    for na, nb in PEAK_RATIOS:
         features.append(
             peak_areas[:, pn2i[na]:pn2i[na] + 1]
             / (peak_areas[:, pn2i[nb]:pn2i[nb] + 1] + 1e-10)
@@ -190,6 +206,7 @@ def extract_peak_features(X, wavenumbers):
 def create_fixed_split(
     sample_ids: np.ndarray,
     binary_labels: np.ndarray,
+    stratify_labels: np.ndarray | None = None,
     test_ratio: float = 0.20,
     val_ratio: float = 0.20,
     force_test_prefix: str = "YPAN_",
@@ -204,44 +221,107 @@ def create_fixed_split(
     Returns: (train_idx, val_idx, test_idx)
     """
     n = len(sample_ids)
+    split_labels = binary_labels if stratify_labels is None else np.asarray(stratify_labels)
+    if len(split_labels) != n:
+        raise ValueError("stratify_labels must have the same length as sample_ids")
+
+    force_label = str(force_test_prefix).strip()
+    force_token = force_label.rstrip("_")
+
+    def _is_forced_test_sample(sid) -> bool:
+        sid_str = str(sid)
+        if not force_label:
+            return False
+        candidates = [force_label]
+        if force_token and force_token != force_label:
+            candidates.append(force_token)
+        for token in candidates:
+            if (
+                sid_str == token
+                or sid_str.startswith(f"{token}_")
+                or sid_str.endswith(f"_{token}")
+                or f"_{token}_" in sid_str
+            ):
+                return True
+        return False
+
+    def _valid_stratify(labels, test_count: int) -> bool:
+        labels = np.asarray(labels)
+        train_count = len(labels) - test_count
+        if len(labels) == 0 or test_count <= 0 or train_count <= 0:
+            return False
+        _, counts = np.unique(labels, return_counts=True)
+        n_classes = len(counts)
+        return (
+            n_classes > 1
+            and counts.min() >= 2
+            and test_count >= n_classes
+            and train_count >= n_classes
+        )
+
+    def _choose_stratify(primary_labels, fallback_labels, test_count: int, split_name: str):
+        if _valid_stratify(primary_labels, test_count):
+            return primary_labels
+        if _valid_stratify(fallback_labels, test_count):
+            logger.warning(
+                f"  {split_name}: group stratify is too granular; falling back to binary stratify"
+            )
+            return fallback_labels
+        logger.warning(f"  {split_name}: stratify disabled due to insufficient class counts")
+        return None
 
     # ── 1. YPAN 강제 test 분리 ──
-    is_forced = np.array([
-        str(sid).startswith(force_test_prefix) for sid in sample_ids
-    ])
+    is_forced = np.array([_is_forced_test_sample(sid) for sid in sample_ids])
     forced_test_idx = np.where(is_forced)[0]
     remaining_idx = np.where(~is_forced)[0]
 
-    logger.info(f"  Forced test (YPAN): {len(forced_test_idx)} samples")
+    logger.info(f"  Forced test ({force_token or force_label}): {len(forced_test_idx)} samples")
     logger.info(f"  Remaining for split: {len(remaining_idx)} samples")
 
     # ── 2. 나머지에서 test 추가 할당 ──
     n_target_test = int(n * test_ratio)
     n_extra_test = max(n_target_test - len(forced_test_idx), 0)
-    remaining_labels = binary_labels[remaining_idx]
+    remaining_labels = split_labels[remaining_idx]
+    remaining_binary_labels = binary_labels[remaining_idx]
 
     if n_extra_test > 0:
-        extra_test_ratio = n_extra_test / len(remaining_idx)
-        trainval_local, extra_test_local = train_test_split(
-            np.arange(len(remaining_idx)),
-            test_size=extra_test_ratio,
-            stratify=remaining_labels,
-            random_state=random_state,
-        )
+        if n_extra_test >= len(remaining_idx):
+            trainval_local = np.array([], dtype=int)
+            extra_test_local = np.arange(len(remaining_idx))
+        else:
+            test_stratify = _choose_stratify(
+                remaining_labels, remaining_binary_labels, n_extra_test, "test split"
+            )
+            trainval_local, extra_test_local = train_test_split(
+                np.arange(len(remaining_idx)),
+                test_size=n_extra_test,
+                stratify=test_stratify,
+                random_state=random_state,
+            )
     else:
         trainval_local = np.arange(len(remaining_idx))
         extra_test_local = np.array([], dtype=int)
 
     # ── 3. train / val 분리 ──
     trainval_labels = remaining_labels[trainval_local]
+    trainval_binary_labels = remaining_binary_labels[trainval_local]
     val_ratio_adj = val_ratio / (1.0 - test_ratio)  # trainval 내 비율 보정
+    n_val = int(round(len(trainval_local) * val_ratio_adj))
+    n_val = min(max(n_val, 1), max(len(trainval_local) - 1, 1))
 
-    train_local, val_local = train_test_split(
-        np.arange(len(trainval_local)),
-        test_size=val_ratio_adj,
-        stratify=trainval_labels,
-        random_state=random_state,
-    )
+    if len(trainval_local) > 1:
+        val_stratify = _choose_stratify(
+            trainval_labels, trainval_binary_labels, n_val, "validation split"
+        )
+        train_local, val_local = train_test_split(
+            np.arange(len(trainval_local)),
+            test_size=n_val,
+            stratify=val_stratify,
+            random_state=random_state,
+        )
+    else:
+        train_local = np.arange(len(trainval_local))
+        val_local = np.array([], dtype=int)
 
     # ── 4. global index로 변환 ──
     train_idx = remaining_idx[trainval_local[train_local]]
@@ -274,6 +354,46 @@ def create_fixed_split(
 # Extended train_base_model (handles "peak" channel type)
 # ---------------------------------------------------------------------------
 
+def _needs_contiguous_multiclass_labels(model) -> bool:
+    """XGBoost sklearn multiclass requires local labels 0..K-1."""
+    return model.__class__.__name__ == "XGBClassifier"
+
+
+def fit_sparse_multiclass(model, X, y):
+    """Fit multiclass model when global class ids may be non-contiguous."""
+    y = np.asarray(y, dtype=int)
+    classes = np.unique(y)
+    if _needs_contiguous_multiclass_labels(model):
+        class_to_local = {int(cls): i for i, cls in enumerate(classes)}
+        y_local = np.array([class_to_local[int(v)] for v in y], dtype=int)
+        model.fit(X, y_local)
+        return model, classes, True
+
+    model.fit(X, y)
+    return model, np.asarray(getattr(model, "classes_", classes), dtype=int), False
+
+
+def predict_sparse_multiclass_proba(fitted, X, n_classes: int) -> np.ndarray:
+    """Return probability columns in global cancer-class order."""
+    model, classes, _remapped = fitted
+    raw_prob = model.predict_proba(X)
+    out = np.zeros((len(X), n_classes))
+    for i, cls in enumerate(classes):
+        cls = int(cls)
+        if cls < n_classes and i < raw_prob.shape[1]:
+            out[:, cls] = raw_prob[:, i]
+    return out
+
+
+def predict_sparse_multiclass_labels(fitted, X) -> np.ndarray:
+    """Return global class ids after optional local-label remapping."""
+    model, classes, remapped = fitted
+    pred = np.asarray(model.predict(X), dtype=int)
+    if remapped:
+        return classes[pred]
+    return pred
+
+
 def train_base_model_ext(spec, X_train, y_bin_train, y_type_train, X_val,
                          n_classes, X_peak_train=None, X_peak_val=None):
     """Train a base model for both stages. Supports peak features."""
@@ -304,11 +424,8 @@ def train_base_model_ext(spec, X_train, y_bin_train, y_type_train, X_val,
     s2_prob = np.zeros((len(X_va), n_classes))
     if cancer_mask.sum() > 10:
         s2 = build_classifier(model_type, "multiclass", n_classes)
-        s2.fit(X_tr[cancer_mask], y_type_train[cancer_mask])
-        raw_prob = s2.predict_proba(X_va)
-        for i, cls in enumerate(s2.classes_):
-            if cls < n_classes:
-                s2_prob[:, cls] = raw_prob[:, i]
+        s2_fit = fit_sparse_multiclass(s2, X_tr[cancer_mask], y_type_train[cancer_mask])
+        s2_prob = predict_sparse_multiclass_proba(s2_fit, X_va, n_classes)
 
     return s1_prob, s2_prob
 
@@ -329,13 +446,15 @@ def make_meta_learners(n_classes):
         return LogisticRegression(
             C=1.0, max_iter=2000, solver="lbfgs",
             multi_class="multinomial" if task == "multiclass" else "auto",
+            n_jobs=MODEL_N_JOBS,
         )
 
     def _xgb(task):
         if not xgb_available:
             return _lr(task)
         kw = dict(n_estimators=200, max_depth=4, learning_rate=0.05,
-                  n_jobs=2, verbosity=0)
+                  n_jobs=MODEL_N_JOBS, tree_method="hist",
+                  device=XGB_DEVICE, verbosity=0)
         if task == "multiclass":
             kw.update(objective="multi:softprob", num_class=n_classes)
         else:
@@ -345,7 +464,7 @@ def make_meta_learners(n_classes):
     def _rf(task):
         return RandomForestClassifier(
             n_estimators=300, max_depth=5,
-            class_weight="balanced_subsample", n_jobs=2, random_state=42,
+            class_weight="balanced_subsample", n_jobs=MODEL_N_JOBS, random_state=42,
         )
 
     def _elasticnet(task):
@@ -353,6 +472,7 @@ def make_meta_learners(n_classes):
             C=0.5, penalty="elasticnet", l1_ratio=0.5,
             max_iter=2000, solver="saga",
             multi_class="multinomial" if task == "multiclass" else "auto",
+            n_jobs=MODEL_N_JOBS,
         )
 
     def _mlp(task):
@@ -402,6 +522,21 @@ def atomic_save_json(path, data):
         raise
 
 
+def save_fixed_predictions(prefix, s1_prob, s2_prob, y_bin, y_type,
+                           sample_ids, groups, output_dir):
+    """Save fixed-split per-sample predictions for downstream figures."""
+    atomic_save_npz(
+        output_dir / f"{prefix}_predictions.npz",
+        s1_prob=np.asarray(s1_prob, dtype=np.float64),
+        s2_prob=np.asarray(s2_prob, dtype=np.float64),
+        y_bin=np.asarray(y_bin, dtype=np.float64),
+        y_type=np.asarray(y_type, dtype=np.int64),
+        sample_ids=np.asarray(sample_ids, dtype=object),
+        groups=np.asarray(groups, dtype=object) if groups is not None else np.asarray([], dtype=object),
+    )
+    logger.info(f"  Saved {prefix}_predictions.npz ({len(y_bin)} samples)")
+
+
 # ---------------------------------------------------------------------------
 # Checkpoint helpers
 # ---------------------------------------------------------------------------
@@ -438,11 +573,107 @@ def load_meta_checkpoint(meta_type, outer_fold):
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_data(data_dir=None):
+def parse_group_arg_values(values) -> set[str]:
+    """Parse comma-separated and repeatable group CLI values."""
+    groups: set[str] = set()
+    for value in values or []:
+        for part in str(value).split(","):
+            part = part.strip()
+            if part:
+                groups.add(part.upper())
+    return groups
+
+
+def _filter_source_groups(
+    X_3ch: np.ndarray,
+    df_meta: pd.DataFrame,
+    *,
+    include: set[str] | None = None,
+    exclude: set[str] | None = None,
+    label: str = "dataset",
+) -> tuple[np.ndarray, pd.DataFrame]:
+    """Filter by raw/source group before CPAN/YPAN alias merging."""
+    df_meta = df_meta.copy()
+    if "source_group" not in df_meta.columns:
+        df_meta["source_group"] = df_meta["group"].astype(str)
+
+    source_upper = df_meta["source_group"].astype(str).str.upper()
+    mask = np.ones(len(df_meta), dtype=bool)
+
+    if include:
+        include = {g.upper() for g in include}
+        mask &= source_upper.isin(include).to_numpy()
+    if exclude:
+        exclude = {g.upper() for g in exclude}
+        mask &= ~source_upper.isin(exclude).to_numpy()
+
+    if include or exclude:
+        kept = int(mask.sum())
+        logger.info(
+            f"  Source-group filter ({label}): kept {kept}/{len(df_meta)} spectra "
+            f"(include={sorted(include or []) or 'all'}, exclude={sorted(exclude or []) or 'none'})"
+        )
+
+    if not mask.any():
+        raise ValueError(
+            f"No spectra left after source-group filtering "
+            f"(include={sorted(include or [])}, exclude={sorted(exclude or [])})"
+        )
+
+    return X_3ch[mask], df_meta.loc[mask].reset_index(drop=True)
+
+
+def _prepare_sample_ids_and_aliases(
+    df_meta: pd.DataFrame,
+    *,
+    merge_aliases: bool,
+) -> pd.DataFrame:
+    """Preserve source_group, disambiguate Y* sample ids, then optionally merge aliases."""
+    df_meta = df_meta.copy()
+    if "source_group" not in df_meta.columns:
+        df_meta["source_group"] = df_meta["group"].astype(str)
+
+    needs_prefix = df_meta["source_group"].isin(["YPAN", "YNOR"])
+    df_meta.loc[needs_prefix, "sample_id"] = (
+        df_meta.loc[needs_prefix, "source_group"]
+        + "_"
+        + df_meta.loc[needs_prefix, "sample_id"].astype(str)
+    )
+
+    if merge_aliases:
+        df_meta["group"] = df_meta["source_group"].replace(GROUP_ALIASES)
+    else:
+        df_meta["group"] = df_meta["source_group"]
+
+    return df_meta
+
+
+def _aggregate_mean_by_sample(
+    X_3ch: np.ndarray,
+    df_meta: pd.DataFrame,
+) -> tuple[np.ndarray, pd.DataFrame]:
+    """Mean-aggregate replicate spectra by displayed group and sample_id."""
+    if len(X_3ch) == 0:
+        raise ValueError("No spectra to aggregate")
+
+    agg_groups = df_meta.groupby(["group", "sample_id"]).first().reset_index()
+    X_agg = []
+    for _, row in agg_groups.iterrows():
+        mask_s = (
+            (df_meta["group"] == row["group"])
+            & (df_meta["sample_id"] == row["sample_id"])
+        )
+        X_agg.append(X_3ch[mask_s.values].mean(axis=0))
+    return np.stack(X_agg), agg_groups.reset_index(drop=True)
+
+
+def load_data(data_dir=None, exclude_source_groups: set[str] | None = None):
     """Load and prepare multichannel SERS data with mean aggregation.
     
     Args:
         data_dir: Path to raw data directory. If None, uses global DATA_DIR.
+        exclude_source_groups: Raw/source group codes to remove before alias
+            merging (for example {"YPAN"} for external holdout).
     
     Supports two data types (set via global DATA_TYPE):
         - "raw_spectrum": Load from raw folder structure via load_raw_multichannel
@@ -456,37 +687,28 @@ def load_data(data_dir=None):
     grid = np.linspace(402.0, 2198.0, 933)
 
     if DATA_TYPE == "processed_csv":
-        # TODO: Implement processed_csv loader
-        # Expected CSV format:
-        #   group | sample_id | replicate | x_0 | x_1 | ... | x_932
-        # This would read the CSV and return same format as raw_spectrum path
-        raise NotImplementedError(
-            "processed_csv data type not yet implemented. "
-            "Currently only 'raw_spectrum' is supported."
-        )
+        logger.info("Loading processed CSV spectra ...")
+        X_3ch, df_meta, grid = load_processed_multichannel(data_dir, target_grid=grid)
+    else:
+        logger.info("Loading raw multichannel spectra ...")
+        X_3ch, df_meta = load_raw_multichannel(data_dir, THERMO_MAP, grid, "*.CSV")
 
-    logger.info("Loading raw multichannel spectra ...")
-    X_3ch, df_meta = load_raw_multichannel(data_dir, THERMO_MAP, grid, "*.CSV")
-    # Disambiguate sample_ids before group merge (CPAN_4 ≠ YPAN_4)
-    needs_prefix = df_meta["group"].isin(["YPAN", "YNOR"])
-    df_meta.loc[needs_prefix, "sample_id"] = (
-        df_meta.loc[needs_prefix, "group"] + "_" + df_meta.loc[needs_prefix, "sample_id"].astype(str)
+    exclude_source_groups = (
+        set(exclude_source_groups)
+        if exclude_source_groups is not None
+        else set(EXCLUDE_SOURCE_GROUPS)
     )
-    df_meta["group"] = df_meta["group"].replace({"CPAN": "PAN", "YPAN": "PAN", "YNOR": "NOR"})
+    X_3ch, df_meta = _filter_source_groups(
+        X_3ch, df_meta, exclude=exclude_source_groups, label="training"
+    )
+    df_meta = _prepare_sample_ids_and_aliases(df_meta, merge_aliases=True)
 
     valid = set(CANCER_TYPES) | set(NON_CANCER_GROUPS)
     mask = df_meta["group"].isin(valid).values
     X_3ch = X_3ch[mask]
     df_meta = df_meta[mask].reset_index(drop=True)
 
-    # Mean aggregation per sample
-    agg_groups = df_meta.groupby(["group", "sample_id"]).first().reset_index()
-    X_agg = []
-    for _, row in agg_groups.iterrows():
-        mask_s = (df_meta["group"] == row["group"]) & (df_meta["sample_id"] == row["sample_id"])
-        X_agg.append(X_3ch[mask_s.values].mean(axis=0))
-    X_3ch_agg = np.stack(X_agg)
-    df_meta_agg = agg_groups.reset_index(drop=True)
+    X_3ch_agg, df_meta_agg = _aggregate_mean_by_sample(X_3ch, df_meta)
 
     groups_arr = df_meta_agg["group"].values
     sample_ids = (df_meta_agg["group"] + "_" + df_meta_agg["sample_id"].astype(str)).values
@@ -569,8 +791,12 @@ def evaluate_meta_learner_inner(
         cancer_va = y_bin[ival] == 1
         if cancer_tr.sum() > 5 and cancer_va.sum() > 0:
             ml_s2 = meta_factory("multiclass")
-            ml_s2.fit(meta_s2[itr][cancer_tr], y_type[itr][cancer_tr])
-            s2_pred = ml_s2.predict(meta_s2[ival][cancer_va])
+            ml_s2_fit = fit_sparse_multiclass(
+                ml_s2, meta_s2[itr][cancer_tr], y_type[itr][cancer_tr]
+            )
+            s2_pred = predict_sparse_multiclass_labels(
+                ml_s2_fit, meta_s2[ival][cancer_va]
+            )
             f1 = f1_score(y_type[ival][cancer_va], s2_pred, average="macro", zero_division=0)
             f1s.append(f1)
         else:
@@ -756,13 +982,13 @@ def run_nested_cv(
             s2_f1 = 0.0
             if cancer_tr.sum() > 5 and cancer_te.sum() > 0:
                 ml_s2 = ml_factory("multiclass")
-                ml_s2.fit(meta_s2_train[cancer_tr], y_type_outer[cancer_tr])
-                s2_prob_te = ml_s2.predict_proba(meta_s2_test[cancer_te])
+                ml_s2_fit = fit_sparse_multiclass(
+                    ml_s2, meta_s2_train[cancer_tr], y_type_outer[cancer_tr]
+                )
                 # Map to full class space and apply sex constraint
-                s2_full_te = np.zeros((cancer_te.sum(), n_classes))
-                for ci, cls in enumerate(ml_s2.classes_):
-                    if cls < n_classes:
-                        s2_full_te[:, cls] = s2_prob_te[:, ci]
+                s2_full_te = predict_sparse_multiclass_proba(
+                    ml_s2_fit, meta_s2_test[cancer_te], n_classes
+                )
                 sex_te = infer_sex_from_groups(groups_arr[outer_te][cancer_te])
                 s2_full_te = apply_sex_constraint(s2_full_te, CANCER_TYPES, sex_te)
                 s2_pred = s2_full_te.argmax(axis=1)
@@ -807,10 +1033,21 @@ def run_fixed_split(
     y_type_val   = cancer_type_labels[val_idx]
     y_type_test  = cancer_type_labels[test_idx]
     sids_train = sample_ids[train_idx]
+    sids_val = sample_ids[val_idx]
+    sids_test = sample_ids[test_idx]
+    groups_train = groups_arr[train_idx] if groups_arr is not None else None
+    groups_val = groups_arr[val_idx] if groups_arr is not None else None
+    groups_test = groups_arr[test_idx] if groups_arr is not None else None
 
     logger.info(f"\n  Train: {len(X_train)} (cancer={int(y_bin_train.sum())})")
     logger.info(f"  Val:   {len(X_val)} (cancer={int(y_bin_val.sum())})")
     logger.info(f"  Test:  {len(X_test)} (cancer={int(y_bin_test.sum())})")
+
+    atomic_save_npz(
+        OUTPUT_DIR / "fixed_split_indices.npz",
+        train_idx=train_idx, val_idx=val_idx, test_idx=test_idx,
+    )
+    logger.info("  Saved fixed_split_indices.npz")
 
     # ── Peak features ──
     logger.info("  Extracting peak features ...")
@@ -818,6 +1055,27 @@ def run_fixed_split(
     X_peak_train = X_peak_all[train_idx]
     X_peak_val   = X_peak_all[val_idx]
     X_peak_test  = X_peak_all[test_idx]
+    atomic_save_npz(
+        OUTPUT_DIR / "fixed_peak_features.npz",
+        X_peak_train=X_peak_train,
+        X_peak_val=X_peak_val,
+        X_peak_test=X_peak_test,
+        y_bin_train=np.asarray(y_bin_train, dtype=np.int64),
+        y_bin_val=np.asarray(y_bin_val, dtype=np.int64),
+        y_bin_test=np.asarray(y_bin_test, dtype=np.int64),
+        y_type_train=np.asarray(y_type_train, dtype=np.int64),
+        y_type_val=np.asarray(y_type_val, dtype=np.int64),
+        y_type_test=np.asarray(y_type_test, dtype=np.int64),
+        sample_ids_train=np.asarray(sids_train, dtype=object),
+        sample_ids_val=np.asarray(sids_val, dtype=object),
+        sample_ids_test=np.asarray(sids_test, dtype=object),
+        groups_train=np.asarray(groups_train, dtype=object) if groups_train is not None else np.asarray([], dtype=object),
+        groups_val=np.asarray(groups_val, dtype=object) if groups_val is not None else np.asarray([], dtype=object),
+        groups_test=np.asarray(groups_test, dtype=object) if groups_test is not None else np.asarray([], dtype=object),
+        feature_names=np.asarray(peak_feature_names(), dtype=object),
+        cancer_types=np.asarray(CANCER_TYPES, dtype=object),
+    )
+    logger.info("  Saved fixed_peak_features.npz")
 
     # ════════════════════════════════════════════
     # Level 0: Base models — train → predict val & test
@@ -853,6 +1111,17 @@ def run_fixed_split(
         # log
         auc_val = roc_auc_score(y_bin_val, s1_v)
         logger.info(f"    [{mi+1}/{len(model_names)}] {m_name}: val AUC={auc_val:.4f}")
+
+    base_val_arrays = {}
+    base_test_arrays = {}
+    for m in model_names:
+        base_val_arrays[f"{m}_s1"] = val_s1[m]
+        base_val_arrays[f"{m}_s2"] = val_s2[m]
+        base_test_arrays[f"{m}_s1"] = test_s1[m]
+        base_test_arrays[f"{m}_s2"] = test_s2[m]
+    atomic_save_npz(OUTPUT_DIR / "fixed_base_model_val.npz", **base_val_arrays)
+    atomic_save_npz(OUTPUT_DIR / "fixed_base_model_test.npz", **base_test_arrays)
+    logger.info("  Saved fixed_base_model_val.npz and fixed_base_model_test.npz")
 
     # ════════════════════════════════════════════
     # Level 1: Meta-learner selection on VAL set
@@ -890,6 +1159,18 @@ def run_fixed_split(
         np.hstack([oof_s2_train[m] for m in model_names]), nan=0.0
     )
 
+    oof_arrays = {
+        "meta_s1": meta_s1_train_oof,
+        "meta_s2": meta_s2_train_oof,
+        "y_bin": y_bin_train,
+        "y_type": y_type_train,
+    }
+    for m in model_names:
+        oof_arrays[f"{m}_s1"] = oof_s1_train[m]
+        oof_arrays[f"{m}_s2"] = oof_s2_train[m]
+    atomic_save_npz(OUTPUT_DIR / "fixed_train_oof.npz", **oof_arrays)
+    logger.info("  Saved fixed_train_oof.npz")
+
     # Evaluate each meta-learner: train on OOF, evaluate on VAL
     best_meta_name = None
     best_meta_score = -1.0
@@ -911,8 +1192,12 @@ def run_fixed_split(
         f1_val = 0.0
         if cancer_tr.sum() > 5 and cancer_va.sum() > 0:
             ml_s2 = ml_factory("multiclass")
-            ml_s2.fit(meta_s2_train_oof[cancer_tr], y_type_train[cancer_tr])
-            s2_pred = ml_s2.predict(meta_s2_val[cancer_va])
+            ml_s2_fit = fit_sparse_multiclass(
+                ml_s2, meta_s2_train_oof[cancer_tr], y_type_train[cancer_tr]
+            )
+            s2_pred = predict_sparse_multiclass_labels(
+                ml_s2_fit, meta_s2_val[cancer_va]
+            )
             f1_val = f1_score(y_type_val[cancer_va], s2_pred, average="macro", zero_division=0)
 
         combined = auc_val * 0.6 + f1_val * 0.4
@@ -946,23 +1231,45 @@ def run_fixed_split(
     except AttributeError:
         s1_test_pred = final_s1.decision_function(meta_s1_test)
     test_auc = roc_auc_score(y_bin_test, s1_test_pred)
+    try:
+        s1_val_pred = final_s1.predict_proba(meta_s1_val)[:, 1]
+    except AttributeError:
+        s1_val_pred = final_s1.decision_function(meta_s1_val)
 
     # S2
     cancer_tr = y_bin_train == 1
+    cancer_va = y_bin_val == 1
     cancer_te = y_bin_test == 1
     test_f1 = 0.0
+    s2_val_full = np.zeros((len(y_bin_val), n_classes))
+    s2_test_full = np.zeros((len(y_bin_test), n_classes))
     if cancer_tr.sum() > 5 and cancer_te.sum() > 0:
         final_s2 = best_factory("multiclass")
-        final_s2.fit(meta_s2_train_oof[cancer_tr], y_type_train[cancer_tr])
-        s2_prob_test = final_s2.predict_proba(meta_s2_test[cancer_te])
-        s2_full_test = np.zeros((cancer_te.sum(), n_classes))
-        for ci, cls in enumerate(final_s2.classes_):
-            if cls < n_classes:
-                s2_full_test[:, cls] = s2_prob_test[:, ci]
+        final_s2_fit = fit_sparse_multiclass(
+            final_s2, meta_s2_train_oof[cancer_tr], y_type_train[cancer_tr]
+        )
+
+        if cancer_va.sum() > 0:
+            s2_val_full[cancer_va] = predict_sparse_multiclass_proba(
+                final_s2_fit, meta_s2_val[cancer_va], n_classes
+            )
+
+        s2_test_full[cancer_te] = predict_sparse_multiclass_proba(
+            final_s2_fit, meta_s2_test[cancer_te], n_classes
+        )
+
         if groups_arr is not None:
-            sex_te = infer_sex_from_groups(groups_arr[test_idx][cancer_te])
-            s2_full_test = apply_sex_constraint(s2_full_test, CANCER_TYPES, sex_te)
-        s2_pred_test = s2_full_test.argmax(axis=1)
+            if cancer_va.sum() > 0:
+                sex_va = infer_sex_from_groups(groups_val[cancer_va])
+                s2_val_full[cancer_va] = apply_sex_constraint(
+                    s2_val_full[cancer_va], CANCER_TYPES, sex_va,
+                )
+            sex_te = infer_sex_from_groups(groups_test[cancer_te])
+            s2_test_full[cancer_te] = apply_sex_constraint(
+                s2_test_full[cancer_te], CANCER_TYPES, sex_te,
+            )
+
+        s2_pred_test = s2_test_full[cancer_te].argmax(axis=1)
         test_f1 = f1_score(
             y_type_test[cancer_te], s2_pred_test,
             average="macro", zero_division=0,
@@ -975,6 +1282,127 @@ def run_fixed_split(
     logger.info(f"  Stage 1 AUC:  {test_auc:.4f}")
     logger.info(f"  Stage 2 F1:   {test_f1:.4f}")
     logger.info(f"{'='*60}")
+
+    logger.info("\n  -- Saving fixed-split artifacts for figures --")
+
+    save_fixed_predictions(
+        "fixed_test", s1_test_pred, s2_test_full,
+        y_bin_test, y_type_test, sids_test, groups_test, OUTPUT_DIR,
+    )
+    save_fixed_predictions(
+        "fixed_val", s1_val_pred, s2_val_full,
+        y_bin_val, y_type_val, sids_val, groups_val, OUTPUT_DIR,
+    )
+
+    single_vs = compare_single_vs_ensemble(
+        test_s1, test_s2, model_names,
+        y_bin_test, y_type_test, n_classes,
+        groups_arr=groups_test,
+    )
+    single_vs.append({
+        "model": f"meta_{best_meta_name}",
+        "type": "meta",
+        "auc": round(float(test_auc), 6),
+        "f1_type": round(float(test_f1), 6),
+    })
+    pd.DataFrame(single_vs).to_csv(OUTPUT_DIR / "single_vs_ensemble.csv", index=False)
+    logger.info("  Saved single_vs_ensemble.csv")
+
+    contributions = compute_base_model_contribution(
+        test_s1, model_names, y_bin_test, y_type_test, n_classes,
+    )
+    pd.DataFrame(contributions).to_csv(OUTPUT_DIR / "base_model_contribution.csv", index=False)
+    logger.info("  Saved base_model_contribution.csv")
+
+    base_summary = []
+    for m in model_names:
+        base_summary.append({
+            "model": m,
+            "val_auc": round(float(roc_auc_score(y_bin_val, val_s1[m])), 6),
+            "test_auc": round(float(roc_auc_score(y_bin_test, test_s1[m])), 6),
+        })
+    pd.DataFrame(base_summary).to_csv(OUTPUT_DIR / "base_model_auc_summary.csv", index=False)
+    logger.info("  Saved base_model_auc_summary.csv")
+
+    pd.DataFrame(meta_results).to_csv(OUTPUT_DIR / "meta_learner_comparison.csv", index=False)
+    logger.info("  Saved meta_learner_comparison.csv")
+
+    if cancer_te.sum() > 0:
+        y_true_c = y_type_test[cancer_te]
+        y_pred_c = s2_test_full[cancer_te].argmax(axis=1)
+        cancer_names = list(CANCER_TYPES)
+        labels_idx = list(range(n_classes))
+
+        cm = confusion_matrix(y_true_c, y_pred_c, labels=labels_idx)
+        cm_norm = cm / (cm.sum(axis=1, keepdims=True) + 1e-12)
+
+        per_f1 = f1_score(y_true_c, y_pred_c, labels=labels_idx,
+                          average=None, zero_division=0)
+        per_prec = precision_score(y_true_c, y_pred_c, labels=labels_idx,
+                                   average=None, zero_division=0)
+        per_rec = recall_score(y_true_c, y_pred_c, labels=labels_idx,
+                               average=None, zero_division=0)
+        per_spec = np.zeros(n_classes)
+        for i in range(n_classes):
+            tp = cm[i, i]
+            fn = cm[i, :].sum() - tp
+            fp = cm[:, i].sum() - tp
+            tn = cm.sum() - tp - fp - fn
+            per_spec[i] = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+
+        pd.DataFrame({
+            "cancer": cancer_names,
+            "n": cm.sum(axis=1).astype(int),
+            "sensitivity": np.round(per_rec, 6),
+            "specificity": np.round(per_spec, 6),
+            "precision": np.round(per_prec, 6),
+            "recall": np.round(per_rec, 6),
+            "f1": np.round(per_f1, 6),
+        }).to_csv(OUTPUT_DIR / "cancer_type_metrics.csv",
+                  index=False, encoding="utf-8-sig")
+        pd.DataFrame(cm, index=cancer_names, columns=cancer_names).to_csv(
+            OUTPUT_DIR / "confusion_matrix_counts.csv", encoding="utf-8-sig",
+        )
+        pd.DataFrame(cm_norm, index=cancer_names, columns=cancer_names).to_csv(
+            OUTPUT_DIR / "confusion_matrix_normalized.csv", encoding="utf-8-sig",
+        )
+        logger.info("  Saved cancer_type_metrics.csv and confusion matrices")
+
+    fpr, tpr, thresholds = roc_curve(y_bin_test, s1_test_pred)
+    atomic_save_npz(
+        OUTPUT_DIR / "roc_curve_data.npz",
+        fpr=fpr,
+        tpr=tpr,
+        thresholds=thresholds,
+        auc=np.array([test_auc]),
+    )
+    logger.info("  Saved roc_curve_data.npz")
+
+    atomic_save_json(OUTPUT_DIR / "fixed_split_results.json", {
+        "split_mode": "fixed",
+        "best_meta": best_meta_name,
+        "test_auc": round(float(test_auc), 6),
+        "test_f1": round(float(test_f1), 6),
+        "split_sizes": {
+            "train": int(len(train_idx)),
+            "val": int(len(val_idx)),
+            "test": int(len(test_idx)),
+        },
+        "meta_results": [
+            {
+                "meta_learner": r["meta_learner"],
+                "val_s1_auc": round(float(r["val_s1_auc"]), 6),
+                "val_s2_f1": round(float(r["val_s2_f1"]), 6),
+                "combined": round(float(r["combined"]), 6),
+            }
+            for r in meta_results
+        ],
+        "base_model_auc": base_summary,
+        "n_classes": int(n_classes),
+        "cancer_types": list(CANCER_TYPES),
+        "model_names": model_names,
+    })
+    logger.info("  Saved fixed_split_results.json")
 
     return {
         "meta_results": meta_results,
@@ -1081,111 +1509,106 @@ def compare_single_vs_ensemble(outer_oof_s1, outer_oof_s2, model_names,
 
 
 # ---------------------------------------------------------------------------
-# Visualization
-# ---------------------------------------------------------------------------
-
-def plot_meta_learner_comparison(results_df, output_dir):
-    """Boxplot of meta-learner performance across outer folds."""
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-
-    meta_names = results_df["meta_learner"].unique()
-    colors = plt.cm.Set2(np.linspace(0, 1, len(meta_names)))
-
-    # S1 AUC boxplot
-    ax = axes[0]
-    data_auc = [results_df[results_df["meta_learner"] == m]["s1_auc"].values for m in meta_names]
-    bp = ax.boxplot(data_auc, labels=meta_names, patch_artist=True, widths=0.6)
-    for patch, c in zip(bp["boxes"], colors):
-        patch.set_facecolor(c)
-    ax.set_ylabel("Stage 1 AUC")
-    ax.set_title("Meta-Learner Comparison: Detection AUC", fontweight="bold")
-    ax.grid(axis="y", alpha=0.3)
-    for i, d in enumerate(data_auc):
-        ax.text(i + 1, np.median(d) + 0.001, f"{np.median(d):.4f}", ha="center", fontsize=8)
-
-    # S2 F1 boxplot
-    ax = axes[1]
-    data_f1 = [results_df[results_df["meta_learner"] == m]["s2_f1"].values for m in meta_names]
-    bp = ax.boxplot(data_f1, labels=meta_names, patch_artist=True, widths=0.6)
-    for patch, c in zip(bp["boxes"], colors):
-        patch.set_facecolor(c)
-    ax.set_ylabel("Stage 2 F1 Macro")
-    ax.set_title("Meta-Learner Comparison: Cancer Type F1", fontweight="bold")
-    ax.grid(axis="y", alpha=0.3)
-    for i, d in enumerate(data_f1):
-        ax.text(i + 1, np.median(d) + 0.005, f"{np.median(d):.4f}", ha="center", fontsize=8)
-
-    plt.tight_layout()
-    fig.savefig(output_dir / "meta_learner_comparison.png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"  Saved meta_learner_comparison.png")
-
-
-def plot_contribution_analysis(contributions, output_dir):
-    """Bar chart of base model permutation importance."""
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    names = [c["base_model"] for c in contributions]
-    drops = [c["mean_auc_drop"] for c in contributions]
-    stds = [c["std_auc_drop"] for c in contributions]
-
-    colors = ["#E91E63" if d > 0 else "#90CAF9" for d in drops]
-    bars = ax.barh(range(len(names)), drops, xerr=stds, color=colors, alpha=0.85,
-                   capsize=3, edgecolor="gray", linewidth=0.5)
-    ax.set_yticks(range(len(names)))
-    ax.set_yticklabels(names)
-    ax.set_xlabel("Mean AUC Drop (higher = more important)")
-    ax.set_title("Base Model Contribution (Permutation Importance)", fontweight="bold")
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.grid(axis="x", alpha=0.3)
-
-    for i, (d, s) in enumerate(zip(drops, stds)):
-        ax.text(d + s + 0.0005, i, f"{d:.4f}", va="center", fontsize=8)
-
-    plt.tight_layout()
-    fig.savefig(output_dir / "contribution_analysis.png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"  Saved contribution_analysis.png")
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
+def _source_groups_for_request(group_name: str) -> list[str]:
+    group = group_name.upper()
+    return GROUP_EXPANSIONS.get(group, [group])
+
+
 def load_val_group_data(group_name, grid):
-    """Load a specific group's data as 3-channel multichannel for val-group inference."""
-    data_dir = PROJECT_ROOT / "data" / "raw_data"
+    """Load a specific source group for external val-group inference."""
+    raw_groups = _source_groups_for_request(group_name)
 
-    # Full folder mapping (includes groups not in training, e.g. SPAN)
-    import yaml
-    with open(PROJECT_ROOT / "config" / "config.yaml", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-    full_map = cfg["dataset"]["folder_to_group"]
+    if DATA_TYPE == "processed_csv":
+        logger.info(f"  Loading {raw_groups} from processed CSV source ...")
+        X_3ch, df_meta, _ = load_processed_multichannel(DATA_DIR, target_grid=grid)
+        X_3ch, df_meta = _filter_source_groups(
+            X_3ch, df_meta, include=set(raw_groups), label="val-group"
+        )
+    else:
+        data_dir = PROJECT_ROOT / "data" / "raw_data"
 
-    # Support alias expansion (e.g. PAN → CPAN + YPAN)
-    GROUP_ALIASES = {"PAN": ["CPAN", "YPAN"], "NOR": ["NOR", "YNOR"]}
-    raw_groups = GROUP_ALIASES.get(group_name.upper(), [group_name.upper()])
+        # Full folder mapping (includes groups not in training, e.g. SPAN)
+        import yaml
+        with open(PROJECT_ROOT / "config" / "config.yaml", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        full_map = cfg["dataset"]["folder_to_group"]
 
-    # Reverse lookup from full config mapping
-    target_map = {k: v for k, v in full_map.items() if v in raw_groups}
-    if not target_map:
-        raise ValueError(f"No folder mapping found for group(s) {raw_groups}")
+        # Reverse lookup from full config mapping
+        target_map = {k: v for k, v in full_map.items() if v in raw_groups}
+        if not target_map:
+            raise ValueError(f"No folder mapping found for group(s) {raw_groups}")
 
-    logger.info(f"  Loading {raw_groups} from {len(target_map)} folders ...")
-    X_3ch, df_meta = load_raw_multichannel(data_dir, target_map, grid, "*.CSV")
-    logger.info(f"  Loaded {len(X_3ch)} spectra for {raw_groups}")
+        logger.info(f"  Loading {raw_groups} from {len(target_map)} folders ...")
+        X_3ch, df_meta = load_raw_multichannel(data_dir, target_map, grid, "*.CSV")
+        logger.info(f"  Loaded {len(X_3ch)} spectra for {raw_groups}")
 
-    # Mean aggregation per sample
-    agg_groups = df_meta.groupby(["group", "sample_id"]).first().reset_index()
-    X_agg = []
-    for _, row in agg_groups.iterrows():
-        mask_s = (df_meta["group"] == row["group"]) & (df_meta["sample_id"] == row["sample_id"])
-        X_agg.append(X_3ch[mask_s.values].mean(axis=0))
-    X_3ch_agg = np.stack(X_agg)
-    df_meta_agg = agg_groups.reset_index(drop=True)
+    df_meta = _prepare_sample_ids_and_aliases(df_meta, merge_aliases=False)
+    X_3ch_agg, df_meta_agg = _aggregate_mean_by_sample(X_3ch, df_meta)
 
     logger.info(f"  Aggregated: {len(X_3ch_agg)} samples")
     return X_3ch_agg, df_meta_agg
+
+
+def load_meta_training_features(model_names: list[str]):
+    """Load OOF meta features from nested-CV or fixed-split development output."""
+    candidates = [
+        (OUTPUT_DIR / "oof_predictions.npz", "nested_cv"),
+        (OUTPUT_DIR / "fixed_train_oof.npz", "fixed_train_oof"),
+        (_LEGACY_OUTPUT_DIR / "oof_predictions.npz", "legacy_nested_cv"),
+    ]
+
+    for path, kind in candidates:
+        if not path.exists():
+            continue
+
+        oof = np.load(path, allow_pickle=True)
+        if "meta_s1" in oof.files and "meta_s2" in oof.files:
+            meta_s1 = np.nan_to_num(oof["meta_s1"], nan=0.0)
+            meta_s2 = np.nan_to_num(oof["meta_s2"], nan=0.0)
+        else:
+            missing = [
+                key
+                for m in model_names
+                for key in (f"{m}_s1", f"{m}_s2")
+                if key not in oof.files
+            ]
+            if missing:
+                raise KeyError(f"{path} is missing OOF keys: {missing[:8]}")
+            meta_s1 = np.nan_to_num(
+                np.column_stack([oof[f"{m}_s1"] for m in model_names]), nan=0.0
+            )
+            meta_s2 = np.nan_to_num(
+                np.hstack([oof[f"{m}_s2"] for m in model_names]), nan=0.0
+            )
+
+        if "binary_labels" in oof.files:
+            y_bin = oof["binary_labels"].astype(int)
+        elif "y_bin" in oof.files:
+            y_bin = oof["y_bin"].astype(int)
+        else:
+            raise KeyError(f"{path} is missing binary labels")
+
+        if "cancer_type_labels" in oof.files:
+            y_type = oof["cancer_type_labels"].astype(int)
+        elif "y_type" in oof.files:
+            y_type = oof["y_type"].astype(int)
+        else:
+            raise KeyError(f"{path} is missing cancer type labels")
+
+        if len(meta_s1) != len(y_bin) or len(meta_s2) != len(y_bin):
+            raise ValueError(
+                f"OOF feature/label length mismatch in {path}: "
+                f"meta_s1={len(meta_s1)}, meta_s2={len(meta_s2)}, labels={len(y_bin)}"
+            )
+
+        logger.info(f"  Loaded meta-training OOF from {path} ({kind}, n={len(y_bin)})")
+        return meta_s1, meta_s2, y_bin, y_type, path, kind
+
+    searched = ", ".join(str(p) for p, _ in candidates)
+    raise FileNotFoundError(f"OOF predictions not found. Searched: {searched}")
 
 
 def run_val_group_inference(args):
@@ -1246,22 +1669,20 @@ def run_val_group_inference(args):
     meta_s1_val = np.column_stack([base_s1[m] for m in model_names])
     meta_s2_val = np.hstack([base_s2[m] for m in model_names])
 
-    # Also need OOF meta-features for training the meta-learner
-    # Load from saved oof_predictions.npz (check new path, fallback to legacy)
-    oof_path = OUTPUT_DIR / "oof_predictions.npz"
-    if not oof_path.exists():
-        oof_path = _LEGACY_OUTPUT_DIR / "oof_predictions.npz"
-    if not oof_path.exists():
-        logger.error(f"  OOF predictions not found in {OUTPUT_DIR} or {_LEGACY_OUTPUT_DIR}")
-        logger.error("  Run: python models/train_stacking.py  (without --val-group)")
-        return 1
-
     logger.info(f"\n[Step 5] Loading OOF predictions for meta-learner training ...")
-    oof = np.load(oof_path, allow_pickle=True)
-    meta_s1_train = np.column_stack([oof[f"{m}_s1"] for m in model_names])
-    meta_s2_train = np.hstack([oof[f"{m}_s2"] for m in model_names])
-    meta_s1_train = np.nan_to_num(meta_s1_train, nan=0.0)
-    meta_s2_train = np.nan_to_num(meta_s2_train, nan=0.0)
+    try:
+        meta_s1_train, meta_s2_train, y_bin_meta, y_type_meta, oof_path, oof_kind = (
+            load_meta_training_features(model_names)
+        )
+    except Exception as e:
+        logger.error(f"  Failed to load OOF predictions for meta-learner training: {e}")
+        logger.error("  Run development training first, then rerun with --val-group.")
+        return 1
+    if oof_kind == "fixed_train_oof":
+        logger.warning(
+            "  Using fixed-split train OOF for meta training. "
+            "For final locked external validation, prefer nested_cv OOF or a dedicated production build."
+        )
 
     # ── 6. Train meta-learner on full OOF → predict val-group ──
     logger.info(f"\n[Step 6] Training {meta_type} meta-learner → predicting {group_name} ...")
@@ -1274,22 +1695,19 @@ def run_val_group_inference(args):
 
     # Stage 1
     ml_s1 = factory("binary")
-    ml_s1.fit(meta_s1_train, binary_labels_train)
+    ml_s1.fit(meta_s1_train, y_bin_meta)
     try:
         s1_final = ml_s1.predict_proba(meta_s1_val)[:, 1]
     except AttributeError:
         s1_final = ml_s1.decision_function(meta_s1_val)
 
     # Stage 2
-    cancer_mask_train = binary_labels_train == 1
+    cancer_mask_train = y_bin_meta == 1
     ml_s2 = factory("multiclass")
-    ml_s2.fit(meta_s2_train[cancer_mask_train], cancer_type_labels_train[cancer_mask_train])
-    s2_prob = ml_s2.predict_proba(meta_s2_val)
-    # Map local classes back to full class space
-    s2_full = np.zeros((n_val, n_classes))
-    for j, cls in enumerate(ml_s2.classes_):
-        if cls < n_classes:
-            s2_full[:, cls] = s2_prob[:, j]
+    ml_s2_fit = fit_sparse_multiclass(
+        ml_s2, meta_s2_train[cancer_mask_train], y_type_meta[cancer_mask_train]
+    )
+    s2_full = predict_sparse_multiclass_proba(ml_s2_fit, meta_s2_val, n_classes)
     # Apply sex constraint
     sex_val_group = infer_sex_from_groups(val_groups)
     s2_full = apply_sex_constraint(s2_full, CANCER_TYPES, sex_val_group)
@@ -1350,45 +1768,17 @@ def run_val_group_inference(args):
     df_result = pd.DataFrame(rows)
     df_result.to_csv(out_dir / "predictions.csv", index=False)
 
-    # Visualizations
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    from scripts.analysis.stk_v2.figures.val_group import plot_val_group_summary
 
-    # Cancer prob distribution
-    axes[0].hist(s1_final, bins=30, color="#E53935", alpha=0.7, edgecolor="black")
-    axes[0].axvline(0.5, color="black", ls="--", lw=1.5, label="Threshold 0.5")
-    axes[0].set(xlabel="Cancer Probability", ylabel="Count",
-                title=f"{group_name} — S1 Cancer Prob (n={n_val})")
-    axes[0].legend()
-
-    # Predicted type pie
-    colors_map = {
-        "PRO": "#E91E63", "BRE": "#F06292", "OVA": "#AB47BC",
-        "LUN": "#42A5F5", "CRC": "#EF5350", "PAN": "#FFA726", "BLC": "#7E57C2",
-    }
-    colors = [colors_map.get(ct, "#999999") for ct in pred_counts.index]
-    axes[1].pie(pred_counts.values,
-                labels=[f"{ct}\n({c})" for ct, c in pred_counts.items()],
-                colors=colors, autopct="%1.1f%%", startangle=90)
-    axes[1].set_title(f"{group_name} — Predicted Cancer Types")
-
-    # Base model agreement heatmap
-    base_preds = np.column_stack([base_s1[m] for m in model_names])
-    im = axes[2].imshow(base_preds.T, aspect="auto", cmap="YlOrRd", vmin=0, vmax=1)
-    axes[2].set_yticks(range(len(model_names)))
-    axes[2].set_yticklabels(model_names, fontsize=8)
-    axes[2].set_xlabel("Sample")
-    axes[2].set_title(f"{group_name} — Base Model Cancer Probs")
-    fig.colorbar(im, ax=axes[2], label="P(cancer)")
-
-    plt.tight_layout()
-    fig.savefig(out_dir / "val_group_summary.png", dpi=200, bbox_inches="tight")
-    plt.close(fig)
+    summary_fig = plot_val_group_summary(
+        out_dir, group_name, s1_final, pred_counts, base_s1, model_names,
+    )
+    logger.info(f"  Saved {summary_fig.name}")
 
     # ── 10. Confusion Matrix ──
     if not args.no_cm:
         logger.info(f"\n[Step 10] Generating confusion matrices ...")
-        from sklearn.metrics import confusion_matrix as sk_confusion_matrix
-        import seaborn as sns
+        from scripts.analysis.stk_v2.figures.val_group import plot_val_group_confusion_matrices
 
         # Ground truth: SPAN → determine expected label
         # Map val group to cancer type index (SPAN is pancreatic → PAN)
@@ -1397,64 +1787,20 @@ def run_val_group_inference(args):
         }
         expected_type = GROUP_TO_EXPECTED.get(group_name, group_name)
 
-        # Stage 1 CM: all should be cancer
-        gt_binary = np.ones(n_val, dtype=int)
-        pred_binary = (s1_final > 0.5).astype(int)
-        cm_s1 = sk_confusion_matrix(gt_binary, pred_binary, labels=[0, 1])
-        
-        # Stage 1 Metrics
-        tn_s1, fp_s1, fn_s1, tp_s1 = cm_s1.ravel()
-        sensitivity_s1 = tp_s1 / (tp_s1 + fn_s1) if (tp_s1 + fn_s1) > 0 else 0
-        specificity_s1 = tn_s1 / (tn_s1 + fp_s1) if (tn_s1 + fp_s1) > 0 else 0
-        accuracy_s1 = (tp_s1 + tn_s1) / (tp_s1 + tn_s1 + fp_s1 + fn_s1) if (tp_s1 + tn_s1 + fp_s1 + fn_s1) > 0 else 0
-        
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-        sns.heatmap(cm_s1, annot=True, fmt="d", cmap="Blues",
-                    xticklabels=["Non-cancer", "Cancer"],
-                    yticklabels=["Non-cancer", "Cancer"], ax=axes[0])
-        axes[0].set(xlabel="Predicted", ylabel="Ground Truth",
-                    title=f"{group_name} — Stage 1 CM (GT=Cancer, t=0.5)")
-
+        cm_fig, cm_metrics = plot_val_group_confusion_matrices(
+            out_dir, group_name, s1_final, s2_pred, CANCER_TYPES, expected_type=expected_type,
+        )
         logger.info(f"  [Stage 1] Cancer Screening Metrics:")
-        logger.info(f"    Sensitivity (TPR): {tp_s1}/{tp_s1 + fn_s1} = {sensitivity_s1:.4f}")
-        logger.info(f"    Specificity (TNR): {tn_s1}/{tn_s1 + fp_s1} = {specificity_s1:.4f}")
-        logger.info(f"    Accuracy: {tp_s1 + tn_s1}/{n_val} = {accuracy_s1:.4f}")
+        logger.info(f"    Sensitivity (TPR): {cm_metrics['s1_sensitivity']:.4f}")
+        logger.info(f"    Specificity (TNR): {cm_metrics['s1_specificity']:.4f}")
+        logger.info(f"    Accuracy: {cm_metrics['s1_accuracy']:.4f}")
 
-        # Stage 2 CM: GT = expected_type for all, predicted = s2_pred_names
-        gt_type_idx = CANCER_TYPES.index(expected_type) if expected_type in CANCER_TYPES else -1
-        if gt_type_idx >= 0:
-            gt_s2 = np.full(n_val, gt_type_idx, dtype=int)
-            cm_s2 = sk_confusion_matrix(gt_s2, s2_pred, labels=list(range(n_classes)))
-            sns.heatmap(cm_s2, annot=True, fmt="d", cmap="OrRd",
-                        xticklabels=list(CANCER_TYPES),
-                        yticklabels=list(CANCER_TYPES), ax=axes[1])
-            axes[1].set(xlabel="Predicted", ylabel="Ground Truth",
-                        title=f"{group_name} — Stage 2 CM (GT={expected_type})")
-
-            # Stage 2 Metrics (for the specific cancer type)
-            correct = (s2_pred == gt_type_idx).sum()
-            accuracy_s2 = correct / n_val
-            tp_s2 = cm_s2[gt_type_idx, gt_type_idx]
-            fn_s2 = cm_s2[gt_type_idx, :].sum() - tp_s2
-            fp_s2 = cm_s2[:, gt_type_idx].sum() - tp_s2
-            
-            sensitivity_s2 = tp_s2 / (tp_s2 + fn_s2) if (tp_s2 + fn_s2) > 0 else 0
-            specificity_s2 = (cm_s2.sum() - cm_s2[gt_type_idx, :].sum() - cm_s2[:, gt_type_idx].sum() + tp_s2) / (cm_s2.sum() - (tp_s2 + fn_s2)) if (cm_s2.sum() - (tp_s2 + fn_s2)) > 0 else 0
-            
+        if "s2_accuracy" in cm_metrics:
             logger.info(f"  [Stage 2] Cancer Type Classification (GT={expected_type}):")
-            logger.info(f"    Sensitivity (TPR): {tp_s2}/{tp_s2 + fn_s2} = {sensitivity_s2:.4f}")
-            logger.info(f"    Specificity (TNR): {specificity_s2:.4f}")
-            logger.info(f"    Accuracy: {correct}/{n_val} = {accuracy_s2:.4f}")
-        else:
-            axes[1].text(0.5, 0.5, f"No GT mapping for {group_name}",
-                         ha="center", va="center", transform=axes[1].transAxes)
-            axes[1].set_title("Stage 2 CM — N/A")
-
-        plt.tight_layout()
-        fig.savefig(out_dir / "confusion_matrices.png", dpi=200, bbox_inches="tight")
-        plt.close(fig)
-        logger.info(f"  Saved confusion_matrices.png")
+            logger.info(f"    Sensitivity (TPR): {cm_metrics['s2_sensitivity']:.4f}")
+            logger.info(f"    Specificity (TNR): {cm_metrics['s2_specificity']:.4f}")
+            logger.info(f"    Accuracy: {int(cm_metrics['s2_correct'])}/{n_val} = {cm_metrics['s2_accuracy']:.4f}")
+        logger.info(f"  Saved {cm_fig.name}")
 
     # ── 11. SHAP Analysis ──
     if not args.no_shap:
@@ -1467,39 +1813,27 @@ def run_val_group_inference(args):
         if shap is not None:
             shap_dir = out_dir / "shap"
             shap_dir.mkdir(exist_ok=True)
+            from scripts.analysis.stk_v2.figures.val_group import (
+                plot_meta_shap_s1,
+                plot_meta_shap_s2,
+                plot_spectral_shap,
+            )
 
             # ── 11a. Meta-learner SHAP (which base models drive the decision) ──
             logger.info(f"\n[Step 11a] Meta-learner SHAP ...")
             try:
-                meta_s1_bg = np.nan_to_num(
-                    np.column_stack([oof[f"{m}_s1"] for m in model_names]), nan=0.0
-                )
+                meta_s1_bg = np.nan_to_num(meta_s1_train, nan=0.0)
                 n_bg = min(args.shap_samples, len(meta_s1_bg))
                 bg_idx = np.random.RandomState(42).choice(len(meta_s1_bg), n_bg, replace=False)
 
                 explainer_s1 = shap.LinearExplainer(ml_s1, meta_s1_bg[bg_idx])
                 shap_vals_s1 = explainer_s1.shap_values(meta_s1_val)
 
-                fig, ax = plt.subplots(figsize=(10, 6))
-                mean_abs = np.abs(shap_vals_s1).mean(axis=0)
-                order = np.argsort(mean_abs)[::-1]
-                ax.barh(range(len(model_names)),
-                        mean_abs[order],
-                        color="#1976D2", alpha=0.85)
-                ax.set_yticks(range(len(model_names)))
-                ax.set_yticklabels([model_names[i] for i in order])
-                ax.set_xlabel("Mean |SHAP value|")
-                ax.set_title(f"Meta-Learner SHAP — Stage 1 (base model importance for {group_name})")
-                ax.invert_yaxis()
-                plt.tight_layout()
-                fig.savefig(shap_dir / "meta_shap_s1.png", dpi=200)
-                plt.close(fig)
+                plot_meta_shap_s1(shap_dir, group_name, model_names, shap_vals_s1)
 
                 # Stage 2 meta SHAP
-                meta_s2_bg = np.nan_to_num(
-                    np.hstack([oof[f"{m}_s2"] for m in model_names]), nan=0.0
-                )
-                cancer_mask_bg = oof["binary_labels"] == 1
+                meta_s2_bg = np.nan_to_num(meta_s2_train, nan=0.0)
+                cancer_mask_bg = y_bin_meta == 1
                 meta_s2_bg_cancer = meta_s2_bg[cancer_mask_bg]
                 n_bg_s2 = min(args.shap_samples, len(meta_s2_bg_cancer))
                 bg_idx_s2 = np.random.RandomState(42).choice(
@@ -1520,19 +1854,7 @@ def run_val_group_inference(args):
                     end = start + n_classes
                     per_model_shap.append(shap_s2_all[:, start:end].mean())
                 per_model_shap = np.array(per_model_shap)
-                order_s2 = np.argsort(per_model_shap)[::-1]
-
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.barh(range(len(model_names)), per_model_shap[order_s2],
-                        color="#E53935", alpha=0.85)
-                ax.set_yticks(range(len(model_names)))
-                ax.set_yticklabels([model_names[i] for i in order_s2])
-                ax.set_xlabel("Mean |SHAP value| (aggregated over classes)")
-                ax.set_title(f"Meta-Learner SHAP — Stage 2 (base model importance for {group_name})")
-                ax.invert_yaxis()
-                plt.tight_layout()
-                fig.savefig(shap_dir / "meta_shap_s2.png", dpi=200)
-                plt.close(fig)
+                plot_meta_shap_s2(shap_dir, group_name, model_names, per_model_shap)
                 logger.info(f"  Saved meta_shap_s1.png, meta_shap_s2.png")
 
                 # Save CSV
@@ -1590,37 +1912,7 @@ def run_val_group_inference(args):
                     else:
                         feat_wn = np.tile(wavenumbers, len(ch))
 
-                    fig, ax = plt.subplots(figsize=(14, 5))
-                    if len(ch) == 1:
-                        ax.plot(feat_wn, mean_shap_bm, color="#1976D2", lw=1.2)
-                        ax.fill_between(feat_wn, mean_shap_bm, alpha=0.3, color="#1976D2")
-                        ax.set_xlabel("Wavenumber (cm⁻¹)")
-                    else:
-                        for ci, c_idx in enumerate(ch):
-                            ch_name = ["raw", "d1", "d2"][c_idx]
-                            start = ci * len(wavenumbers)
-                            end = start + len(wavenumbers)
-                            ax.plot(wavenumbers, mean_shap_bm[start:end],
-                                    lw=1.2, label=ch_name)
-                        ax.legend()
-                        ax.set_xlabel("Wavenumber (cm⁻¹)")
-
-                    ax.set_ylabel("Mean |SHAP value|")
-                    ax.set_title(f"{bm_name} — Spectral SHAP for {group_name} (Stage 1)")
-
-                    # Annotate top peaks
-                    if len(ch) == 1:
-                        top_k = 10
-                        top_idx = np.argsort(mean_shap_bm)[-top_k:]
-                        for idx in top_idx:
-                            if mean_shap_bm[idx] > mean_shap_bm.mean() * 2:
-                                ax.annotate(f"{feat_wn[idx]:.0f}",
-                                            xy=(feat_wn[idx], mean_shap_bm[idx]),
-                                            fontsize=7, ha="center", va="bottom")
-
-                    plt.tight_layout()
-                    fig.savefig(shap_dir / f"spectral_shap_{bm_name}.png", dpi=200)
-                    plt.close(fig)
+                    plot_spectral_shap(shap_dir, bm_name, wavenumbers, ch, mean_shap_bm)
                     logger.info(f"  Saved spectral_shap_{bm_name}.png")
 
                     # Save CSV
@@ -1647,10 +1939,14 @@ def main():
     parser.add_argument("--project-root", type=Path, default=None,
                         help="Project root directory (default: auto-detect from script location)")
     parser.add_argument("--data-dir", type=Path, default=None,
-                        help="Data directory with raw spectra (default: <project-root>/data/raw_data)")
+                        help="Raw spectra directory, or a processed_spectra*.csv path when --data-type processed_csv "
+                             "(default: <project-root>/data/raw_data)")
     parser.add_argument("--data-type", choices=["raw_spectrum", "processed_csv"], default="raw_spectrum",
                         help="Data format: 'raw_spectrum' (load via load_raw_multichannel) or "
                              "'processed_csv' (expects group, sample_id, replicate, x_... columns)")
+    parser.add_argument("--exclude-source-groups", action="append", default=[],
+                        help="Comma-separated raw/source group codes to exclude before alias merging "
+                             "(repeatable; e.g. --exclude-source-groups YPAN)")
     parser.add_argument("--output-name", type=str, default="stacking_v2",
                         help="Output directory name under results/training/ (default: stacking_v2)")
     parser.add_argument("--dry-run", action="store_true")
@@ -1662,10 +1958,14 @@ def main():
     parser.add_argument("--split-mode", choices=["nested_cv", "fixed"],
                         default="fixed")
     parser.add_argument("--force-test-group", type=str, default="YPAN_")
+    parser.add_argument("--n-jobs", type=int, default=-1,
+                        help="Parallel jobs for sklearn/XGBoost estimators (-1 uses all CPU cores).")
+    parser.add_argument("--xgb-device", choices=["cpu", "cuda"], default="cpu",
+                        help="XGBoost device. Use 'cuda' only when WSL can access the GPU.")
     args = parser.parse_args()
 
     # ── Resolve project root, data dir, output dir ──
-    global PROJECT_ROOT, DATA_DIR, DATA_TYPE, OUTPUT_DIR, FIG_OUTPUT_DIR, CHECKPOINT_DIR, _LEGACY_OUTPUT_DIR, _LEGACY_CHECKPOINT_DIR
+    global PROJECT_ROOT, DATA_DIR, DATA_TYPE, OUTPUT_DIR, FIG_OUTPUT_DIR, CHECKPOINT_DIR, _LEGACY_OUTPUT_DIR, _LEGACY_CHECKPOINT_DIR, MODEL_N_JOBS, XGB_DEVICE, EXCLUDE_SOURCE_GROUPS
     
     if args.project_root is None:
         PROJECT_ROOT = _DEFAULT_PROJECT_ROOT
@@ -1678,10 +1978,14 @@ def main():
         DATA_DIR = args.data_dir.expanduser().resolve()
     
     DATA_TYPE = args.data_type
+    EXCLUDE_SOURCE_GROUPS = parse_group_arg_values(args.exclude_source_groups)
+    MODEL_N_JOBS = args.n_jobs
+    XGB_DEVICE = args.xgb_device
+    configure_runtime(n_jobs=MODEL_N_JOBS, xgb_device=XGB_DEVICE)
     
     # Update output directories based on --output-name
     OUTPUT_DIR = PROJECT_ROOT / "results" / "training" / args.output_name
-    FIG_OUTPUT_DIR = PROJECT_ROOT / "figures" / "training" / args.output_name
+    FIG_OUTPUT_DIR = PROJECT_ROOT / "results" / "figures" / "training" / args.output_name
     CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
     _LEGACY_OUTPUT_DIR = PROJECT_ROOT / "results" / "weekend_experiments" / "stacking_optimization"
     _LEGACY_CHECKPOINT_DIR = _LEGACY_OUTPUT_DIR / "checkpoints"
@@ -1691,6 +1995,9 @@ def main():
     logger.info(f"Data type:        {DATA_TYPE}")
     logger.info(f"Output directory: {OUTPUT_DIR}")
     logger.info(f"Figure directory: {FIG_OUTPUT_DIR}")
+    logger.info(f"Exclude source groups: {sorted(EXCLUDE_SOURCE_GROUPS) or 'none'}")
+    logger.info(f"Model n_jobs:     {MODEL_N_JOBS}")
+    logger.info(f"XGBoost device:   {XGB_DEVICE}")
 
     # ── Val-group inference (별도 경로) ──
     if args.val_group:
@@ -1726,6 +2033,7 @@ def main():
     if args.split_mode == "fixed":
         train_idx, val_idx, test_idx = create_fixed_split(
             sample_ids, binary_labels,
+            stratify_labels=groups_arr,
             test_ratio=0.20, val_ratio=0.20,
             force_test_prefix=args.force_test_group,
         )
@@ -1744,16 +2052,23 @@ def main():
             train_idx=train_idx, val_idx=val_idx, test_idx=test_idx,
         )
 
-        # Save fixed split results
-        atomic_save_json(OUTPUT_DIR / "fixed_split_results.json", {
+        # Save run metadata without overwriting the detailed fixed-split figure artifact.
+        atomic_save_json(OUTPUT_DIR / "fixed_split_run_summary.json", {
             "split_mode": "fixed",
             "force_test_group": args.force_test_group,
+            "exclude_source_groups": sorted(EXCLUDE_SOURCE_GROUPS),
+            "stratify": "group",
             "best_meta": results["best_meta"],
             "test_auc": results["test_auc"],
             "test_f1": results["test_f1"],
             "split_sizes": results["split_sizes"],
             "meta_results": results["meta_results"],
         })
+        logger.info(
+            "  Saved fixed-split artifacts. Render figures with: "
+            f"python -m scripts.analysis.stk_v2.figures.fixed_split "
+            f"--run-dir {OUTPUT_DIR} --fig-dir {FIG_OUTPUT_DIR}"
+        )
 
         elapsed = (datetime.now() - t0).total_seconds()
         logger.info(f"\n{'='*64}")
@@ -1767,11 +2082,12 @@ def main():
     # ════════════════════════════════════════════
     # Route B: Nested CV (기존)
     # ════════════════════════════════════════════
-    config = {
-        "experiment": "stacking_optimization",
-        "timestamp": t0.isoformat(),
-        "dry_run": args.dry_run,
-        "n_samples": len(X_3ch_agg),
+        config = {
+            "experiment": "stacking_optimization",
+            "timestamp": t0.isoformat(),
+            "dry_run": args.dry_run,
+            "exclude_source_groups": sorted(EXCLUDE_SOURCE_GROUPS),
+            "n_samples": len(X_3ch_agg),
         "n_cancer": int(binary_labels.sum()),
         "n_non_cancer": int((binary_labels == 0).sum()),
         "n_classes": n_classes,
@@ -1830,9 +2146,11 @@ def main():
     )
     pd.DataFrame(single_vs).to_csv(OUTPUT_DIR / "single_vs_ensemble.csv", index=False)
 
-    # Plots
-    plot_meta_learner_comparison(results_df, FIG_OUTPUT_DIR)
-    plot_contribution_analysis(contributions, FIG_OUTPUT_DIR)
+    logger.info(
+        "  Saved training artifacts. Render figures with: "
+        f"python -m scripts.analysis.stk_v2.figures.training_diagnostics "
+        f"--run-dir {OUTPUT_DIR} --fig-dir {FIG_OUTPUT_DIR}"
+    )
 
     # Summary
     elapsed = (datetime.now() - t0).total_seconds()

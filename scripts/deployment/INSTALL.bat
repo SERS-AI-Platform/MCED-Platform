@@ -73,11 +73,11 @@ echo       OK - Project files verified
 
 REM Check at least one model exists
 set MODEL_FOUND=0
-if exist "models\production_stacking\manifest.json" (
+if exist "artifacts\usersnet\current\manifest.json" (
     set MODEL_FOUND=1
-    echo       OK - Stacking V2 model found
+    echo       OK - uSERS-Net model found
 )
-if exist "models\production\manifest.json" (
+if exist "artifacts\baselines\lr-fusion\v1.0.0\manifest.json" (
     set MODEL_FOUND=1
     echo       OK - LR model found
 )
@@ -85,7 +85,7 @@ if !MODEL_FOUND! == 0 (
     color 0C
     echo.
     echo       ERROR: No model files found.
-    echo       Need either models\production_stacking or models\production folder.
+    echo       Need either artifacts\usersnet\current or artifacts\baselines\lr-fusion\v1.0.0 folder.
     echo.
     echo       If using OneDrive, right-click the folder and select
     echo       "Always keep on this device" to download files.

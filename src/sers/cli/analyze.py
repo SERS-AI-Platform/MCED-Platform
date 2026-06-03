@@ -2,7 +2,21 @@
 
 import click
 
-from ._run import run_script
+from ._run import PROJECT_ROOT, run_script
+
+
+LEGACY_EMBED_SCRIPT = "scripts/legacy/analysis/tsne_groups.py"
+
+
+def _run_legacy_embed(args):
+    """Run the historical embedding helper when it exists."""
+    if not (PROJECT_ROOT / LEGACY_EMBED_SCRIPT).exists():
+        raise click.ClickException(
+            "Legacy embedding helper is not present in this checkout. "
+            "Active analysis scripts are under scripts/analysis/stk_v2 and "
+            "scripts/analysis/calibration."
+        )
+    run_script(LEGACY_EMBED_SCRIPT, args)
 
 
 @click.group(invoke_without_command=True)
@@ -54,7 +68,7 @@ def _add_embed_options(func):
 
 def _build_embed_args(method, groups, input, output, dim, aggregate,
                       pca_init, interactive, **extra):
-    """Build CLI args for scripts/analysis/tsne_groups.py."""
+    """Build CLI args for the legacy embedding helper."""
     args = ["--method", method, "--groups"] + list(groups)
     args += ["--dim", dim]
     args += ["--aggregate", aggregate]
@@ -94,7 +108,7 @@ def embed(method, perplexity, n_neighbors, min_dist, **kwargs):
                              perplexity=perplexity,
                              n_neighbors=n_neighbors,
                              min_dist=min_dist)
-    run_script("scripts/analysis/tsne_groups.py", args)
+    _run_legacy_embed(args)
 
 
 # ── Shortcut commands ──
@@ -112,7 +126,7 @@ def analyze_tsne(perplexity, **kwargs):
         sers analyze tsne -g PRO -g NOR --perplexity 50
     """
     args = _build_embed_args("tsne", **kwargs, perplexity=perplexity)
-    run_script("scripts/analysis/tsne_groups.py", args)
+    _run_legacy_embed(args)
 
 
 @analyze.command("umap")
@@ -130,7 +144,7 @@ def analyze_umap(n_neighbors, min_dist, **kwargs):
     """
     args = _build_embed_args("umap", **kwargs,
                              n_neighbors=n_neighbors, min_dist=min_dist)
-    run_script("scripts/analysis/tsne_groups.py", args)
+    _run_legacy_embed(args)
 
 
 @analyze.command("pca")
@@ -144,7 +158,7 @@ def analyze_pca(**kwargs):
         sers analyze pca -g PRO -g NOR --dim 3 --interactive
     """
     args = _build_embed_args("pca", **kwargs)
-    run_script("scripts/analysis/tsne_groups.py", args)
+    _run_legacy_embed(args)
 
 
 # ── Other analysis commands ──
@@ -152,16 +166,16 @@ def analyze_pca(**kwargs):
 @analyze.command("explore")
 def analyze_explore():
     """Run data exploration analysis."""
-    run_script("scripts/analysis/explore_data.py")
+    run_script("scripts/legacy/analysis/explore_data.py")
 
 
 @analyze.command("cross-inst")
 def analyze_cross_inst():
     """Cross-instrument analysis."""
-    run_script("scripts/analysis/cross_instrument_analysis.py")
+    run_script("scripts/legacy/analysis/cross_instrument_analysis.py")
 
 
 @analyze.command("equipment")
 def analyze_equipment():
     """Equipment QC analysis."""
-    run_script("scripts/analysis/analyze_equipment.py")
+    run_script("scripts/legacy/analysis/analyze_equipment.py")

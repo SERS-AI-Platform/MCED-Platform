@@ -16,10 +16,10 @@ C:\SERS-AI\
 
 특히 다음 디렉토리는 반드시 포함:
 - `scripts/deployment/` — 웹앱 코드
-- `models/production_stacking/` — Stacking V2 모델 (~56MB)
-- `models/production/` — LR fallback 모델
+- `artifacts/usersnet/current/` — uSERS-Net/STK-V2 모델
+- `artifacts/baselines/lr-fusion/v1.0.0/` — LR fallback 모델
 - `src/sers/` — 전처리 라이브러리
-- `scripts/analysis/` — stacking 함수 (peak features 등)
+- `scripts/training/` — uSERS-Net production builder
 
 ### 3. 아이콘 파일 (선택)
 프로그램에 사용할 아이콘을 준비:
@@ -61,9 +61,9 @@ dist\
 └── SERS_Clinical\
     ├── SERS_Clinical.exe          ← 실행 파일 (이것을 더블클릭)
     ├── _internal\                 ← 의존 라이브러리
-    │   ├── models\
-    │   │   ├── production_stacking\
-    │   │   └── production\
+    │   ├── artifacts\
+    │   │   ├── usersnet\
+    │   │   └── baselines\
     │   ├── scripts\
     │   ├── src\
     │   └── ... (Python DLL 등)
@@ -129,7 +129,7 @@ dist\
 - `sers_clinical.spec`의 `hiddenimports`에 누락된 모듈 추가 후 재빌드
 
 ### "Model not found"
-- `models/production_stacking/`와 `models/production/`이 프로젝트 루트에 있는지 확인
+- `artifacts/usersnet/current/`와 `artifacts/baselines/lr-fusion/v1.0.0/`이 프로젝트 루트에 있는지 확인
 
 ### 콘솔 창 숨기기 (production용)
 - `sers_clinical.spec`에서 `console=True` → `console=False`로 변경 후 재빌드
