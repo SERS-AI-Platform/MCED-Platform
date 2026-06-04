@@ -2,6 +2,8 @@
 
 SERS-based spectral analysis pipeline for multi-cancer screening from urine metabolites.
 
+> 👋 **신규 팀원이신가요? [`ONBOARDING.md`](ONBOARDING.md) 부터 읽으세요.** — 개발 규칙·도메인 규칙 진입점
+
 ## Installation
 
 ### Using Conda (Recommended)
