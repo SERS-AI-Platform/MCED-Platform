@@ -10,10 +10,10 @@ Source: /home/user/workspace/SMCXD04/SMCXD04_CRF_data.xlsx (60 patients)
 Also copy SERS dataset to SERS-AI.
 """
 
-import pandas as pd
-import numpy as np
 import shutil
-import os
+
+import numpy as np
+import pandas as pd
 
 crf = pd.read_excel('/home/user/workspace/SMCXD04/SMCXD04_CRF_data.xlsx')
 print(f"CRF: {len(crf)} rows")

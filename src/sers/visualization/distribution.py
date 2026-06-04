@@ -5,20 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 
 from ._common import (
-    PAPER_LABEL_SIZE,
     PAPER_LEGEND_SIZE,
     PAPER_TICK_SIZE,
     apply_publication_style,
-    logger,
     save_figure,
 )
-
 
 # ---------------------------------------------------------------------------
 # Sample distribution pie chart

@@ -23,13 +23,14 @@ Changelog:
     v0.1.0 (2025-01) - Initial release
 """
 
+import logging
 import os
 import platform
 import re
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import logging
+
 import yaml
 
 logger = logging.getLogger(__name__)

@@ -1,10 +1,10 @@
 """File I/O operations for SERS spectra."""
 
-import re
-from pathlib import Path
-from typing import Dict, Tuple, Optional, List,NamedTuple
 import logging
+import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,34 +26,34 @@ class SpectrumID(NamedTuple):
 def parse_filename(path: Path, fallback_group: str = "UNK") -> SpectrumID:
     """
     Extract (group, sample_id, replicate) from filename.
-    
+
     Supported patterns:
     - 'GROUP ID_REP.csv' (space separator)
     - 'GROUP_ID_REP.csv' (underscore separator)
     - 'GROUP.SUB ID_REP.csv' (dotted group names)
-    
+
     Parameters
     ----------
     path : Path
         Path to spectrum file
     fallback_group : str
         Group name to use if pattern doesn't match
-    
+
     Returns
     -------
     SpectrumID
         Named tuple with (group, sample_id, replicate)
-    
+
     Raises
     ------
     ValueError
         If filename cannot be parsed
-    
+
     Examples
     --------
     >>> parse_filename(Path("CRC 001_1.csv"))
     SpectrumID(group='CRC', sample_id='001', replicate=1)
-    
+
     >>> parse_filename(Path("H.D._042_3.csv"))
     SpectrumID(group='H.D.', sample_id='042', replicate=3)
     """
@@ -144,13 +144,13 @@ def read_spectrum(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 
 def find_spectra(
-    directory: Path, 
+    directory: Path,
     pattern: str = "*.csv",
     recursive: bool = True
 ) -> list[Path]:
     """
     Find all spectrum files in directory.
-    
+
     Parameters
     ----------
     directory : Path
@@ -159,7 +159,7 @@ def find_spectra(
         Glob pattern for files
     recursive : bool
         If True, search subdirectories
-    
+
     Returns
     -------
     list[Path]
@@ -181,7 +181,7 @@ def make_common_grid(
 ) -> np.ndarray:
     """
     Create common raman_shift grid from multiple spectra.
-    
+
     Parameters
     ----------
     x_arrays : list[np.ndarray]
@@ -190,7 +190,7 @@ def make_common_grid(
         Number of points in grid. Defaults to median length of inputs.
     x_min, x_max : float, optional
         Grid bounds. Defaults to intersection of all spectra.
-    
+
     Returns
     -------
     np.ndarray
@@ -202,7 +202,7 @@ def make_common_grid(
         x_max = min(x.max() for x in x_arrays)
     if n_points is None:
         n_points = int(np.median([len(x) for x in x_arrays]))
-    
+
     return np.linspace(x_min, x_max, n_points)
 
 

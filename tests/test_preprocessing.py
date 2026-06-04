@@ -9,6 +9,8 @@ from sers.preprocessing import (
     PreprocessingError,
     area_normalize,
     baseline_correction,
+    calculate_replicate_variance,
+    identify_problematic_samples,
     minmax_scale,
     normalize_spectrum,
     preprocess_single_spectrum,
@@ -18,8 +20,6 @@ from sers.preprocessing import (
     trim_spectrum,
     trim_to_grid,
     vector_normalize,
-    calculate_replicate_variance,
-    identify_problematic_samples,
 )
 
 

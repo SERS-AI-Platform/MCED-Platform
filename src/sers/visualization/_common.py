@@ -2,13 +2,13 @@ from __future__ import annotations
 
 """Shared helpers, constants, and styling utilities for visualization."""
 
+import logging
 from pathlib import Path
 from typing import Any, List, Optional, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import logging
 
 logger = logging.getLogger(__name__)
 

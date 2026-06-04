@@ -4,7 +4,6 @@ import click
 
 from ._run import PROJECT_ROOT, run_script
 
-
 LEGACY_EMBED_SCRIPT = "scripts/legacy/analysis/tsne_groups.py"
 
 

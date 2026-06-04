@@ -5,20 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Optional, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from ._common import (
-    PAPER_LEGEND_SIZE,
-    PAPER_LINEWIDTH,
     apply_publication_style,
     feature_axis_from_names,
     logger,
     normalize_shap_values,
     save_figure,
 )
-
 
 # ===================================================================
 # SHAP computation

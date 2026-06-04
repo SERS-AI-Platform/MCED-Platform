@@ -9,11 +9,10 @@ Sources:
   CRC: Raw Excel (270/300) + Standardized (30/300) = full 300
 """
 
-import pandas as pd
-import numpy as np
 import re
-import json
 from datetime import datetime
+
+import pandas as pd
 
 LOG = []  # mapping log
 
@@ -183,7 +182,7 @@ pro_stage_df = pd.DataFrame(pro_staging)
 
 log(f"\nPRO TNM available: {pro_stage_df['t_stage'].notna().sum()}/100")
 log(f"PRO Gleason available: {pro_stage_df['gleason_score'].notna().sum()}/100")
-log(f"Gleason distribution:")
+log("Gleason distribution:")
 gs_dist = pro_stage_df['gleason_score'].dropna().value_counts().sort_index()
 for g, c in gs_dist.items():
     log(f"  Gleason {int(g)}: {c}")
@@ -384,7 +383,7 @@ for s, c in lun_dist.items():
 # ============================================================
 log_path = '/home/user/SERS-AI/AACR/staging_mapping_log.txt'
 with open(log_path, 'w') as f:
-    f.write(f"AACR Poster - Staging Data Re-ingestion & AJCC Mapping Log\n")
+    f.write("AACR Poster - Staging Data Re-ingestion & AJCC Mapping Log\n")
     f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write(f"{'='*70}\n\n")
     f.write("AJCC 8th Edition Pancreatic Cancer Staging Rules Applied:\n")
@@ -405,27 +404,27 @@ print(f"\nMapping log saved: {log_path}")
 print("\n" + "=" * 70)
 print("STAGING SUMMARY FOR DEMOGRAPHICS TABLE")
 print("=" * 70)
-print(f"\nNormal: N/A")
-print(f"\nProstate (n=100):")
-print(f"  Gleason score available: 100/100")
+print("\nNormal: N/A")
+print("\nProstate (n=100):")
+print("  Gleason score available: 100/100")
 gs_groups = pro_stage_df['gleason_score'].dropna().apply(lambda x: int(x))
 print(f"    ≤6: {(gs_groups<=6).sum()}, 7: {(gs_groups==7).sum()}, 8: {(gs_groups==8).sum()}, ≥9: {(gs_groups>=9).sum()}")
-print(f"  TNM available: 76/100")
+print("  TNM available: 76/100")
 
-print(f"\nOvarian (n=70):")
-print(f"  Stage: Not available (17/30 pathology records are TXNXMX)")
+print("\nOvarian (n=70):")
+print("  Stage: Not available (17/30 pathology records are TXNXMX)")
 
-print(f"\nLung (n=300):")
-print(f"  Stage available: 253/300")
+print("\nLung (n=300):")
+print("  Stage available: 253/300")
 for s, c in lun_dist.items():
     print(f"    {s}: {c}")
 
-print(f"\nPancreatic (n=70):")
-print(f"  AJCC stage (mapped from TNM): 70/70")
+print("\nPancreatic (n=70):")
+print("  AJCC stage (mapped from TNM): 70/70")
 for s, c in stage_dist.items():
     print(f"    {s}: {c}")
 
-print(f"\nColorectal (n=300):")
+print("\nColorectal (n=300):")
 print(f"  AJCC stage (mapped from TNM): {(crc_merged['ajcc_stage']!='Unknown').sum()}/300")
 for s, c in crc_stage_dist.items():
     print(f"    {s}: {c}")

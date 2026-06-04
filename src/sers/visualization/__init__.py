@@ -9,23 +9,6 @@ Submodules:
 """
 
 # --- spectra ---
-from .spectra import (
-    build_mean_spectrum_profile,
-    plot_mean_spectrum,
-    plot_mean_spectra_overlay,
-    visualize_preprocessed_spectra_by_replicate,
-    visualize_raw_spectra,
-    visualize_raw_spectra_by_sample,
-)
-
-# --- distribution ---
-from .distribution import (
-    plot_replicate_variance_by_group,
-    plot_sample_distribution_pie,
-    plot_spectra_count_bar,
-    plot_variance_heatmap,
-)
-
 # --- analysis ---
 from .analysis import (
     plot_cancer_peak_difference,
@@ -35,6 +18,14 @@ from .analysis import (
     plot_peak_intensity_profile,
     summarize_confusion_pairs,
     summarize_spectrum_peaks,
+)
+
+# --- distribution ---
+from .distribution import (
+    plot_replicate_variance_by_group,
+    plot_sample_distribution_pie,
+    plot_spectra_count_bar,
+    plot_variance_heatmap,
 )
 
 # --- shap ---
@@ -48,6 +39,14 @@ from .shap import (
     plot_shap_mean_magnitude_spectrum,
     plot_shap_mean_signed_spectrum,
     summarize_shap_feature_importance,
+)
+from .spectra import (
+    build_mean_spectrum_profile,
+    plot_mean_spectra_overlay,
+    plot_mean_spectrum,
+    visualize_preprocessed_spectra_by_replicate,
+    visualize_raw_spectra,
+    visualize_raw_spectra_by_sample,
 )
 
 __all__ = [

@@ -21,8 +21,10 @@ and returns its estimate in the target domain).
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Optional
+
 import numpy as np
 
 

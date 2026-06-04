@@ -1,7 +1,6 @@
 """Tests for sers.signal — the thin signal-processing wrapper module."""
 
 import numpy as np
-import pytest
 
 from sers.signal import baseline_correction, resample, smooth, snv
 

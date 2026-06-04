@@ -5,14 +5,14 @@ Visualization functions for SERS spectroscopy data.
 Each function saves ONE plot to ONE file (no subplots unless noted).
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-import logging
 from scipy.signal import find_peaks
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ def visualize_raw_spectra(
 ) -> None:
     """
     Visualize raw spectra - ONE plot per file.
-    
+
     Saves: raw_spectra_{group}_{sample_id}.png
     """
     # Get one example
@@ -129,12 +129,12 @@ def visualize_raw_spectra(
         g, sid, replicate = key
         if group and g != group:
             continue
-        
+
         rep_key = (g, replicate) if group else replicate
 
         if rep_key not in replicate_data:
             replicate_data[rep_key] = []
-        
+
         replicate_data[rep_key].append((key, raw_spectra[key]))
 
     for rep_key, spectra_list in sorted(replicate_data.items()):
@@ -145,7 +145,7 @@ def visualize_raw_spectra(
         for j, (key, y_raw) in enumerate(sorted(spectra_list)):
             g, sid, rep = key
             ax.plot(y_raw, color = colors[j], linewidth=1, alpha=0.6, label=f"S{sid} Rep {rep}")
-        
+
         if isinstance(rep_key, tuple):
             g, rep = rep_key
             title = f'{g} - Replicate {rep} - Raw Spectra'
@@ -158,7 +158,6 @@ def visualize_raw_spectra(
         ax.set_title(title, fontsize=16, fontweight='bold')
         ax.set_xlabel("Wavenumber (cm⁻¹)", fontsize=14)
         ax.set_ylabel("Intensity (a.u.)", fontsize=14)
-        ncol = 5 if len(spectra_list) ==5 else 1
         ax.legend(loc='upper right', fontsize=12)
         ax.grid(True, alpha=0.3)
 
@@ -177,36 +176,36 @@ def visualize_preprocessed_spectra_by_replicate(
 ) -> None:
     """
     Visualize preprocessed spectra grouped by replicate number.
-    
+
     Saves: preprocessed_spectra_{group}_replicate_{rep}.png
     """
     # Group by replicate number
     replicates_data = {}
-    
+
     for key in processed_spectra.keys():
         g, sid, replicate = key
-        
+
         if group and g != group:
             continue
-        
+
         rep_key = (g, replicate) if group else replicate
-        
+
         if rep_key not in replicates_data:
             replicates_data[rep_key] = []
-        
+
         replicates_data[rep_key].append((key, processed_spectra[key]))
-    
+
     # Plot each replicate group
     for rep_key, spectra_list in sorted(replicates_data.items()):
         fig, ax = plt.subplots(figsize=(12, 7))
-        
+
         colors = plt.cm.viridis(np.linspace(0, 1, len(spectra_list)))
-        
+
         for j, (key, y_proc) in enumerate(spectra_list):
             g, sid, rep = key
             ax.plot(grid, y_proc, color=colors[j], linewidth=1.5, alpha=0.6,
                    label=f"{g} S{sid}")
-        
+
         # Title and labels
         if isinstance(rep_key, tuple):
             g, rep = rep_key
@@ -216,20 +215,20 @@ def visualize_preprocessed_spectra_by_replicate(
             rep = rep_key
             title = f'All Groups - Replicate {rep}'
             filename = f"preprocessed_spectra_all_replicate_{rep}.png"
-        
+
         ax.set_title(title, fontsize=16, fontweight='bold')
         ax.set_xlabel("Wavenumber (cm⁻¹)", fontsize=14)
         ax.set_ylabel("Intensity (a.u.)", fontsize=14)
-        
+
         ncol = 3 if len(spectra_list) > 10 else 1
         ax.legend(loc='upper right', fontsize=10, ncol=ncol)
         ax.grid(True, alpha=0.3)
-        
+
         plt.tight_layout()
         output_path = output_dir / filename
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         logger.info(f"Saved: {output_path.name}")
 
 
@@ -241,7 +240,7 @@ def visualize_raw_spectra_by_sample(
 ) -> None:
     """
     Visualize raw spectra - one sample per file, all replicates together.
-    
+
     Saves: raw_spectra_{group}_{sample_id}.png
     """
     samples = {}
@@ -253,30 +252,30 @@ def visualize_raw_spectra_by_sample(
         if sample_key not in samples:
             samples[sample_key] = []
         samples[sample_key].append(key)
-    
+
     # Plot each sample separately
     for (g, sid), replicate_keys in list(samples.items())[:n_examples]:
         fig, ax = plt.subplots(figsize=(10, 6))
-        
+
         colors = plt.cm.viridis(np.linspace(0, 1, len(replicate_keys)))
-        
+
         for j, key in enumerate(sorted(replicate_keys)):
             x_raw, y_raw = raw_spectra[key]
             rep = key[2]
-            ax.plot(x_raw, y_raw, color=colors[j], linewidth=2, alpha=0.7, 
+            ax.plot(x_raw, y_raw, color=colors[j], linewidth=2, alpha=0.7,
                    label=f"Replicate {rep}")
-        
+
         ax.set_title(f'{g} Sample {sid} - Raw Spectra', fontsize=16, fontweight='bold')
         ax.set_xlabel("Raman Shift (cm⁻¹)", fontsize=14)
         ax.set_ylabel("Intensity (a.u.)", fontsize=14)
         ax.legend(loc='upper right', fontsize=12)
         ax.grid(True, alpha=0.3)
-        
+
         plt.tight_layout()
         output_path = output_dir / f"raw_spectra_{g}_{sid}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         logger.info(f"Saved: {output_path.name}")
 
 
@@ -286,15 +285,15 @@ def plot_sample_distribution_pie(
 ) -> None:
     """
     Plot sample distribution pie chart - ONE file.
-    
+
     Saves: sample_distribution_pie.png
     """
     fig, ax = plt.subplots(figsize=(8, 8))
-    
+
     groups = group_stats_df['group'].values
     n_samples = group_stats_df['n_samples'].values
     colors = plt.cm.Set3(np.linspace(0, 1, len(groups)))
-    
+
     ax.pie(
         n_samples,
         labels=groups,
@@ -304,12 +303,12 @@ def plot_sample_distribution_pie(
         textprops={'fontsize': 14, 'fontweight': 'bold'}
     )
     ax.set_title('Sample Distribution by Group', fontsize=16, fontweight='bold')
-    
+
     plt.tight_layout()
     output_path = output_dir / "sample_distribution_pie.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    
+
     logger.info(f"Saved: {output_path.name}")
 
 
@@ -319,33 +318,33 @@ def plot_spectra_count_bar(
 ) -> None:
     """
     Plot total spectra count bar chart - ONE file.
-    
+
     Saves: spectra_count_bar.png
     """
     fig, ax = plt.subplots(figsize=(10, 6))
-    
+
     groups = group_stats_df['group'].values
     n_spectra = group_stats_df['n_spectra'].values
     x_pos = np.arange(len(groups))
     colors = plt.cm.Set3(np.linspace(0, 1, len(groups)))
-    
+
     ax.bar(x_pos, n_spectra, color=colors, alpha=0.7, edgecolor='black', linewidth=1.5)
     ax.set_xticks(x_pos)
     ax.set_xticklabels(groups, fontsize=14)
     ax.set_ylabel('Number of Spectra', fontsize=14)
     ax.set_title('Total Spectra by Group', fontsize=16, fontweight='bold')
     ax.grid(True, alpha=0.3, axis='y')
-    
+
     # Add value labels
     for i, v in enumerate(n_spectra):
-        ax.text(i, v + max(n_spectra)*0.02, str(int(v)), 
+        ax.text(i, v + max(n_spectra)*0.02, str(int(v)),
                ha='center', fontsize=12, fontweight='bold')
-    
+
     plt.tight_layout()
     output_path = output_dir / "spectra_count_bar.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    
+
     logger.info(f"Saved: {output_path.name}")
 
 
@@ -356,7 +355,7 @@ def plot_replicate_variance_by_group(
         cv_threshold: float = 15.0,
         groups: Optional[List[str]] = None
     ) -> None:
-    
+
     # Group filtering
     if groups is not None:
         variance_df = variance_df[variance_df['group'].isin(groups)].copy()
@@ -425,7 +424,7 @@ def plot_variance_heatmap(
 ) -> None:
     """
     Plot CV heatmap (samples × groups) - ONE file.
-    
+
     Saves: variance_heatmap.png
     """
     pivot_data = variance_df.pivot_table(
@@ -434,9 +433,9 @@ def plot_variance_heatmap(
         values='mean_cv',
         aggfunc='mean'
     )
-    
+
     fig, ax = plt.subplots(figsize=(12, max(8, len(pivot_data) * 0.3)))
-    
+
     sns.heatmap(
         pivot_data,
         annot=True,
@@ -448,16 +447,16 @@ def plot_variance_heatmap(
         linewidths=0.5,
         ax=ax
     )
-    
+
     ax.set_title('Replicate Variability Heatmap (CV%)', fontsize=16, fontweight='bold')
     ax.set_xlabel('Group', fontsize=14)
     ax.set_ylabel('Sample ID', fontsize=14)
-    
+
     plt.tight_layout()
     output_path = output_dir / "variance_heatmap.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    
+
     logger.info(f"Saved: {output_path.name}")
 
 

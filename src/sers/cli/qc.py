@@ -43,7 +43,7 @@ def qc_list():
     click.echo("Available QC phases:\n")
     for phase_id, (script, desc) in _PHASES.items():
         click.echo(f"  {phase_id:>4s}  {desc}")
-    click.echo(f"\nRun with: sers qc phase <ID>")
+    click.echo("\nRun with: sers qc phase <ID>")
 
 
 @qc.command("phase")
@@ -79,7 +79,7 @@ def qc_all(stop_on_error):
     """
     import subprocess
     import sys
-    from pathlib import Path
+
     from ._run import PROJECT_ROOT
 
     for phase_id, (script, desc) in _PHASES.items():

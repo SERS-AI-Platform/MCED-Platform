@@ -53,7 +53,7 @@ def validate(input_dir):
         sers data validate
         sers data validate -i ./data/raw_data
     """
-    from ..config import load_config, DATA_DIR
+    from ..config import DATA_DIR
     from ..io import find_spectra, parse_filename, read_spectrum
 
     data_dir = input_dir or str(DATA_DIR)

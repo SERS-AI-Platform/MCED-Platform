@@ -4,7 +4,6 @@ import click
 
 from ._run import run_script
 
-
 # ---------- sers train <model> ----------
 
 @click.group(invoke_without_command=True)

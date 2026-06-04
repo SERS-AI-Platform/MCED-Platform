@@ -18,13 +18,13 @@ Mapping:
     - surgery_date: N/A (no column)
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 # Load current standardized
 lun = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/LUN_clinical_standardized.csv')
 print(f"LUN standardized: {len(lun)} rows")
-print(f"Before update:")
+print("Before update:")
 print(f"  sample_date:    {lun['sample_date'].notna().sum()}/300")
 print(f"  diagnosis_date: {lun['diagnosis_date'].notna().sum()}/300")
 print(f"  surgery_date:   {lun['surgery_date'].notna().sum()}/300")
@@ -73,7 +73,7 @@ for i in range(100):
         lun.loc[mask, 'diagnosis_date'] = diag_val
 
 # ── Verify ──
-print(f"\nAfter update:")
+print("\nAfter update:")
 print(f"  sample_date:    {lun['sample_date'].notna().sum()}/300")
 print(f"  diagnosis_date: {lun['diagnosis_date'].notna().sum()}/300")
 print(f"  surgery_date:   {lun['surgery_date'].notna().sum()}/300")
