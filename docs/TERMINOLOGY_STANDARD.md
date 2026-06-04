@@ -43,8 +43,8 @@ Every rule is tagged with **how** it is enforced:
 - **SSI (user-facing score)**: scale **0–10**, decision cutoff **4.0** (stable code constants in `src/sers/scoring.py`: `SSI_MAX = 10.0`, `SSI_CUTOFF = 4.0`).
 - **Rule**: the active operating-mode **probability threshold always maps to SSI 4.0** via a piecewise-linear transform (`scoring.py: probability_to_ssi`). Probability below the threshold → SSI `[0, 4)`; above → SSI `[4, 10]`.
 - **The internal probability cutoff is NOT the displayed SSI cutoff.** The UI/reports must not expose it as a selectable per-patient mode. The stored patient result holds `{score, threshold, decision rule, model version}` — never implying the user picked a different data mode.
-- **SSOT for the exact probability threshold**: the deployed artifact's `manifest.json → operating_modes` — **not** this document.
-- ⚠️ **Reconcile (open)**: prior text stated internal threshold `0.4439`, but the current STK-V2 `balanced` manifest uses **`0.60`**. These disagree — **see the open decision flagged to the team**. Do not hardcode a threshold here; read it from the manifest.
+- **SSOT for the exact probability threshold**: the deployed artifact's `manifest.json → operating_modes` — **not** this document. The deployed/manifest value is canonical (e.g., STK-V2 `balanced` is currently `0.60`).
+- ℹ️ The previously-documented `0.4439` was a stale snapshot and has been retired — always read the live threshold from the manifest, never hardcode it here.
 
 ## A4. Cohort / group codes
 
@@ -171,7 +171,6 @@ Format: **concept → rule → real example → avoid**. Examples are verbatim f
 1. Legacy `typing.*` generics in `preprocessing.py` → modern builtins (B2).
 2. `Stage 1/2` in internal comments → Cancer Screening / Cancer Type ID (A1; patents exempt).
 3. Private helpers missing type hints (`qc/qc.py`).
-4. Reconcile SSI internal threshold (A3): doc `0.4439` vs manifest `balanced` `0.60`.
 
 ---
 
