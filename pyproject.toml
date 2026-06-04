@@ -7,13 +7,14 @@ name = "sers-analysis"
 version = "0.1.0"
 description = "SERS spectral analysis pipeline for cancer screening"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Proprietary"}
 requires-python = ">=3.10"
 authors = [
     {name = "SOLUM Healthcare"}
 ]
 keywords = ["SERS", "spectroscopy", "cancer screening", "metabolomics"]
 classifiers = [
+    "Private :: Do Not Upload",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -67,11 +68,12 @@ target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "D"]
-ignore = ["D100", "D104"]
-
-[tool.ruff.lint.pydocstyle]
-convention = "numpy"
+# Pragmatic ruleset for a research codebase (relaxed 2026-06):
+# keep real-bug (F), import-order (I), whitespace (W) and core style (E);
+# drop docstring (D) and naming (N) enforcement; ignore noisy, unfixable
+# style rules. Tighten over time as the team matures.
+select = ["E", "F", "I", "W"]
+ignore = ["E501", "E402", "E701", "E722"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

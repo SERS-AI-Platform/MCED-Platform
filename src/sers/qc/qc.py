@@ -38,6 +38,7 @@ import logging
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from sers.logging_config import setup_logging
+
 setup_logging()
 
 import numpy as np

@@ -1,9 +1,10 @@
 """Tests for sers.io — filename parsing, reading, finding, grid creation."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
 
 from sers.io import (
     DatasetResult,

@@ -31,15 +31,13 @@ Reference:
     diagnostic information (e.g., metabolite concentration differences).
 """
 
+import logging
 from pathlib import Path
-from typing import Dict, Tuple, Optional, Literal
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.signal import savgol_filter, find_peaks
-from scipy.interpolate import interp1d
-
-import logging
+from scipy.signal import find_peaks, savgol_filter
 
 from sers.logging_config import setup_logging
 from sers.validation import validate_processed_spectrum
@@ -734,7 +732,7 @@ def preprocess_spectra(
     else:
         proc_grid = grid
 
-    logger.info(f"Preprocessing pipeline:")
+    logger.info("Preprocessing pipeline:")
     logger.info(f"  ① Trim: {do_trim} → region {trim_region} cm⁻¹")
     logger.info(f"  ② Smooth: {prep.do_smooth} (window={prep.smooth_window}, poly={prep.smooth_poly})")
     logger.info(f"  ③ Baseline: {do_baseline} (window={baseline_window})")

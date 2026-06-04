@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
 from ._common import (
@@ -19,11 +19,9 @@ from ._common import (
     apply_publication_style,
     extract_feature_columns,
     feature_axis_from_names,
-    logger,
     save_figure,
 )
 from .spectra import build_mean_spectrum_profile
-
 
 # ===================================================================
 # Peak-difference plots (shared core)

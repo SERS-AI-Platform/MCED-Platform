@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tests.helpers import make_spectrum
 from sers.qc import (
     calculate_intensity_gate,
     calculate_replicate_qc,
@@ -18,6 +17,7 @@ from sers.qc import (
     select_medoid_spectra,
     summarize_qc_by_group,
 )
+from tests.helpers import make_spectrum
 
 
 # =============================================================================

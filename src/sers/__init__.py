@@ -9,13 +9,26 @@ __version__ = "0.1.0"
 __author__ = "SOLUM Healthcare"
 
 # Configuration
+# Data analysis and exploration
+from .analysis import (
+    analyze_dataset_structure,
+    check_data_completeness,
+    generate_dataset_report,
+    get_group_statistics,
+)
 from .config import Config, load_config
 
 # I/O operations
 from .io import SpectrumID, find_spectra, make_common_grid, parse_filename, read_spectrum
 
-# Signal processing
-from .signal import baseline_correction, resample, smooth, snv
+# Preprocessing pipeline
+from .preprocessing import (
+    calculate_group_variance,
+    calculate_replicate_variance,
+    identify_problematic_samples,
+    preprocess_spectra,
+    save_processed_spectra,
+)
 
 # Quality control
 from .qc import (
@@ -32,32 +45,18 @@ from .qc import (
     summarize_qc_by_group,
 )
 
-# Preprocessing pipeline
-from .preprocessing import (
-    calculate_group_variance,
-    calculate_replicate_variance,
-    identify_problematic_samples,
-    preprocess_spectra,
-    save_processed_spectra,
-)
+# Signal processing
+from .signal import baseline_correction, resample, smooth, snv
 
 # Validation
 from .validation import (
     ValidationIssue,
     ValidationResult,
-    validate_csv_structure,
-    validate_spectrum,
-    validate_spectra_batch,
-    validate_processed_spectrum,
     detect_duplicate_samples,
-)
-
-# Data analysis and exploration
-from .analysis import (
-    analyze_dataset_structure,
-    check_data_completeness,
-    generate_dataset_report,
-    get_group_statistics,
+    validate_csv_structure,
+    validate_processed_spectrum,
+    validate_spectra_batch,
+    validate_spectrum,
 )
 
 _VISUALIZATION_EXPORTS = {

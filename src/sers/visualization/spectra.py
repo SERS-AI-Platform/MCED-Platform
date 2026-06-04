@@ -5,22 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from ._common import (
-    PAPER_LABEL_SIZE,
     PAPER_LEGEND_SIZE,
     PAPER_LINEWIDTH,
     PAPER_TICK_SIZE,
-    PAPER_TITLE_SIZE,
     apply_publication_style,
     feature_axis_from_names,
-    logger,
     save_figure,
 )
-
 
 # ---------------------------------------------------------------------------
 # Mean-spectrum profile builder (used by multiple plots)

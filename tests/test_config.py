@@ -1,8 +1,7 @@
 """Tests for sers.config — loading, validation, defaults, edge cases."""
 
+
 import pytest
-import yaml
-from pathlib import Path
 
 from sers.config import (
     Config,
