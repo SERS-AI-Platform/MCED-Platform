@@ -2,7 +2,12 @@
 <!-- 무엇을, 왜 바꿨는지 1~3줄로 -->
 
 ## 변경 유형
-- [ ] feat (기능)  - [ ] fix (버그)  - [ ] docs  - [ ] refactor  - [ ] test  - [ ] chore
+- [ ] feat (기능)
+- [ ] fix (버그)
+- [ ] docs
+- [ ] refactor
+- [ ] test
+- [ ] chore
 
 ## 체크리스트
 - [ ] `ruff check src/ tests/` 통과 (또는 신규/수정 코드 한정)
