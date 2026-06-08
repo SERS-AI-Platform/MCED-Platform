@@ -7,19 +7,41 @@ import pytest
 from sers.preprocessing import (
     FINGERPRINT_REGION,
     PreprocessingError,
+    airpls_baseline,
+    arpls_baseline,
     area_normalize,
+    asymmetric_least_squares_baseline,
     baseline_correction,
     calculate_replicate_variance,
+    emsc_normalize,
+    estimate_baseline,
+    gaussian_smooth,
     identify_problematic_samples,
+    max_normalize,
+    mean_center,
+    median_smooth,
     minmax_scale,
+    morphological_tophat_baseline,
+    moving_average_smooth,
+    moving_quantile_baseline,
+    msc_normalize,
     normalize_spectrum,
+    pareto_normalize,
+    peak_normalize,
+    pqn_normalize,
+    polynomial_baseline,
     preprocess_single_spectrum,
+    robust_snv,
+    rolling_minimum_baseline,
+    rubberband_baseline,
     resample,
     smooth,
+    smooth_spectrum,
     snv,
     trim_spectrum,
     trim_to_grid,
     vector_normalize,
+    wavelet_denoise,
 )
 
 
@@ -101,6 +123,43 @@ class TestSmooth:
         result = smooth(y, window_length=11, polyorder=3)
         np.testing.assert_allclose(result, 5.0, atol=1e-10)
 
+    @pytest.mark.parametrize(
+        "method",
+        ["savgol", "median", "gaussian", "moving_average", "wavelet_haar", "none"],
+    )
+    def test_smoothing_dispatch_methods(self, method):
+        rng = np.random.default_rng(0)
+        y = np.sin(np.linspace(0, 4 * np.pi, 128)) + rng.normal(0, 0.1, 128)
+        result = smooth_spectrum(y, method=method, window_length=11, polyorder=3)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_median_smooth_suppresses_spike(self):
+        y = np.ones(21)
+        y[10] = 100
+        result = median_smooth(y, window_length=5)
+        assert result[10] < 10
+
+    def test_gaussian_smooth_finite(self):
+        y = np.random.default_rng(0).normal(0, 1, 100)
+        result = gaussian_smooth(y, sigma=1.5)
+        assert np.isfinite(result).all()
+
+    def test_moving_average_smooth_finite(self):
+        y = np.random.default_rng(0).normal(0, 1, 100)
+        result = moving_average_smooth(y, window_length=5)
+        assert np.isfinite(result).all()
+
+    def test_wavelet_denoise_finite(self):
+        y = np.random.default_rng(0).normal(0, 1, 100)
+        result = wavelet_denoise(y)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_unknown_smoothing_method_raises(self):
+        with pytest.raises(ValueError, match="Unknown smoothing method"):
+            smooth_spectrum(np.ones(20), method="invalid")
+
 
 # =============================================================================
 # Baseline Correction
@@ -131,6 +190,93 @@ class TestBaselineCorrection:
         y = np.full(100, 42.0)
         result = baseline_correction(y, window=21)
         np.testing.assert_allclose(result, 0.0, atol=1e-10)
+
+    def test_rolling_minimum_baseline_matches_default(self):
+        y = np.array([5.0, 4.0, 10.0, 4.0, 5.0])
+        baseline = rolling_minimum_baseline(y, window=3)
+        result = baseline_correction(y, window=3)
+        np.testing.assert_allclose(result, y - baseline)
+
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "rolling_min",
+            "als",
+            "airpls",
+            "arpls",
+            "polynomial",
+            "rubberband",
+            "moving_quantile",
+            "tophat",
+            "none",
+        ],
+    )
+    def test_baseline_dispatch_methods(self, method):
+        x = np.linspace(400, 2200, 200)
+        y = 0.002 * (x - 400) + np.exp(-0.5 * ((x - 1000) / 20) ** 2) * 10
+        baseline = estimate_baseline(y, method=method, x=x, window=21)
+        corrected = baseline_correction(y, method=method, x=x, window=21)
+        assert len(baseline) == len(y)
+        assert len(corrected) == len(y)
+        assert np.isfinite(baseline).all()
+        assert np.isfinite(corrected).all()
+
+    def test_als_baseline_preserves_peak_residual(self):
+        x = np.linspace(400, 2200, 300)
+        broad_baseline = 20 + 0.002 * (x - 400) + 0.000001 * (x - 1300) ** 2
+        peak = 30 * np.exp(-0.5 * ((x - 1000) / 16) ** 2)
+        y = broad_baseline + peak
+        corrected = baseline_correction(
+            y, method="als", als_lam=1e5, als_p=0.01, als_niter=8
+        )
+        assert corrected[np.argmax(peak)] > np.median(corrected) + 10
+
+    def test_polynomial_baseline_is_finite(self):
+        y = np.linspace(0, 1, 100) + np.sin(np.linspace(0, 6, 100)) * 0.1
+        result = polynomial_baseline(y, order=2)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_rubberband_baseline_is_finite(self):
+        x = np.linspace(400, 2200, 100)
+        y = np.sin(np.linspace(0, 6, 100)) + np.linspace(0, 1, 100)
+        result = rubberband_baseline(y, x=x)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_asymmetric_least_squares_baseline_is_finite(self):
+        y = np.linspace(0, 1, 100) + np.exp(-0.5 * ((np.arange(100) - 50) / 5) ** 2)
+        result = asymmetric_least_squares_baseline(y, lam=1e4, p=0.01, niter=5)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_airpls_baseline_is_finite(self):
+        y = np.linspace(0, 1, 100) + np.exp(-0.5 * ((np.arange(100) - 50) / 5) ** 2)
+        result = airpls_baseline(y, lam=1e4, niter=5)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_arpls_baseline_is_finite(self):
+        y = np.linspace(0, 1, 100) + np.exp(-0.5 * ((np.arange(100) - 50) / 5) ** 2)
+        result = arpls_baseline(y, lam=1e4, niter=5)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_moving_quantile_baseline_is_finite(self):
+        y = np.linspace(0, 1, 100) + np.random.default_rng(0).normal(0, 0.01, 100)
+        result = moving_quantile_baseline(y, window=11, quantile=0.2)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_morphological_tophat_baseline_is_finite(self):
+        y = np.linspace(0, 1, 100) + np.exp(-0.5 * ((np.arange(100) - 50) / 5) ** 2)
+        result = morphological_tophat_baseline(y, window=11)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
+
+    def test_unknown_baseline_method_raises(self):
+        with pytest.raises(ValueError, match="Unknown baseline method"):
+            baseline_correction(np.array([1.0, 2.0, 3.0]), method="invalid")
 
 
 # =============================================================================
@@ -228,14 +374,97 @@ class TestAreaNormalize:
 
 
 # =============================================================================
+# Additional Normalization Methods
+# =============================================================================
+class TestAdditionalNormalization:
+    def test_robust_snv_median_centered(self):
+        y = np.array([1.0, 2.0, 3.0, 4.0, 100.0])
+        result = robust_snv(y)
+        np.testing.assert_allclose(np.median(result), 0.0, atol=1e-10)
+
+    def test_max_normalize_range(self):
+        y = np.array([-2.0, 1.0, 4.0])
+        result = max_normalize(y)
+        np.testing.assert_allclose(np.max(np.abs(result)), 1.0)
+
+    def test_peak_normalize_global(self):
+        y = np.array([1.0, 2.0, 4.0])
+        result = peak_normalize(y)
+        np.testing.assert_allclose(result[-1], 1.0)
+
+    def test_peak_normalize_local(self):
+        x = np.array([990.0, 1000.0, 1010.0, 1200.0])
+        y = np.array([1.0, 5.0, 3.0, 20.0])
+        result = peak_normalize(y, x=x, peak_wn=1000.0, window=12.0)
+        np.testing.assert_allclose(result[1], 1.0)
+
+    def test_mean_center(self):
+        y = np.array([1.0, 2.0, 3.0])
+        result = mean_center(y)
+        np.testing.assert_allclose(result.mean(), 0.0)
+
+    def test_pareto_normalize_mean_centered(self):
+        y = np.array([1.0, 2.0, 3.0, 4.0])
+        result = pareto_normalize(y)
+        np.testing.assert_allclose(result.mean(), 0.0)
+
+    def test_pqn_normalize_reference(self):
+        reference = np.array([1.0, 2.0, 4.0])
+        y = reference * 2.0
+        result = pqn_normalize(y, reference)
+        np.testing.assert_allclose(result, reference)
+
+    def test_msc_normalize_reference(self):
+        reference = np.linspace(1.0, 10.0, 20)
+        y = 5.0 + 2.0 * reference
+        result = msc_normalize(y, reference)
+        np.testing.assert_allclose(result, reference, atol=1e-10)
+
+    def test_emsc_normalize_reference(self):
+        x = np.linspace(400, 2200, 50)
+        reference = np.sin(np.linspace(0, 4, 50)) + 2
+        baseline = 5 + 0.01 * (x - x.mean())
+        y = 3.0 * reference + baseline
+        result = emsc_normalize(y, reference=reference, x=x, order=1)
+        np.testing.assert_allclose(result, reference, atol=1e-8)
+
+    @pytest.mark.parametrize("method", ["pqn", "msc", "emsc"])
+    def test_reference_methods_require_reference(self, method):
+        with pytest.raises(PreprocessingError, match="requires a reference"):
+            normalize_spectrum(np.array([1.0, 2.0, 3.0]), method=method)
+
+
+# =============================================================================
 # normalize_spectrum dispatcher
 # =============================================================================
 class TestNormalizeSpectrum:
-    @pytest.mark.parametrize("method", ["snv", "minmax", "l2", "area", "none"])
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "snv",
+            "robust_snv",
+            "minmax",
+            "l2",
+            "area",
+            "max",
+            "peak",
+            "mean_center",
+            "pareto",
+            "none",
+        ],
+    )
     def test_valid_methods(self, method):
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = normalize_spectrum(y, method=method)
         assert len(result) == len(y)
+
+    @pytest.mark.parametrize("method", ["pqn", "msc", "emsc"])
+    def test_reference_methods_with_reference(self, method):
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        reference = y.copy()
+        result = normalize_spectrum(y, method=method, reference=reference)
+        assert len(result) == len(y)
+        assert np.isfinite(result).all()
 
     def test_none_returns_copy(self):
         y = np.array([1.0, 2.0, 3.0])
@@ -315,6 +544,28 @@ class TestPreprocessSingleSpectrum:
         assert len(result) == len(grid)
         # With same grid and no processing, result should match input
         np.testing.assert_allclose(result, y, atol=1e-10)
+
+    def test_als_baseline_pipeline(self, full_wavenumber_grid, wavenumber_grid):
+        """Full pipeline can swap baseline module to ALS."""
+        from tests.helpers import make_spectrum
+
+        x = full_wavenumber_grid
+        y = make_spectrum(x, baseline_slope=1.0)
+        result = preprocess_single_spectrum(
+            x,
+            y,
+            wavenumber_grid,
+            do_trim=True,
+            do_smooth=True,
+            do_baseline=True,
+            baseline_method="als",
+            baseline_als_lam=1e5,
+            baseline_als_p=0.01,
+            baseline_als_niter=5,
+            normalization="snv",
+        )
+        assert len(result) == len(wavenumber_grid)
+        assert np.isfinite(result).all()
 
 
 # =============================================================================

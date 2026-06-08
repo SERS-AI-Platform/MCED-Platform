@@ -78,10 +78,19 @@ class TestPreprocessingConfig:
     def test_defaults(self):
         p = PreprocessingConfig()
         assert p.do_smooth is True
+        assert p.smoothing_method == "savgol"
         assert p.smooth_window == 11
         assert p.smooth_poly == 3
+        assert p.median_window == 5
+        assert p.gaussian_sigma == 1.0
+        assert p.do_baseline is True
+        assert p.baseline_method == "rolling_min"
         assert p.baseline_window == 101
+        assert p.baseline_airpls_lam == 1e5
+        assert p.baseline_arpls_lam == 1e5
         assert p.use_snv is True
+        assert p.normalization is None
+        assert p.normalization_emsc_order == 2
         assert p.fixed_grid is None
 
     def test_frozen(self):

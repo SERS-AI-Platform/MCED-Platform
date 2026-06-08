@@ -3,7 +3,9 @@ Preprocessing functions and statistics for SERS spectroscopy data.
 
 This module contains:
 - Post-QC preprocessing pipeline (trim → smooth → baseline → normalize)
-- Multiple normalization methods (SNV, Min-Max, L2, Area)
+- Pluggable denoising methods (Savitzky-Golay, median, Gaussian, wavelet)
+- Pluggable baseline correction methods (rolling min, ALS/arPLS/airPLS, etc.)
+- Multiple normalization methods (SNV, robust SNV, Min-Max, L2, PQN, MSC, etc.)
 - Replicate variance calculation
 - Group-level variance analysis
 - Quality control metrics
@@ -37,7 +39,10 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.signal import find_peaks, savgol_filter
+from scipy import sparse
+from scipy.ndimage import gaussian_filter1d, grey_opening
+from scipy.signal import find_peaks, medfilt, savgol_filter
+from scipy.sparse.linalg import spsolve
 
 from sers.logging_config import setup_logging
 from sers.validation import validate_processed_spectrum
@@ -334,37 +339,586 @@ def smooth(
     return savgol_filter(y, window_length=window_length, polyorder=polyorder, mode="interp")
 
 
+def median_smooth(y: np.ndarray, window_length: int = 5) -> np.ndarray:
+    """Median-filter denoising for spike-like noise."""
+    if window_length % 2 == 0:
+        window_length += 1
+    if window_length < 3:
+        return y.copy()
+    if len(y) < window_length:
+        return y.copy()
+    return medfilt(y, kernel_size=window_length)
+
+
+def gaussian_smooth(y: np.ndarray, sigma: float = 1.0) -> np.ndarray:
+    """Gaussian smoothing for broad high-frequency noise suppression."""
+    if sigma <= 0:
+        return y.copy()
+    return gaussian_filter1d(y, sigma=sigma, mode="nearest")
+
+
+def moving_average_smooth(y: np.ndarray, window_length: int = 5) -> np.ndarray:
+    """Centered moving-average smoothing."""
+    if window_length < 2 or len(y) < window_length:
+        return y.copy()
+    kernel = np.ones(int(window_length), dtype=float) / float(window_length)
+    return np.convolve(y, kernel, mode="same")
+
+
+def _next_power_of_two(n: int) -> int:
+    return 1 if n <= 1 else 2 ** int(np.ceil(np.log2(n)))
+
+
+def _haar_denoise_padded(
+    y: np.ndarray,
+    threshold_scale: float = 1.0,
+    level: Optional[int] = None,
+) -> np.ndarray:
+    """
+    Dependency-free Haar wavelet soft-threshold denoising.
+
+    This keeps wavelet denoising available without requiring PyWavelets. It is
+    intentionally conservative and best treated as an experiment module.
+    """
+    n = len(y)
+    if n < 4:
+        return y.copy()
+
+    padded_n = _next_power_of_two(n)
+    padded = np.pad(y.astype(float), (0, padded_n - n), mode="edge")
+    coeff = padded.copy()
+    detail_slices = []
+    length = padded_n
+    max_level = int(np.log2(padded_n))
+    if level is None:
+        level = max_level
+    level = max(1, min(level, max_level))
+
+    for _ in range(level):
+        half = length // 2
+        avg = (coeff[:length:2] + coeff[1:length:2]) / np.sqrt(2.0)
+        detail = (coeff[:length:2] - coeff[1:length:2]) / np.sqrt(2.0)
+        coeff[:half] = avg
+        coeff[half:length] = detail
+        detail_slices.append(slice(half, length))
+        length = half
+
+    finest = coeff[detail_slices[0]]
+    sigma = np.median(np.abs(finest - np.median(finest))) / 0.6745
+    threshold = threshold_scale * sigma * np.sqrt(2.0 * np.log(padded_n))
+    if threshold > 0:
+        for slc in detail_slices:
+            detail = coeff[slc]
+            coeff[slc] = np.sign(detail) * np.maximum(np.abs(detail) - threshold, 0.0)
+
+    length = padded_n // (2 ** level)
+    for _ in range(level):
+        half = length
+        length *= 2
+        avg = coeff[:half].copy()
+        detail = coeff[half:length].copy()
+        coeff[:length:2] = (avg + detail) / np.sqrt(2.0)
+        coeff[1:length:2] = (avg - detail) / np.sqrt(2.0)
+
+    return coeff[:n]
+
+
+def wavelet_denoise(
+    y: np.ndarray,
+    threshold_scale: float = 1.0,
+    level: Optional[int] = None,
+    wavelet: str = "haar",
+) -> np.ndarray:
+    """Wavelet denoising. Currently supports dependency-free Haar wavelets."""
+    if wavelet.lower() != "haar":
+        raise PreprocessingError("Only dependency-free Haar wavelet denoising is available")
+    return _haar_denoise_padded(y, threshold_scale=threshold_scale, level=level)
+
+
+def smooth_spectrum(
+    y: np.ndarray,
+    method: str = "savgol",
+    window_length: int = 11,
+    polyorder: int = 3,
+    median_window: int = 5,
+    gaussian_sigma: float = 1.0,
+    moving_window: int = 5,
+    wavelet_threshold: float = 1.0,
+    wavelet_level: Optional[int] = None,
+    wavelet: str = "haar",
+) -> np.ndarray:
+    """Apply smoothing/denoising by method name."""
+    method = method.lower().replace("-", "_")
+    aliases = {
+        "sg": "savgol",
+        "savitzky_golay": "savgol",
+        "savitzky": "savgol",
+        "median_filter": "median",
+        "gauss": "gaussian",
+        "moving": "moving_average",
+        "ma": "moving_average",
+        "wavelet": "wavelet_haar",
+        "haar": "wavelet_haar",
+    }
+    method = aliases.get(method, method)
+
+    if method == "savgol":
+        return smooth(y, window_length=window_length, polyorder=polyorder)
+    if method == "median":
+        return median_smooth(y, window_length=median_window)
+    if method == "gaussian":
+        return gaussian_smooth(y, sigma=gaussian_sigma)
+    if method == "moving_average":
+        return moving_average_smooth(y, window_length=moving_window)
+    if method == "wavelet_haar":
+        return wavelet_denoise(
+            y,
+            threshold_scale=wavelet_threshold,
+            level=wavelet_level,
+            wavelet=wavelet,
+        )
+    if method == "none":
+        return y.copy()
+
+    raise ValueError(
+        f"Unknown smoothing method: '{method}'. "
+        "Choose from: savgol, median, gaussian, moving_average, wavelet_haar, none"
+    )
+
+
 # =============================================================================
 # 3. Baseline Correction
 # =============================================================================
-def baseline_correction(
+def rolling_minimum_baseline(
     y: np.ndarray,
     window: int = 101
 ) -> np.ndarray:
     """
-    Rolling minimum baseline correction.
+    Estimate baseline with a centered rolling minimum.
 
-    Estimates baseline as the rolling minimum of the spectrum,
-    then subtracts it. This removes the broad fluorescence background
-    common in SERS measurements.
+    This is the current production default. Because the estimated baseline is
+    taken directly from local minima of the signal, subtracting it produces
+    non-negative corrected intensities up to numerical precision.
+    """
+    return pd.Series(y).rolling(
+        window, center=True, min_periods=1
+    ).min().to_numpy()
+
+
+def asymmetric_least_squares_baseline(
+    y: np.ndarray,
+    lam: float = 1e6,
+    p: float = 0.01,
+    niter: int = 10,
+) -> np.ndarray:
+    """
+    Estimate baseline using asymmetric least squares.
+
+    ALS is a common Raman/SERS baseline method for separating broad background
+    from narrow peaks. Higher ``lam`` makes the baseline smoother; lower ``p``
+    penalizes points above the baseline less strongly, keeping peaks from
+    pulling the baseline upward.
+    """
+    if lam <= 0:
+        raise PreprocessingError("ALS lam must be > 0")
+    if not 0 < p < 1:
+        raise PreprocessingError("ALS p must be in (0, 1)")
+    if niter < 1:
+        raise PreprocessingError("ALS niter must be >= 1")
+
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    if n < 3:
+        return np.full_like(y, y.min() if n else 0.0, dtype=float)
+
+    dmat = sparse.diags(
+        [1.0, -2.0, 1.0],
+        [0, -1, -2],
+        shape=(n, n - 2),
+        dtype=float,
+    )
+    weights = np.ones(n)
+    for _ in range(niter):
+        wmat = sparse.spdiags(weights, 0, n, n)
+        zmat = (wmat + lam * dmat.dot(dmat.T)).tocsc()
+        baseline = spsolve(zmat, weights * y)
+        weights = p * (y > baseline) + (1 - p) * (y <= baseline)
+    return np.asarray(baseline)
+
+
+def airpls_baseline(
+    y: np.ndarray,
+    lam: float = 1e5,
+    niter: int = 15,
+    tol: float = 1e-3,
+) -> np.ndarray:
+    """
+    Adaptive iteratively reweighted penalized least-squares baseline.
+
+    airPLS is frequently used for Raman/SERS fluorescence-background removal.
+    It downweights positive residuals as likely peaks and iteratively fits the
+    smooth lower background.
+    """
+    if lam <= 0:
+        raise PreprocessingError("airPLS lam must be > 0")
+    if niter < 1:
+        raise PreprocessingError("airPLS niter must be >= 1")
+
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    if n < 3:
+        return np.full_like(y, y.min() if n else 0.0, dtype=float)
+
+    dmat = sparse.diags(
+        [1.0, -2.0, 1.0],
+        [0, -1, -2],
+        shape=(n, n - 2),
+        dtype=float,
+    )
+    smoothness = lam * dmat.dot(dmat.T)
+    weights = np.ones(n)
+    total_abs = np.sum(np.abs(y)) + 1e-12
+    baseline = y.copy()
+    for iteration in range(1, niter + 1):
+        wmat = sparse.spdiags(weights, 0, n, n)
+        baseline = spsolve((wmat + smoothness).tocsc(), weights * y)
+        residual = y - baseline
+        negative = residual < 0
+        negative_sum = np.abs(residual[negative].sum())
+        if negative_sum < tol * total_abs:
+            break
+        weights[residual >= 0] = 0.0
+        weights[negative] = np.exp(
+            np.clip(iteration * np.abs(residual[negative]) / negative_sum, 0, 50)
+        )
+        edge_weight = np.max(weights[negative]) if np.any(negative) else 1.0
+        weights[0] = edge_weight
+        weights[-1] = edge_weight
+    return np.asarray(baseline)
+
+
+def arpls_baseline(
+    y: np.ndarray,
+    lam: float = 1e5,
+    ratio: float = 1e-6,
+    niter: int = 50,
+) -> np.ndarray:
+    """
+    Asymmetrically reweighted penalized least-squares baseline.
+
+    arPLS updates weights with a logistic function of residuals and is often
+    less sensitive than ALS to the asymmetry parameter.
+    """
+    if lam <= 0:
+        raise PreprocessingError("arPLS lam must be > 0")
+    if niter < 1:
+        raise PreprocessingError("arPLS niter must be >= 1")
+
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    if n < 3:
+        return np.full_like(y, y.min() if n else 0.0, dtype=float)
+
+    dmat = sparse.diags(
+        [1.0, -2.0, 1.0],
+        [0, -1, -2],
+        shape=(n, n - 2),
+        dtype=float,
+    )
+    smoothness = lam * dmat.dot(dmat.T)
+    weights = np.ones(n)
+    baseline = y.copy()
+    for _ in range(niter):
+        wmat = sparse.spdiags(weights, 0, n, n)
+        baseline = spsolve((wmat + smoothness).tocsc(), weights * y)
+        residual = y - baseline
+        negative = residual[residual < 0]
+        if len(negative) == 0:
+            break
+        mean_neg = np.mean(negative)
+        std_neg = np.std(negative)
+        if std_neg < 1e-12:
+            break
+        exponent = np.clip(2.0 * (residual - (2.0 * std_neg - mean_neg)) / std_neg, -50, 50)
+        new_weights = 1.0 / (1.0 + np.exp(exponent))
+        rel_change = np.linalg.norm(new_weights - weights) / (np.linalg.norm(weights) + 1e-12)
+        weights = new_weights
+        if rel_change < ratio:
+            break
+    return np.asarray(baseline)
+
+
+def moving_quantile_baseline(
+    y: np.ndarray,
+    window: int = 101,
+    quantile: float = 0.1,
+) -> np.ndarray:
+    """Estimate a local lower-envelope baseline with a rolling quantile."""
+    if not 0 <= quantile <= 1:
+        raise PreprocessingError("Moving quantile must be in [0, 1]")
+    return pd.Series(y).rolling(
+        window, center=True, min_periods=1
+    ).quantile(quantile).to_numpy()
+
+
+def morphological_tophat_baseline(
+    y: np.ndarray,
+    window: int = 101,
+) -> np.ndarray:
+    """
+    Estimate baseline by grayscale morphological opening.
+
+    Subtracting this baseline corresponds to a white top-hat transform, a common
+    morphology-based spectroscopy background correction.
+    """
+    if window < 1:
+        raise PreprocessingError("Top-hat baseline window must be >= 1")
+    return grey_opening(np.asarray(y, dtype=float), size=int(window), mode="nearest")
+
+
+def polynomial_baseline(
+    y: np.ndarray,
+    order: int = 3,
+    quantile: float = 0.2,
+    n_segments: int = 64,
+) -> np.ndarray:
+    """
+    Estimate baseline with a low-order polynomial fit to lower-envelope points.
+
+    The spectrum is split into segments, lower quantile points are selected,
+    and a polynomial is fit to those likely-background points. This avoids
+    fitting directly through strong SERS peaks.
+    """
+    if order < 0:
+        raise PreprocessingError("Polynomial baseline order must be >= 0")
+    if not 0 < quantile <= 1:
+        raise PreprocessingError("Polynomial baseline quantile must be in (0, 1]")
+
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    if n == 0:
+        return y.copy()
+    if n <= order + 1:
+        return np.full_like(y, y.min())
+
+    x = np.linspace(-1.0, 1.0, n)
+    segment_edges = np.linspace(0, n, min(n_segments, n) + 1, dtype=int)
+    keep = np.zeros(n, dtype=bool)
+    for start, end in zip(segment_edges[:-1], segment_edges[1:]):
+        if end <= start:
+            continue
+        segment = y[start:end]
+        threshold = np.quantile(segment, quantile)
+        keep[start:end] = segment <= threshold
+
+    if keep.sum() <= order:
+        keep[np.argsort(y)[: order + 1]] = True
+
+    coeff = np.polyfit(x[keep], y[keep], deg=order)
+    return np.polyval(coeff, x)
+
+
+def rubberband_baseline(
+    y: np.ndarray,
+    x: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """
+    Estimate baseline with a lower convex-hull rubberband.
+
+    This is a classic spectroscopy baseline model: stretch a rubber band under
+    the spectrum and subtract the lower envelope. It is deterministic and fast,
+    but can underfit curved fluorescence backgrounds.
+    """
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    if n == 0:
+        return y.copy()
+    if x is None:
+        x = np.arange(n, dtype=float)
+    else:
+        x = np.asarray(x, dtype=float)
+    if len(x) != n:
+        raise PreprocessingError("Rubberband baseline requires x and y to match")
+
+    order = np.argsort(x)
+    xs = x[order]
+    ys = y[order]
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower = []
+    for point in zip(xs, ys):
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], point) <= 0:
+            lower.pop()
+        lower.append(point)
+
+    hull_x = np.array([p[0] for p in lower])
+    hull_y = np.array([p[1] for p in lower])
+    baseline_sorted = np.interp(xs, hull_x, hull_y)
+    baseline = np.empty_like(baseline_sorted)
+    baseline[order] = baseline_sorted
+    return baseline
+
+
+def estimate_baseline(
+    y: np.ndarray,
+    method: str = "rolling_min",
+    window: int = 101,
+    x: Optional[np.ndarray] = None,
+    als_lam: float = 1e6,
+    als_p: float = 0.01,
+    als_niter: int = 10,
+    arpls_lam: float = 1e5,
+    arpls_ratio: float = 1e-6,
+    arpls_niter: int = 50,
+    airpls_lam: float = 1e5,
+    airpls_niter: int = 15,
+    airpls_tol: float = 1e-3,
+    poly_order: int = 3,
+    poly_quantile: float = 0.2,
+    moving_quantile: float = 0.1,
+) -> np.ndarray:
+    """
+    Estimate baseline by method name.
+
+    Methods
+    -------
+    rolling_min
+        Current production default; centered rolling minimum.
+    als
+        Asymmetric least squares baseline.
+    airpls
+        Adaptive iteratively reweighted penalized least-squares baseline.
+    arpls
+        Asymmetrically reweighted penalized least-squares baseline.
+    polynomial
+        Lower-envelope polynomial baseline.
+    rubberband
+        Lower convex-hull baseline.
+    moving_quantile
+        Rolling lower quantile baseline.
+    tophat
+        Morphological opening baseline.
+    none
+        Zero baseline.
+    """
+    method = method.lower().replace("-", "_")
+    aliases = {
+        "rolling": "rolling_min",
+        "rolling_minimum": "rolling_min",
+        "rm": "rolling_min",
+        "asls": "als",
+        "poly": "polynomial",
+        "quantile": "moving_quantile",
+        "rolling_quantile": "moving_quantile",
+        "morphological": "tophat",
+        "morphology": "tophat",
+        "white_tophat": "tophat",
+    }
+    method = aliases.get(method, method)
+
+    if method == "rolling_min":
+        return rolling_minimum_baseline(y, window=window)
+    if method == "als":
+        return asymmetric_least_squares_baseline(
+            y, lam=als_lam, p=als_p, niter=als_niter
+        )
+    if method == "airpls":
+        return airpls_baseline(
+            y, lam=airpls_lam, niter=airpls_niter, tol=airpls_tol
+        )
+    if method == "arpls":
+        return arpls_baseline(
+            y, lam=arpls_lam, ratio=arpls_ratio, niter=arpls_niter
+        )
+    if method == "polynomial":
+        return polynomial_baseline(y, order=poly_order, quantile=poly_quantile)
+    if method == "rubberband":
+        return rubberband_baseline(y, x=x)
+    if method == "moving_quantile":
+        return moving_quantile_baseline(y, window=window, quantile=moving_quantile)
+    if method == "tophat":
+        return morphological_tophat_baseline(y, window=window)
+    if method == "none":
+        return np.zeros_like(y, dtype=float)
+
+    raise ValueError(
+        f"Unknown baseline method: '{method}'. "
+        "Choose from: rolling_min, als, airpls, arpls, polynomial, "
+        "rubberband, moving_quantile, tophat, none"
+    )
+
+
+def baseline_correction(
+    y: np.ndarray,
+    window: int = 101,
+    method: str = "rolling_min",
+    x: Optional[np.ndarray] = None,
+    als_lam: float = 1e6,
+    als_p: float = 0.01,
+    als_niter: int = 10,
+    arpls_lam: float = 1e5,
+    arpls_ratio: float = 1e-6,
+    arpls_niter: int = 50,
+    airpls_lam: float = 1e5,
+    airpls_niter: int = 15,
+    airpls_tol: float = 1e-3,
+    poly_order: int = 3,
+    poly_quantile: float = 0.2,
+    moving_quantile: float = 0.1,
+    clip_negative: bool = False,
+) -> np.ndarray:
+    """
+    Baseline correction dispatcher.
+
+    The default ``method="rolling_min"`` preserves the original production
+    behavior. Other SERS/Raman baseline methods can be selected without
+    changing the rest of the preprocessing pipeline.
 
     Parameters
     ----------
     y : np.ndarray
         Input intensity values
     window : int
-        Rolling window size for minimum calculation
+        Rolling window size for rolling-minimum baseline
+    method : str
+        Baseline method: rolling_min, als, airpls, arpls, polynomial,
+        rubberband, moving_quantile, tophat, none
+    x : np.ndarray, optional
+        Wavenumber values; used by rubberband baseline
+    clip_negative : bool
+        If True, clip corrected intensities below zero. Kept false by default
+        because ALS/polynomial residuals can legitimately cross zero.
 
     Returns
     -------
     np.ndarray
-        Baseline-corrected intensity values (all >= 0)
+        Baseline-corrected intensity values
     """
-    baseline = pd.Series(y).rolling(
-        window, center=True, min_periods=1
-    ).min().to_numpy()
+    baseline = estimate_baseline(
+        y,
+        method=method,
+        window=window,
+        x=x,
+        als_lam=als_lam,
+        als_p=als_p,
+        als_niter=als_niter,
+        arpls_lam=arpls_lam,
+        arpls_ratio=arpls_ratio,
+        arpls_niter=arpls_niter,
+        airpls_lam=airpls_lam,
+        airpls_niter=airpls_niter,
+        airpls_tol=airpls_tol,
+        poly_order=poly_order,
+        poly_quantile=poly_quantile,
+        moving_quantile=moving_quantile,
+    )
+    corrected = np.asarray(y, dtype=float) - baseline
+    if clip_negative:
+        corrected = np.maximum(corrected, 0.0)
 
-    return y - baseline
+    return corrected
 
 
 # =============================================================================
@@ -518,9 +1072,157 @@ def area_normalize(y: np.ndarray) -> np.ndarray:
         return y.copy()
 
 
+def max_normalize(y: np.ndarray) -> np.ndarray:
+    """Normalize by maximum absolute intensity."""
+    denom = np.max(np.abs(y))
+    if denom > 1e-10:
+        return y / denom
+    logger.warning("Near-zero max intensity, returning original")
+    return y.copy()
+
+
+def peak_normalize(
+    y: np.ndarray,
+    x: Optional[np.ndarray] = None,
+    peak_wn: Optional[float] = None,
+    window: float = 10.0,
+) -> np.ndarray:
+    """
+    Normalize by a selected peak height.
+
+    If ``peak_wn`` and ``x`` are supplied, the maximum absolute intensity inside
+    the local window is used. Otherwise the global maximum absolute intensity is
+    used.
+    """
+    if peak_wn is not None:
+        if x is None:
+            raise PreprocessingError("peak normalization with peak_wn requires x")
+        mask = (x >= peak_wn - window) & (x <= peak_wn + window)
+        if not mask.any():
+            raise PreprocessingError("No points inside peak normalization window")
+        denom = np.max(np.abs(y[mask]))
+    else:
+        denom = np.max(np.abs(y))
+    if denom > 1e-10:
+        return y / denom
+    logger.warning("Near-zero peak intensity, returning original")
+    return y.copy()
+
+
+def mean_center(y: np.ndarray) -> np.ndarray:
+    """Subtract the per-spectrum mean without scaling."""
+    return y - np.mean(y)
+
+
+def pareto_normalize(y: np.ndarray) -> np.ndarray:
+    """Mean-center and divide by sqrt(std), a softer scaling than SNV."""
+    std = np.std(y)
+    centered = y - np.mean(y)
+    if std > 1e-10:
+        return centered / np.sqrt(std)
+    logger.warning("Near-zero std in Pareto normalization, returning centered")
+    return centered
+
+
+def robust_snv(y: np.ndarray) -> np.ndarray:
+    """Robust SNV using median and MAD instead of mean and standard deviation."""
+    median = np.median(y)
+    mad = np.median(np.abs(y - median))
+    scale = 1.4826 * mad
+    if scale > 1e-10:
+        return (y - median) / scale
+    logger.warning("Near-zero MAD in robust SNV, returning median-centered")
+    return y - median
+
+
+def pqn_normalize(y: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """
+    Probabilistic quotient normalization against a reference spectrum.
+
+    PQN is a sample-wise dilution correction. It requires a stable reference,
+    usually the median spectrum of a training cohort.
+    """
+    if reference is None:
+        raise PreprocessingError("PQN normalization requires a reference spectrum")
+    reference = np.asarray(reference, dtype=float)
+    if len(reference) != len(y):
+        raise PreprocessingError("PQN reference length must match spectrum length")
+    mask = np.abs(reference) > 1e-10
+    if not mask.any():
+        raise PreprocessingError("PQN reference is near zero everywhere")
+    quotients = y[mask] / reference[mask]
+    factor = np.median(quotients[np.isfinite(quotients)])
+    if abs(factor) > 1e-10:
+        return y / factor
+    logger.warning("Near-zero PQN dilution factor, returning original")
+    return y.copy()
+
+
+def msc_normalize(y: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """
+    Multiplicative scatter correction against a reference spectrum.
+
+    Fits y = intercept + slope * reference and returns (y - intercept) / slope.
+    """
+    if reference is None:
+        raise PreprocessingError("MSC normalization requires a reference spectrum")
+    reference = np.asarray(reference, dtype=float)
+    if len(reference) != len(y):
+        raise PreprocessingError("MSC reference length must match spectrum length")
+    design = np.column_stack([np.ones_like(reference), reference])
+    intercept, slope = np.linalg.lstsq(design, y, rcond=None)[0]
+    if abs(slope) <= 1e-10:
+        raise PreprocessingError("MSC slope is near zero")
+    return (y - intercept) / slope
+
+
+def emsc_normalize(
+    y: np.ndarray,
+    reference: np.ndarray,
+    x: Optional[np.ndarray] = None,
+    order: int = 2,
+) -> np.ndarray:
+    """
+    Extended multiplicative scatter correction.
+
+    EMSC extends MSC with polynomial baseline terms. The corrected spectrum is
+    the measured spectrum after removing additive polynomial/background terms,
+    divided by the fitted reference coefficient.
+    """
+    if reference is None:
+        raise PreprocessingError("EMSC normalization requires a reference spectrum")
+    reference = np.asarray(reference, dtype=float)
+    if len(reference) != len(y):
+        raise PreprocessingError("EMSC reference length must match spectrum length")
+    if order < 0:
+        raise PreprocessingError("EMSC polynomial order must be >= 0")
+    if x is None:
+        x_scaled = np.linspace(-1.0, 1.0, len(y))
+    else:
+        x = np.asarray(x, dtype=float)
+        if len(x) != len(y):
+            raise PreprocessingError("EMSC x length must match spectrum length")
+        span = x.max() - x.min()
+        x_scaled = np.zeros_like(x) if span <= 1e-12 else 2.0 * (x - x.min()) / span - 1.0
+
+    poly_terms = [x_scaled ** power for power in range(order + 1)]
+    design = np.column_stack([reference] + poly_terms)
+    coeff = np.linalg.lstsq(design, y, rcond=None)[0]
+    ref_coeff = coeff[0]
+    if abs(ref_coeff) <= 1e-10:
+        raise PreprocessingError("EMSC reference coefficient is near zero")
+    additive = design[:, 1:] @ coeff[1:]
+    return (y - additive) / ref_coeff
+
+
 def normalize_spectrum(
     y: np.ndarray,
-    method: str = "snv"
+    method: str = "snv",
+    x: Optional[np.ndarray] = None,
+    reference: Optional[np.ndarray] = None,
+    peak_wn: Optional[float] = None,
+    peak_window: float = 10.0,
+    emsc_order: int = 2,
 ) -> np.ndarray:
     """
     Apply normalization by method name.
@@ -530,7 +1232,8 @@ def normalize_spectrum(
     y : np.ndarray
         Input intensity values
     method : str
-        One of: "snv", "minmax", "l2", "area", "none"
+        One of: "snv", "robust_snv", "minmax", "l2", "area", "max",
+        "peak", "mean_center", "pareto", "pqn", "msc", "emsc", "none"
 
     Returns
     -------
@@ -542,21 +1245,54 @@ def normalize_spectrum(
     ValueError
         If method is not recognized
     """
-    methods = {
-        "snv": snv,
-        "minmax": minmax_scale,
-        "l2": vector_normalize,
-        "area": area_normalize,
-        "none": lambda y: y.copy(),
+    method = method.lower().replace("-", "_")
+    aliases = {
+        "standard_normal_variate": "snv",
+        "rsnv": "robust_snv",
+        "min_max": "minmax",
+        "vector": "l2",
+        "vector_normalize": "l2",
+        "total_area": "area",
+        "tic": "area",
+        "maximum": "max",
+        "peak_area": "peak",
+        "center": "mean_center",
+        "mean": "mean_center",
     }
+    method = aliases.get(method, method)
 
-    if method not in methods:
-        raise ValueError(
-            f"Unknown normalization method: '{method}'. "
-            f"Choose from: {list(methods.keys())}"
-        )
+    if method == "snv":
+        return snv(y)
+    if method == "robust_snv":
+        return robust_snv(y)
+    if method == "minmax":
+        return minmax_scale(y)
+    if method == "l2":
+        return vector_normalize(y)
+    if method == "area":
+        return area_normalize(y)
+    if method == "max":
+        return max_normalize(y)
+    if method == "peak":
+        return peak_normalize(y, x=x, peak_wn=peak_wn, window=peak_window)
+    if method == "mean_center":
+        return mean_center(y)
+    if method == "pareto":
+        return pareto_normalize(y)
+    if method == "pqn":
+        return pqn_normalize(y, reference=reference)
+    if method == "msc":
+        return msc_normalize(y, reference=reference)
+    if method == "emsc":
+        return emsc_normalize(y, reference=reference, x=x, order=emsc_order)
+    if method == "none":
+        return y.copy()
 
-    return methods[method](y)
+    raise ValueError(
+        f"Unknown normalization method: '{method}'. "
+        "Choose from: snv, robust_snv, minmax, l2, area, max, peak, "
+        "mean_center, pareto, pqn, msc, emsc, none"
+    )
 
 
 # =============================================================================
@@ -597,11 +1333,35 @@ def preprocess_single_spectrum(
     do_trim: bool = True,
     trim_region: Tuple[float, float] = FINGERPRINT_REGION,
     do_smooth: bool = True,
+    smoothing_method: str = "savgol",
     smooth_window: int = 11,
     smooth_poly: int = 3,
+    median_window: int = 5,
+    gaussian_sigma: float = 1.0,
+    moving_window: int = 5,
+    wavelet_threshold: float = 1.0,
+    wavelet_level: Optional[int] = None,
     do_baseline: bool = True,
     baseline_window: int = 101,
+    baseline_method: str = "rolling_min",
+    baseline_als_lam: float = 1e6,
+    baseline_als_p: float = 0.01,
+    baseline_als_niter: int = 10,
+    baseline_arpls_lam: float = 1e5,
+    baseline_arpls_ratio: float = 1e-6,
+    baseline_arpls_niter: int = 50,
+    baseline_airpls_lam: float = 1e5,
+    baseline_airpls_niter: int = 15,
+    baseline_airpls_tol: float = 1e-3,
+    baseline_poly_order: int = 3,
+    baseline_poly_quantile: float = 0.2,
+    baseline_moving_quantile: float = 0.1,
+    baseline_clip_negative: bool = False,
     normalization: str = "snv",
+    normalization_reference: Optional[np.ndarray] = None,
+    normalization_peak_wn: Optional[float] = None,
+    normalization_peak_window: float = 10.0,
+    normalization_emsc_order: int = 2,
 ) -> np.ndarray:
     """
     Apply full preprocessing pipeline to a single spectrum.
@@ -609,7 +1369,7 @@ def preprocess_single_spectrum(
     Pipeline order:
         ① Trim to fingerprint region (400-2200 cm⁻¹)
         ② Savitzky-Golay smoothing
-        ③ Rolling minimum baseline correction
+        ③ Baseline correction
         ④ Normalization (SNV / MinMax / L2 / Area / None)
         ⑤ Resample to common grid
 
@@ -627,6 +1387,9 @@ def preprocess_single_spectrum(
         (min, max) wavenumber for trimming
     do_smooth : bool
         Whether to apply Savitzky-Golay smoothing
+    smoothing_method : str
+        Smoothing method: savgol, median, gaussian, moving_average,
+        wavelet_haar, none
     smooth_window : int
         Smoothing window size
     smooth_poly : int
@@ -635,8 +1398,11 @@ def preprocess_single_spectrum(
         Whether to apply baseline correction
     baseline_window : int
         Baseline rolling window size
+    baseline_method : str
+        Baseline method: rolling_min, als, polynomial, rubberband, none
     normalization : str
-        Normalization method: "snv", "minmax", "l2", "area", "none"
+        Normalization method: snv, robust_snv, minmax, l2, area, max, peak,
+        mean_center, pareto, pqn, msc, emsc, none
 
     Returns
     -------
@@ -651,14 +1417,50 @@ def preprocess_single_spectrum(
 
     # ② Smooth
     if do_smooth:
-        y_proc = smooth(y_proc, window_length=smooth_window, polyorder=smooth_poly)
+        y_proc = smooth_spectrum(
+            y_proc,
+            method=smoothing_method,
+            window_length=smooth_window,
+            polyorder=smooth_poly,
+            median_window=median_window,
+            gaussian_sigma=gaussian_sigma,
+            moving_window=moving_window,
+            wavelet_threshold=wavelet_threshold,
+            wavelet_level=wavelet_level,
+        )
 
     # ③ Baseline correction
     if do_baseline:
-        y_proc = baseline_correction(y_proc, window=baseline_window)
+        y_proc = baseline_correction(
+            y_proc,
+            window=baseline_window,
+            method=baseline_method,
+            x=x,
+            als_lam=baseline_als_lam,
+            als_p=baseline_als_p,
+            als_niter=baseline_als_niter,
+            arpls_lam=baseline_arpls_lam,
+            arpls_ratio=baseline_arpls_ratio,
+            arpls_niter=baseline_arpls_niter,
+            airpls_lam=baseline_airpls_lam,
+            airpls_niter=baseline_airpls_niter,
+            airpls_tol=baseline_airpls_tol,
+            poly_order=baseline_poly_order,
+            poly_quantile=baseline_poly_quantile,
+            moving_quantile=baseline_moving_quantile,
+            clip_negative=baseline_clip_negative,
+        )
 
     # ④ Normalize
-    y_proc = normalize_spectrum(y_proc, method=normalization)
+    y_proc = normalize_spectrum(
+        y_proc,
+        method=normalization,
+        x=x,
+        reference=normalization_reference,
+        peak_wn=normalization_peak_wn,
+        peak_window=normalization_peak_window,
+        emsc_order=normalization_emsc_order,
+    )
 
     # ⑤ Resample to common grid
     y_grid = resample(x, y_proc, grid)
@@ -696,6 +1498,7 @@ def preprocess_spectra(
             config.preprocessing.smooth_poly (int)
             config.preprocessing.do_baseline (bool)
             config.preprocessing.baseline_window (int)
+            config.preprocessing.baseline_method (str)
             config.preprocessing.normalization (str)
             config.preprocessing.use_snv (bool, legacy)
     qc_passed_keys : set, optional
@@ -723,8 +1526,31 @@ def preprocess_spectra(
     trim_region = tuple(getattr(prep, 'trim_region', list(FINGERPRINT_REGION)))
 
     # Baseline settings
+    smoothing_method = getattr(prep, 'smoothing_method', 'savgol')
+    median_window = getattr(prep, 'median_window', 5)
+    gaussian_sigma = getattr(prep, 'gaussian_sigma', 1.0)
+    moving_window = getattr(prep, 'moving_window', 5)
+    wavelet_threshold = getattr(prep, 'wavelet_threshold', 1.0)
+    wavelet_level = getattr(prep, 'wavelet_level', None)
     do_baseline = getattr(prep, 'do_baseline', True)
     baseline_window = getattr(prep, 'baseline_window', 101)
+    baseline_method = getattr(prep, 'baseline_method', 'rolling_min')
+    baseline_als_lam = getattr(prep, 'baseline_als_lam', 1e6)
+    baseline_als_p = getattr(prep, 'baseline_als_p', 0.01)
+    baseline_als_niter = getattr(prep, 'baseline_als_niter', 10)
+    baseline_arpls_lam = getattr(prep, 'baseline_arpls_lam', 1e5)
+    baseline_arpls_ratio = getattr(prep, 'baseline_arpls_ratio', 1e-6)
+    baseline_arpls_niter = getattr(prep, 'baseline_arpls_niter', 50)
+    baseline_airpls_lam = getattr(prep, 'baseline_airpls_lam', 1e5)
+    baseline_airpls_niter = getattr(prep, 'baseline_airpls_niter', 15)
+    baseline_airpls_tol = getattr(prep, 'baseline_airpls_tol', 1e-3)
+    baseline_poly_order = getattr(prep, 'baseline_poly_order', 3)
+    baseline_poly_quantile = getattr(prep, 'baseline_poly_quantile', 0.2)
+    baseline_moving_quantile = getattr(prep, 'baseline_moving_quantile', 0.1)
+    baseline_clip_negative = getattr(prep, 'baseline_clip_negative', False)
+    normalization_peak_wn = getattr(prep, 'normalization_peak_wn', None)
+    normalization_peak_window = getattr(prep, 'normalization_peak_window', 10.0)
+    normalization_emsc_order = getattr(prep, 'normalization_emsc_order', 2)
 
     # Prepare trimmed grid
     if do_trim:
@@ -734,8 +1560,14 @@ def preprocess_spectra(
 
     logger.info("Preprocessing pipeline:")
     logger.info(f"  ① Trim: {do_trim} → region {trim_region} cm⁻¹")
-    logger.info(f"  ② Smooth: {prep.do_smooth} (window={prep.smooth_window}, poly={prep.smooth_poly})")
-    logger.info(f"  ③ Baseline: {do_baseline} (window={baseline_window})")
+    logger.info(
+        f"  ② Smooth: {prep.do_smooth} "
+        f"(method={smoothing_method}, window={prep.smooth_window}, poly={prep.smooth_poly})"
+    )
+    logger.info(
+        f"  ③ Baseline: {do_baseline} "
+        f"(method={baseline_method}, window={baseline_window})"
+    )
     logger.info(f"  ④ Normalization: {normalization}")
     logger.info(f"  ⑤ Resample: {len(proc_grid)} grid points")
 
@@ -767,11 +1599,34 @@ def preprocess_spectra(
                 do_trim=do_trim,
                 trim_region=trim_region,
                 do_smooth=prep.do_smooth,
+                smoothing_method=smoothing_method,
                 smooth_window=prep.smooth_window,
                 smooth_poly=prep.smooth_poly,
+                median_window=median_window,
+                gaussian_sigma=gaussian_sigma,
+                moving_window=moving_window,
+                wavelet_threshold=wavelet_threshold,
+                wavelet_level=wavelet_level,
                 do_baseline=do_baseline,
                 baseline_window=baseline_window,
+                baseline_method=baseline_method,
+                baseline_als_lam=baseline_als_lam,
+                baseline_als_p=baseline_als_p,
+                baseline_als_niter=baseline_als_niter,
+                baseline_arpls_lam=baseline_arpls_lam,
+                baseline_arpls_ratio=baseline_arpls_ratio,
+                baseline_arpls_niter=baseline_arpls_niter,
+                baseline_airpls_lam=baseline_airpls_lam,
+                baseline_airpls_niter=baseline_airpls_niter,
+                baseline_airpls_tol=baseline_airpls_tol,
+                baseline_poly_order=baseline_poly_order,
+                baseline_poly_quantile=baseline_poly_quantile,
+                baseline_moving_quantile=baseline_moving_quantile,
+                baseline_clip_negative=baseline_clip_negative,
                 normalization=normalization,
+                normalization_peak_wn=normalization_peak_wn,
+                normalization_peak_window=normalization_peak_window,
+                normalization_emsc_order=normalization_emsc_order,
             )
 
             processed[key] = y_grid
@@ -796,6 +1651,8 @@ def preprocess_spectra(
                 "proc_std": float(y_grid.std()),
                 "proc_min": float(y_grid.min()),
                 "proc_max": float(y_grid.max()),
+                "smoothing_method": smoothing_method,
+                "baseline_method": baseline_method,
                 "normalization": normalization,
                 "trimmed": do_trim,
             })

@@ -263,11 +263,38 @@ LOG_LEVEL: str = os.environ.get("SERS_LOG_LEVEL", "INFO")
 class PreprocessingConfig:
     """Preprocessing parameters (user-adjustable)."""
 
+    do_trim: bool = True
+    trim_region: tuple[float, float] = (400.0, 2200.0)
     do_smooth: bool = True
+    smoothing_method: str = "savgol"
     smooth_window: int = 11
     smooth_poly: int = 3
+    median_window: int = 5
+    gaussian_sigma: float = 1.0
+    moving_window: int = 5
+    wavelet_threshold: float = 1.0
+    wavelet_level: Optional[int] = None
+    do_baseline: bool = True
     baseline_window: int = 101
+    baseline_method: str = "rolling_min"
+    baseline_als_lam: float = 1e6
+    baseline_als_p: float = 0.01
+    baseline_als_niter: int = 10
+    baseline_arpls_lam: float = 1e5
+    baseline_arpls_ratio: float = 1e-6
+    baseline_arpls_niter: int = 50
+    baseline_airpls_lam: float = 1e5
+    baseline_airpls_niter: int = 15
+    baseline_airpls_tol: float = 1e-3
+    baseline_poly_order: int = 3
+    baseline_poly_quantile: float = 0.2
+    baseline_moving_quantile: float = 0.1
+    baseline_clip_negative: bool = False
     use_snv: bool = True
+    normalization: Optional[str] = None
+    normalization_peak_wn: Optional[float] = None
+    normalization_peak_window: float = 10.0
+    normalization_emsc_order: int = 2
     fixed_grid: Optional[Dict[str, float]] = None
     # Wavenumber calibration (urea reference peak alignment)
     do_calibration: bool = False

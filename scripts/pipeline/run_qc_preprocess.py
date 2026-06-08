@@ -8,6 +8,7 @@ Usage:
     python run_qc_preprocess.py
     python run_qc_preprocess.py --config config.yaml --normalization snv
     python run_qc_preprocess.py --normalization minmax --no-trim
+    python run_qc_preprocess.py --smoothing-method median --baseline-method airpls
 
 Pipeline:
     ┌──────────────────────────────────────────┐
@@ -182,6 +183,7 @@ Examples:
   python run_qc_preprocess.py
   python run_qc_preprocess.py --normalization minmax
   python run_qc_preprocess.py --normalization l2 --no-trim
+  python run_qc_preprocess.py --smoothing-method median --baseline-method airpls
   python run_qc_preprocess.py --config my_config.yaml
         """,
     )
@@ -205,9 +207,27 @@ Examples:
     )
     parser.add_argument(
         "--normalization", "-n",
-        choices=["snv", "minmax", "l2", "area", "none"],
+        choices=[
+            "snv", "robust_snv", "minmax", "l2", "area", "max", "peak",
+            "mean_center", "pareto", "pqn", "msc", "emsc", "none",
+        ],
         default=None,
         help="Override normalization method (default: from config)",
+    )
+    parser.add_argument(
+        "--smoothing-method",
+        choices=["savgol", "median", "gaussian", "moving_average", "wavelet_haar", "none"],
+        default=None,
+        help="Override smoothing/denoising method (default: from config)",
+    )
+    parser.add_argument(
+        "--baseline-method",
+        choices=[
+            "rolling_min", "als", "airpls", "arpls", "polynomial",
+            "rubberband", "moving_quantile", "tophat", "none",
+        ],
+        default=None,
+        help="Override baseline correction method (default: from config)",
     )
     parser.add_argument(
         "--no-trim",
@@ -258,6 +278,14 @@ def main():
         if args.normalization:
             object.__setattr__(config.preprocessing, 'normalization', args.normalization)
             logger.info(f"  → Normalization overridden to: {args.normalization}")
+
+        if args.smoothing_method:
+            object.__setattr__(config.preprocessing, 'smoothing_method', args.smoothing_method)
+            logger.info(f"  → Smoothing method overridden to: {args.smoothing_method}")
+
+        if args.baseline_method:
+            object.__setattr__(config.preprocessing, 'baseline_method', args.baseline_method)
+            logger.info(f"  → Baseline method overridden to: {args.baseline_method}")
 
         if args.no_trim:
             object.__setattr__(config.preprocessing, 'do_trim', False)

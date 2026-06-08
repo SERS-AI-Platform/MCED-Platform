@@ -376,10 +376,45 @@ preprocessing:
   # strong adjacent metabolite peaks at 1007.4 / 995.9 cm⁻¹.
 
   do_smooth: true
+  smoothing_method: savgol     # savgol | median | gaussian | moving_average | wavelet_haar | none
   smooth_window: 11      # Must be odd, >= smooth_poly + 2
   smooth_poly: 3         # Savitzky-Golay polynomial order
+  # Optional smoothing/denoising parameters for non-default methods
+  median_window: 5
+  gaussian_sigma: 1.0
+  moving_window: 5
+  wavelet_threshold: 1.0
+  wavelet_level: null
+
+  do_baseline: true
+  baseline_method: rolling_min   # rolling_min | als | airpls | arpls | polynomial | rubberband | moving_quantile | tophat | none
   baseline_window: 101   # Rolling minimum window
+  # ALS baseline parameters (used when baseline_method=als)
+  baseline_als_lam: 1000000.0
+  baseline_als_p: 0.01
+  baseline_als_niter: 10
+  # arPLS / airPLS baseline parameters
+  baseline_arpls_lam: 100000.0
+  baseline_arpls_ratio: 0.000001
+  baseline_arpls_niter: 50
+  baseline_airpls_lam: 100000.0
+  baseline_airpls_niter: 15
+  baseline_airpls_tol: 0.001
+  # Polynomial lower-envelope baseline parameters (baseline_method=polynomial)
+  baseline_poly_order: 3
+  baseline_poly_quantile: 0.2
+  # Moving lower-quantile baseline parameter (baseline_method=moving_quantile)
+  baseline_moving_quantile: 0.1
+  # Keep false by default; ALS/polynomial residuals can legitimately cross zero
+  baseline_clip_negative: false
+
   use_snv: true          # Standard Normal Variate normalization
+  normalization: null    # null = legacy use_snv flag; otherwise snv|robust_snv|minmax|l2|area|max|peak|mean_center|pareto|pqn|msc|emsc|none
+  # Reference-based normalization (pqn/msc/emsc) requires an externally supplied reference spectrum.
+  # The standard single-spectrum pipeline intentionally does not infer one implicitly.
+  normalization_peak_wn: null
+  normalization_peak_window: 10.0
+  normalization_emsc_order: 2
 
   # Fixed wavenumber grid — ensures all pipelines produce identical feature space
   # Derived from intersection of all 8,799 raw spectra (x_min ≈ 50.06–51.01)
