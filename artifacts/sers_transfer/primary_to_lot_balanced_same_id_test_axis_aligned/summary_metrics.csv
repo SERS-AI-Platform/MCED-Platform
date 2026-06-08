@@ -1,0 +1,17 @@
+level,feature,candidate_mode,test_dataset,n,identity_top1_accuracy,identity_top3_accuracy,identity_top5_accuracy,group_accuracy,median_true_rank
+replicate,vector_derivative_snv,all_primary_ids,primary_leave_one_replicate_cv,8500,0.5716470588235294,0.7185882352941176,0.7714117647058824,0.8662352941176471,1.0
+replicate,vector_derivative_snv,dataset_overlap_only,lot_balanced_handheld,8048,0.02746023856858847,0.050323061630218685,0.06510934393638171,0.23981113320079522,366.0
+replicate,vector_derivative_snv,dataset_overlap_only,lot_balanced_medical,9651,0.010258004351880633,0.02403895969329603,0.034918661278623975,0.08672676406589991,514.0
+replicate,vector_derivative_snv,dataset_overlap_only,lot_balanced_thermo,8057,0.028422489760456745,0.05026684870299119,0.06044433411939928,0.23395804890157626,410.0
+replicate,vector_snv,all_primary_ids,primary_leave_one_replicate_cv,8500,0.6001176470588235,0.7332941176470589,0.7828235294117647,0.8348235294117647,1.0
+replicate,vector_snv,dataset_overlap_only,lot_balanced_handheld,8048,0.003851888667992048,0.015531809145129225,0.02460238568588469,0.11282306163021869,610.5
+replicate,vector_snv,dataset_overlap_only,lot_balanced_medical,9651,0.0032121023728111076,0.007356750595793182,0.01222671225779712,0.14195420163713604,741.0
+replicate,vector_snv,dataset_overlap_only,lot_balanced_thermo,8057,0.018865582723097928,0.03661412436390716,0.04989450167556162,0.21149311157999257,524.0
+sample_majority,vector_derivative_snv,all_primary_ids,primary_leave_one_replicate_cv,1700,0.7488235294117647,,,0.928235294117647,1.0
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_handheld,1609,0.027346177750155375,,,0.24362958359229334,374.0
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_medical,1609,0.009944064636420136,,,0.07768800497203232,516.5
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_thermo,1611,0.03165735567970205,,,0.23153320918684048,408.0
+sample_majority,vector_snv,all_primary_ids,primary_leave_one_replicate_cv,1700,0.8129411764705883,,,0.9376470588235294,1.0
+sample_majority,vector_snv,dataset_overlap_only,lot_balanced_handheld,1609,0.0037290242386575512,,,0.11187072715972654,606.0
+sample_majority,vector_snv,dataset_overlap_only,lot_balanced_medical,1609,0.002486016159105034,,,0.14045991298943444,726.0
+sample_majority,vector_snv,dataset_overlap_only,lot_balanced_thermo,1611,0.0223463687150838,,,0.21601489757914338,521.0
