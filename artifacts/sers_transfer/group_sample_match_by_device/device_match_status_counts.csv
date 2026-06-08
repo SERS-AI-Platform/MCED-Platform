@@ -1,0 +1,13 @@
+dataset_label,match_status,n,fraction
+Primary Thermo CV,Exact sample match,1273,0.7488235294117647
+Primary Thermo CV,Group only,305,0.17941176470588235
+Primary Thermo CV,Wrong group,122,0.07176470588235294
+Thermo,Exact sample match,51,0.03165735567970205
+Thermo,Group only,322,0.19987585350713843
+Thermo,Wrong group,1238,0.7684667908131595
+Handheld,Exact sample match,44,0.027346177750155375
+Handheld,Group only,348,0.21628340584213798
+Handheld,Wrong group,1217,0.7563704164077066
+Medical,Exact sample match,16,0.009944064636420136
+Medical,Group only,109,0.06774394033561218
+Medical,Wrong group,1484,0.9223119950279677

@@ -1,0 +1,9 @@
+level,feature,candidate_mode,test_dataset,n,identity_top1_accuracy,identity_top3_accuracy,identity_top5_accuracy,group_accuracy,median_true_rank,alignment
+sample_majority,vector_derivative_snv,all_primary_ids,primary_leave_one_replicate_cv,1700,0.7488235294117647,,,0.928235294117647,1.0,Before alignment
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_handheld,1609,0.0279676817899316,,,0.2454940957116221,373.0,Before alignment
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_medical,1609,0.0093225605966438,,,0.0826600372902423,515.0,Before alignment
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_thermo,1611,0.0304158907510862,,,0.2278088144009931,407.0,Before alignment
+sample_majority,vector_derivative_snv,all_primary_ids,primary_leave_one_replicate_cv,1700,0.7488235294117647,,,0.928235294117647,1.0,PS/Si axis-aligned
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_handheld,1609,0.027346177750155375,,,0.24362958359229334,374.0,PS/Si axis-aligned
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_medical,1609,0.009944064636420136,,,0.07768800497203232,516.5,PS/Si axis-aligned
+sample_majority,vector_derivative_snv,dataset_overlap_only,lot_balanced_thermo,1611,0.03165735567970205,,,0.23153320918684048,408.0,PS/Si axis-aligned
