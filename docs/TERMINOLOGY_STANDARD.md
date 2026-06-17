@@ -9,7 +9,7 @@ This is the **prescriptive** development standard for SERS-AI / MCED-Platform: t
 
 Every rule is tagged with **how** it is enforced:
 
-- 🤖 **CI-enforced** — an automated check blocks merge (ruff `E,F,I,W`; scoped mypy; pytest with coverage floor; pre-commit Conventional Commits)
+- 🤖 **CI-enforced** — an automated check blocks merge (core import smoke; ruff `E,F,I,W`; scoped mypy; pytest with coverage floor; pre-commit Conventional Commits)
 - 👁️ **Convention / review-only** — not auto-checked; relies on review and discipline
 
 > ⚠️ **Enforcement honesty**: ruff currently selects only `E, F, I, W` (see `pyproject.toml`).
@@ -162,6 +162,7 @@ Format: **concept → rule → real example → avoid**. Examples are verbatim f
 | Item | Rule | Enforce |
 |---|---|---|
 | Commit messages | Conventional Commits (`feat / fix / docs / refactor / test / chore / perf / build / ci`) | 🤖 pre-commit |
+| Import smoke | Core public API imports without optional visualization dependencies | 🤖 CI |
 | Lint | ruff selects **`E, F, I, W`** (line length 100; `E501/E402/E701/E722` ignored) | 🤖 CI |
 | Type check | mypy currently checks CLI/config/scoring (`pyproject.toml: tool.mypy.files`) | 🤖 CI |
 | Test coverage | pytest coverage floor starts at 35% and should ratchet upward | 🤖 CI |

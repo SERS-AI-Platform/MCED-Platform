@@ -39,7 +39,7 @@ gh pr create                             # PR 생성 (또는 GitHub 웹에서)
 ```
 
 - **브랜치 이름**: `feat/...`, `fix/...`, `docs/...`, `chore/...`
-- PR을 올리면 CI(import smoke + lint + scoped mypy + tests/coverage)가 자동 실행됩니다.
+- PR을 올리면 CI(core import smoke + lint + scoped mypy + tests/coverage)가 자동 실행됩니다.
 - 검토 후 GitHub PR 페이지에서 **"Merge pull request"** 클릭. (현재 리뷰 승인 0건 설정 — 소규모 팀이라 작성자가 직접 병합 가능)
 
 ## 3. 커밋 메시지 규칙 (Conventional Commits)

@@ -59,7 +59,7 @@ git push -u origin feat/내작업
 gh pr create                            # 또는 GitHub 웹에서
 ```
 
-- PR을 올리면 **CI(import smoke + lint + scoped mypy + tests/coverage)가 자동 실행** → **통과해야 병합 가능**
+- PR을 올리면 **CI(core import smoke + lint + scoped mypy + tests/coverage)가 자동 실행** → **통과해야 병합 가능**
 - 검토 후 PR 페이지에서 **"Merge pull request"** (현재 리뷰 승인 0건 — 작성자가 직접 병합 가능)
 - PR마다 자동 체크리스트가 뜹니다 — 특히 **PII·비밀키 미포함**을 확인하세요
 

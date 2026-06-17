@@ -215,12 +215,25 @@ mypy
 
 Proprietary and confidential. See [`LICENSE`](LICENSE).
 
-### Team Rule: Import Smoke Check
+### Team Rule: Core Import Smoke Check
 
-To prevent accidental public API breakage, run the following smoke-check in CI and before release:
+To prevent accidental core API breakage, run the following smoke-check in CI and before release:
 
 ```bash
-python -c "from sers import *"
+python - <<'PY'
+import sers
+from sers import (
+    find_spectra,
+    load_config,
+    make_common_grid,
+    parse_filename,
+    preprocess_spectra,
+    read_spectrum,
+    run_qc_pipeline,
+)
+
+print("core import smoke ok")
+PY
 ```
 
-This command must succeed without ImportError.
+This command must succeed without ImportError. Visualization helpers remain optional and require installing `.[viz]`.
