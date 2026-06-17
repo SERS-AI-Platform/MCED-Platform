@@ -6,8 +6,8 @@ Two server applications are provided:
 
 | Application | File | Purpose |
 |---|---|---|
-| REST API | `scripts/sers_api.py` | Headless JSON API for programmatic access |
-| Web App | `scripts/sers_webapp.py` | Browser UI + API endpoints for interactive use |
+| REST API | `scripts/deployment/sers_api.py` | Headless JSON API for programmatic access |
+| Web App | `scripts/deployment/sers_webapp.py` | Browser UI + API endpoints for interactive use |
 
 Both use **FastAPI** and load the `ProductionPredictor` model at startup.
 
@@ -18,7 +18,7 @@ Both use **FastAPI** and load the `ProductionPredictor` model at startup.
 ### Start
 
 ```bash
-uvicorn scripts.sers_api:app --host 0.0.0.0 --port 8000
+uvicorn scripts.deployment.sers_api:app --host 0.0.0.0 --port 8000
 # or via Docker:
 docker compose -f infra/docker-compose.yml up sers-api
 ```
@@ -153,8 +153,8 @@ curl -X POST "http://localhost:8000/predict/batch?sex=F" \
 ### Start
 
 ```bash
-python scripts/sers_webapp.py
-python scripts/sers_webapp.py --host 0.0.0.0 --port 8000
+python scripts/deployment/sers_webapp.py
+python scripts/deployment/sers_webapp.py --host 0.0.0.0 --port 8000
 ```
 
 ### Endpoints

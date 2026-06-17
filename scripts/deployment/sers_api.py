@@ -8,27 +8,27 @@ Endpoints:
     GET  /model-info       Model metadata
 
 Usage:
-    uvicorn scripts.sers_api:app --host 0.0.0.0 --port 8000
+    uvicorn scripts.deployment.sers_api:app --host 0.0.0.0 --port 8000
     # or via Docker:
     docker compose -f infra/docker-compose.yml up sers-api
 """
 
 from __future__ import annotations
 
+import logging
 import sys
 import tempfile
-import logging
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.sers_predict import ProductionPredictor
+from scripts.deployment.sers_predict import ProductionPredictor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
 logger = logging.getLogger("sers-api")
