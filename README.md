@@ -192,6 +192,23 @@ SERS-AI/
 
 Rule of thumb: `scripts/training` is the button, `src/sers` is the engine, and `models` is a transition/compatibility area unless a file explicitly documents otherwise.
 
+## Quality / DGMP Governance
+
+This repository keeps the working technical evidence for DGMP/QMS readiness. Controlled SOP approval copies should live in SharePoint `/02_Regulatory_QMS`; Git tracks the current engineering matrix and evidence links.
+
+| Pillar | Repo evidence | Current status |
+|---|---|---|
+| Document control | [`docs/qms/SOP_INDEX.md`](docs/qms/SOP_INDEX.md), [`docs/DEVELOPMENT_ASSET_GOVERNANCE.md`](docs/DEVELOPMENT_ASSET_GOVERNANCE.md) | draft index |
+| SDLC / change control | PR workflow, CI, [`CONTRIBUTING.md`](CONTRIBUTING.md) | active internal gate |
+| V&V / coverage evidence | [`docs/COVERAGE_PROCESS_MATRIX.md`](docs/COVERAGE_PROCESS_MATRIX.md), tests, CI | package baseline gated |
+| Data governance | `.gitignore`, [`docs/DEVELOPMENT_ASSET_GOVERNANCE.md`](docs/DEVELOPMENT_ASSET_GOVERNANCE.md), clinical-use docs | partial, controlled storage needed |
+| Software product / IFU traceability | [`docs/sharepoint_sw_product/`](docs/sharepoint_sw_product/), [`docs/clinical_use/`](docs/clinical_use/) | draft working set |
+| Security / access / audit | `scripts/deployment/clinical_auth.py`, `clinical_audit.py`, `clinical_db.py` | implementation present, SOP gate open |
+| Release / configuration management | `pyproject.toml`, `config/`, `infra/`, `artifacts/` | partial, release SOP open |
+| Risk / CAPA / training | [`docs/qms/DGMP_PILLAR_MATRIX.md`](docs/qms/DGMP_PILLAR_MATRIX.md) | open gate |
+
+Detailed pillar ownership and SOP status are tracked in [`docs/qms/DGMP_PILLAR_MATRIX.md`](docs/qms/DGMP_PILLAR_MATRIX.md). This matrix is a readiness tracker, not a claim of regulatory approval.
+
 ## Development
 
 ```bash
