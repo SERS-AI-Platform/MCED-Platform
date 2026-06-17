@@ -348,7 +348,7 @@ sers analyze equipment                # 장비 QC 분석
 ```bash
 # 동일한 동작
 sers train resnet18 --epochs 200
-python models/train.py --model resnet18 --epochs 200
+python models/legacy/scripts/train.py --model resnet18 --epochs 200
 
 sers preprocess -n snv
 python scripts/pipeline/run_qc_preprocess.py --normalization snv

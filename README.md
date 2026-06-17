@@ -25,11 +25,17 @@ pip install -e ".[all]"
 
 ### Command Line
 ```bash
-# Validate input files
-sers validate -i data/raw
+# Inspect available workflows
+sers --help
 
-# Run pipeline
-sers run -i data/raw -o results/
+# Validate input files
+sers data validate -i data/raw
+
+# Run preprocessing + QC pipeline
+sers preprocess --config config/config.yaml --output-dir results/
+
+# Run active uSERS-Net/STK-V2 training smoke path
+sers train stacking --dry-run
 ```
 
 ### Python API (Stable Public API)
@@ -199,15 +205,15 @@ python scripts/training/train_usersnet.py --dry-run
 pytest
 
 # Lint
-ruff check src/
+ruff check src/ tests/
 
-# Type check
-mypy src/
+# Type check the current CI-gated surface
+mypy
 ```
 
 ## License
 
-MIT
+Proprietary and confidential. See [`LICENSE`](LICENSE).
 
 ### Team Rule: Import Smoke Check
 

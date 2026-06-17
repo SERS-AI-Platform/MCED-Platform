@@ -26,13 +26,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Import smoke check
+        run: |
+          python -c "from sers import *"
+
       - name: Lint with ruff
         run: |
           ruff check src/ tests/
 
+      - name: Type check with mypy
+        run: |
+          mypy
+
       - name: Run tests with coverage
         run: |
-          pytest --cov=sers --cov-report=term-missing --cov-report=xml
+          pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

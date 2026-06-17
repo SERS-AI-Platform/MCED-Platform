@@ -148,18 +148,19 @@ SERS-AI/
 
 | 용도 | 명령 |
 |------|------|
-| 전처리 파이프라인 | `python main.py` |
-| 모델 학습 | `python models/train.py` |
-| 모델 평가 | `python models/test.py` |
+| 전처리 + QC 파이프라인 | `sers preprocess` |
+| Active STK-V2/uSERS-Net 학습 | `sers train stacking` |
+| Baseline/legacy 모델 학습 | `sers train resnet18`, `sers train xgboost` |
+| 모델 평가 | `sers test` |
 | 프로덕션 추론 (CLI) | `python scripts/deployment/sers_predict.py` |
 | 웹앱 추론 | `python scripts/deployment/sers_webapp.py` |
-| QC 전처리 | `python scripts/pipeline/run_qc_preprocess.py` |
+| 직접 QC 전처리 | `python scripts/pipeline/run_qc_preprocess.py` |
 | MLflow UI | `mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000` |
 
 ## MLflow 실험 추적
 
 - 백엔드: SQLite (`mlflow.db`, 프로젝트 루트에 자동 생성)
-- 사용 파일: `models/train.py` (--no-mlflow 플래그로 비활성화 가능)
+- 사용 파일: legacy wrapper 경로(`models/legacy/scripts/train.py`) 또는 `sers train ...` (--no-mlflow 플래그로 비활성화 가능)
 - UI 조회: `mlflow ui --backend-store-uri sqlite:///mlflow.db`
 - 직접 조회: `sqlite3 mlflow.db "SELECT * FROM runs ORDER BY start_time DESC LIMIT 10;"`
 

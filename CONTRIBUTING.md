@@ -39,7 +39,7 @@ gh pr create                             # PR 생성 (또는 GitHub 웹에서)
 ```
 
 - **브랜치 이름**: `feat/...`, `fix/...`, `docs/...`, `chore/...`
-- PR을 올리면 CI(린트 + 테스트)가 자동 실행됩니다.
+- PR을 올리면 CI(import smoke + lint + scoped mypy + tests/coverage)가 자동 실행됩니다.
 - 검토 후 GitHub PR 페이지에서 **"Merge pull request"** 클릭. (현재 리뷰 승인 0건 설정 — 소규모 팀이라 작성자가 직접 병합 가능)
 
 ## 3. 커밋 메시지 규칙 (Conventional Commits)
@@ -61,14 +61,16 @@ gh pr create                             # PR 생성 (또는 GitHub 웹에서)
 ## 4. 코드 품질
 
 ```bash
-ruff check src/ tests/      # 린트 검사
-ruff format src/ tests/     # 자동 포맷
-pytest                      # 전체 테스트
-pytest -m "not slow"        # 빠른 테스트만 (실데이터 파일 불필요)
+ruff check src/ tests/                                                # 린트 검사
+ruff format src/ tests/                                               # 자동 포맷
+mypy                                                                  # 현재 CI-gated 타입 표면 검사
+pytest --cov=sers --cov-report=term-missing --cov-fail-under=35       # 전체 테스트 + 커버리지 기준선
+pytest -m "not slow"                                                  # 빠른 테스트만 (실데이터 파일 불필요)
 ```
 
-> ⚠️ **참고**: 현재 기존 코드에 린트 부채가 있어 CI가 빨간색일 수 있습니다(별도 정리 예정).
-> 신규/수정 코드는 위 검사를 통과하도록 작성해 주세요.
+현재 CI는 Python 3.10/3.11/3.12에서 ruff, mypy, pytest+coverage를 실행합니다.
+mypy는 `pyproject.toml`에 명시한 CLI/config/scoring 표면부터 게이트로 사용하며, 전체 `src/` 타입 검사는 별도 마이그레이션 과제입니다.
+신규/수정 코드는 위 검사를 통과하도록 작성해 주세요.
 
 ## 5. 데이터 · 임상 규칙 (필독)
 

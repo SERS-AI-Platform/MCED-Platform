@@ -1,132 +1,124 @@
 # Model Workflow
 
-## 1. Train a Single Model
+This document describes the current model-development workflow for
+MCED-Platform. The active entry points are `sers` CLI commands and scripts under
+`scripts/training/`; `models/legacy/` remains available only for compatibility
+and historical reproduction.
 
-Example: XGBoost on a selected class subset.
+## 1. Prepare Spectra
 
-```powershell
-python models/train.py `
-  --aggregate none `
-  --model xgboost `
-  --cancer-types PRO LUN CRC CPAN OVA `
-  --non-cancer-groups NOR DIA HBP H.D. `
-  -i results/processed_spectra.csv `
-  -o models/results/benchmark_all_spectra
+Run preprocessing and QC before model training:
+
+```bash
+sers preprocess --config config/config.yaml
 ```
 
-Output layout:
+Common variants:
+
+```bash
+sers preprocess --source medical
+sers preprocess --normalization snv --qc-policy strict
+sers preprocess --skip-qc
+```
+
+The preprocessing command wraps `scripts/pipeline/run_qc_preprocess.py`.
+Outputs are controlled by `config/config.yaml` unless `--output-dir` is passed.
+
+## 2. Train the Active STK-V2 / uSERS-Net Model
+
+Use the stacking command for the current production-path model:
+
+```bash
+sers train stacking --dry-run
+sers train stacking
+```
+
+Useful options:
+
+```bash
+sers train stacking --val-group SPAN --meta-learner elasticnet
+sers train stacking --no-shap --no-cm
+```
+
+The command wraps `scripts/training/train_usersnet.py`.
+
+## 3. Build Production Artifacts
+
+Build the active production artifact package:
+
+```bash
+sers production --stacking -o artifacts/usersnet/current
+```
+
+Fit the PDS calibration artifact when needed:
+
+```bash
+sers production --stacking --fit-pds \
+  --grid artifacts/usersnet/current/common_grid.npy \
+  --pds-out artifacts/usersnet/current/calibration/pds.npz
+```
+
+Production artifact manifests under `artifacts/usersnet/` are the SSOT for
+deployed model thresholds and preprocessing parameters.
+
+## 4. Run Baseline / Legacy Comparisons
+
+Legacy model families are still exposed through the CLI for reproducibility:
+
+```bash
+sers train xgboost --aggregate none --n-splits 10
+sers train resnet18 --epochs 200 --lr 3e-4
+sers benchmark resnet18 lr xgboost --no-mlflow
+```
+
+These commands wrap scripts under `models/legacy/scripts/`. Treat them as
+benchmark or reproduction paths, not the primary production workflow.
+
+## 5. Evaluate Models and Transfer Behavior
+
+General model evaluation:
+
+```bash
+sers test -i results/training --processed-csv results/processed_spectra.csv --no-shap
+```
+
+Current SERS transfer and acquisition-set analyses live under:
 
 ```text
-models/results/benchmark_all_spectra/
-  xgboost/
-    latest.txt
-    v001/
-      checkpoints/
-      fold_predictions.npz
-      training_summary.json
-      fold_metrics.csv
-      experiment_log.json
+scripts/analysis/sers_transfer/
+scripts/evaluation/
+artifacts/sers_transfer/
 ```
 
-## 2. Train Multiple Models for Comparison
-
-```powershell
-python models/train.py `
-  --aggregate none `
-  --benchmark-models resnet18 cnn1d xgboost `
-  --cancer-types PRO LUN CRC CPAN OVA `
-  --non-cancer-groups NOR DIA HBP H.D. `
-  -i results/processed_spectra.csv `
-  -o models/results/benchmark_all_spectra
-```
-
-Comparison table:
+The current transfer package summary starts at:
 
 ```text
-models/results/benchmark_all_spectra/benchmark_summary.csv
+artifacts/sers_transfer/TRANSFER_MANIFEST.md
 ```
 
-## 3. Evaluate a Model
+## 6. Reporting Rules
 
-Passing the model root resolves the latest version automatically.
+When reporting model results, always state:
 
-```powershell
-python models/test.py `
-  -i models/results/benchmark_all_spectra/xgboost `
-  --processed-csv results/processed_spectra.csv `
-  --no-shap
+- aggregation mode: `mean`, `medoid`, or `none`
+- cancer set
+- non-cancer set
+- sample count
+- model artifact version or commit
+- decision profile: `screening`, `balanced`, or `confirmatory`
+
+Do not compare runs unless aggregation, cancer set, non-cancer set, and sample
+count match. Use the terminology in `docs/TERMINOLOGY_STANDARD.md`.
+
+## 7. Verification Before Sharing Results
+
+Run the same quality gates used by CI:
+
+```bash
+ruff check src/ tests/
+mypy
+pytest --cov=sers --cov-report=term-missing --cov-fail-under=35
 ```
 
-Default `t-SNE` is 3D. To force 2D:
-
-```powershell
-python models/test.py `
-  -i models/results/benchmark_all_spectra/xgboost `
-  --processed-csv results/processed_spectra.csv `
-  --tsne-dim 2 `
-  --no-shap
-```
-
-## 4. Evaluation Outputs
-
-Important outputs under `evaluation/`:
-
-- `stage1/roc_curve.png`
-- `stage1/confusion_matrix.png`
-- `stage2/roc_curves_per_type.png`
-- `stage2/confusion_matrix.png`
-- `stage2/mean_spectra_overlay.png`
-- `stage2/mean_spectra_overlay.csv`
-- `stage2/by_diagnosis/<class>/mean_spectrum.png`
-- `stage2/by_diagnosis/<class>/mean_spectrum.csv`
-- `stage2/by_diagnosis/<class>/peak_difference_vs_rest.png`
-- `stage2/by_diagnosis/<class>/peak_difference_vs_rest.csv`
-- `stage2/by_diagnosis/<class>/feature_importance.png`
-- `stage2/by_diagnosis/<class>/mean_abs_shap_spectrum.png`
-- `stage2/by_diagnosis/<class>/mean_shap_spectrum.png`
-
-## 5. Hyperparameter Tuning Focus
-
-### ResNet18-1D
-
-Tune first:
-
-- `learning_rate`: `1e-4`, `3e-4`, `5e-4`
-- `weight_decay`: `1e-4`, `5e-4`, `1e-3`, `3e-3`
-- `dropout_rate`: `0.3`, `0.4`, `0.5`, `0.6`
-- `batch_size`: `16`, `32`, `64`
-- `stage2_loss_weight`: `1.0`, `1.5`, `2.0`
-
-Tune architecture second:
-
-- `resnet_channels`: `(32,64,128,256)` vs `(64,128,256,512)`
-- `head_hidden_dim`: `64` vs `128`
-
-### CNN1D-Shallow
-
-Tune first:
-
-- `learning_rate`: `1e-4`, `3e-4`, `5e-4`, `1e-3`
-- `dropout_rate`: `0.2`, `0.3`, `0.4`, `0.5`
-- `batch_size`: `32`, `64`, `128`
-- `head_hidden_dim`: `64`, `128`, `256`
-
-Because the model is shallow, capacity is often the bottleneck. If `cnn1d` underfits, increase:
-
-- channel count
-- kernel diversity
-- head hidden dimension
-
-### XGBoost
-
-Tune:
-
-- `n_estimators`
-- `max_depth`
-- `learning_rate`
-- `subsample`
-- `colsample_bytree`
-- `min_child_weight`
-- `reg_lambda`
-
-Current defaults are saved into `training_summary.json -> model_params`.
+The current mypy gate intentionally covers the CLI/config/scoring surface first.
+Full-repository type checking remains a separate migration task.

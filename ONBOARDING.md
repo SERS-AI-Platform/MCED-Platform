@@ -59,7 +59,7 @@ git push -u origin feat/내작업
 gh pr create                            # 또는 GitHub 웹에서
 ```
 
-- PR을 올리면 **CI(린트 + 테스트)가 자동 실행** → **통과해야 병합 가능**
+- PR을 올리면 **CI(import smoke + lint + scoped mypy + tests/coverage)가 자동 실행** → **통과해야 병합 가능**
 - 검토 후 PR 페이지에서 **"Merge pull request"** (현재 리뷰 승인 0건 — 작성자가 직접 병합 가능)
 - PR마다 자동 체크리스트가 뜹니다 — 특히 **PII·비밀키 미포함**을 확인하세요
 
@@ -85,11 +85,12 @@ gh pr create                            # 또는 GitHub 웹에서
 ## 7. 자주 쓰는 명령
 
 ```bash
-pytest                       # 전체 테스트
+pytest --cov=sers --cov-report=term-missing --cov-fail-under=35
 pytest -m "not slow"         # 빠른 테스트 (실데이터 불필요)
 ruff check src/ tests/       # 린트
 ruff format src/ tests/      # 자동 포맷
-python main.py               # 전처리 파이프라인
+mypy                         # 현재 CI-gated 타입 표면 검사
+sers preprocess              # 전처리 + QC 파이프라인
 ```
 
 > 데이터/대시보드 변경 후 **동기화 명령**(`sync_data.py`, `sync_dashboard.py`)은 `.github/copilot-instructions.md` §6 참조.
