@@ -26,13 +26,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Core import smoke check
+        run: |
+          python - <<'PY'
+          import sers
+          from sers import (
+              find_spectra,
+              load_config,
+              make_common_grid,
+              parse_filename,
+              preprocess_spectra,
+              read_spectrum,
+              run_qc_pipeline,
+          )
+
+          print("core import smoke ok")
+          PY
+
       - name: Lint with ruff
         run: |
-          ruff check src/ tests/
+          ruff check src/ tests/ scripts/quality/
+
+      - name: Type check with mypy
+        run: |
+          mypy
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=sers --cov-report=term-missing --cov-report=xml
+          pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
+
+      - name: Process coverage summary
+        run: |
+          python scripts/quality/coverage_by_process.py coverage.xml
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

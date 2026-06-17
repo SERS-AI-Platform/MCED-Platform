@@ -9,10 +9,11 @@ This is the **prescriptive** development standard for SERS-AI / MCED-Platform: t
 
 Every rule is tagged with **how** it is enforced:
 
-- 🤖 **CI-enforced** — an automated check blocks merge (ruff `E,F,I,W`; pre-commit Conventional Commits)
+- 🤖 **CI-enforced** — an automated check blocks merge (core import smoke; ruff `E,F,I,W`; scoped mypy; pytest with coverage floor; process coverage summary; pre-commit Conventional Commits)
 - 👁️ **Convention / review-only** — not auto-checked; relies on review and discipline
 
 > ⚠️ **Enforcement honesty**: ruff currently selects only `E, F, I, W` (see `pyproject.toml`).
+> mypy is intentionally scoped to the CLI/config/scoring surface first; full `src/` type checking is a migration backlog item.
 > **Docstrings (`D`) and naming (`N`) are NOT auto-enforced** — they are 👁️ conventions, required by review, not by CI. Don't assume CI will catch a missing docstring or a bad name.
 
 ---
@@ -161,7 +162,10 @@ Format: **concept → rule → real example → avoid**. Examples are verbatim f
 | Item | Rule | Enforce |
 |---|---|---|
 | Commit messages | Conventional Commits (`feat / fix / docs / refactor / test / chore / perf / build / ci`) | 🤖 pre-commit |
+| Import smoke | Core public API imports without optional visualization dependencies | 🤖 CI |
 | Lint | ruff selects **`E, F, I, W`** (line length 100; `E501/E402/E701/E722` ignored) | 🤖 CI |
+| Type check | mypy currently checks CLI/config/scoring (`pyproject.toml: tool.mypy.files`) | 🤖 CI |
+| Test coverage | pytest coverage floor starts at 35%; process summary is generated from `coverage.xml` | 🤖 CI |
 | Docstrings (`D`), naming (`N`) | NumPy docstrings, snake_case — **not in ruff `select`** | 👁️ review only |
 | Format | `ruff format` | 👁️ pre-commit (if installed) |
 | CSV output encoding | `encoding="utf-8-sig"` (Excel/한글 BOM) | 👁️ |
@@ -171,6 +175,8 @@ Format: **concept → rule → real example → avoid**. Examples are verbatim f
 1. Legacy `typing.*` generics in `preprocessing.py` → modern builtins (B2).
 2. `Stage 1/2` in internal comments → Cancer Screening / Cancer Type ID (A1; patents exempt).
 3. Private helpers missing type hints (`qc/qc.py`).
+4. Expand mypy from the initial CLI/config/scoring gate to the full `src/sers/` package.
+5. Raise the coverage floor after adding tests for CLI execution, scoring, calibration, visualization, and deployment paths.
 
 ---
 

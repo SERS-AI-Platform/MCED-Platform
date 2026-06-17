@@ -2,20 +2,18 @@
 SERS Cancer Screening — Web Application
 
 Usage:
-    python scripts/sers_webapp.py
-    python scripts/sers_webapp.py --host 0.0.0.0 --port 8000
+    python scripts/deployment/sers_webapp.py
+    python scripts/deployment/sers_webapp.py --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations
 
-import sys
-import os
-import secrets
-import tempfile
 import argparse
 import logging
-from pathlib import Path
+import sys
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
@@ -23,13 +21,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.sers_predict import ProductionPredictor
+from scripts.deployment.sers_predict import ProductionPredictor
 
 try:
-    from fastapi import FastAPI, UploadFile, File, Request, HTTPException
-    from fastapi.responses import HTMLResponse, JSONResponse
-    from fastapi.middleware.trustedhost import TrustedHostMiddleware
     import uvicorn
+    from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+    from fastapi.responses import HTMLResponse
 except ImportError:
     print("ERROR: Run: pip install fastapi uvicorn python-multipart")
     sys.exit(1)
@@ -544,7 +541,7 @@ def main():
     args = p.parse_args()
 
     print(f"\n{'='*50}")
-    print(f"  SERS Cancer Screening Web App")
+    print("  SERS Cancer Screening Web App")
     print(f"  Local:   http://localhost:{args.port}")
     print(f"  Network: http://0.0.0.0:{args.port}")
     print(f"{'='*50}\n")

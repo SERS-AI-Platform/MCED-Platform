@@ -5,9 +5,9 @@ SERS Cancer Screening — Inference CLI
 Predicts cancer probability and type from raw SERS spectrum files.
 
 Usage:
-    python scripts/sers_predict.py spectrum.csv
-    python scripts/sers_predict.py spectrum.csv --age 55 --sex M --bmi 24.3
-    python scripts/sers_predict.py *.CSV --output results.json --quiet
+    python scripts/deployment/sers_predict.py spectrum.csv
+    python scripts/deployment/sers_predict.py spectrum.csv --age 55 --sex M --bmi 24.3
+    python scripts/deployment/sers_predict.py *.CSV --output results.json --quiet
 
 Prerequisites:
     python scripts/training/build_usersnet_production.py
@@ -15,15 +15,15 @@ Prerequisites:
 
 from __future__ import annotations
 
-import sys
 import argparse
 import json
 import logging
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
-import numpy as np
 import joblib
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -760,7 +760,8 @@ class StackingPredictor(ProductionPredictor):
         bw = self.prep.get("baseline_window", 101)
         region = tuple(self.prep.get("trim_region", [400, 2200]))
 
-        from src.sers.preprocessing import trim_spectrum, baseline_correction, normalize_spectrum, resample as rs
+        from src.sers.preprocessing import baseline_correction, normalize_spectrum, trim_spectrum
+        from src.sers.preprocessing import resample as rs
 
         inst = (instrument or "thermo").lower()
         if inst in ("medical", "medical_raman"):
@@ -793,9 +794,9 @@ class StackingPredictor(ProductionPredictor):
 
     def _extract_peak_features_single(self, spectrum_raw: np.ndarray) -> np.ndarray:
         """Extract peak features from a single raw-channel spectrum."""
+        from scipy.integrate import trapezoid
         from scipy.optimize import curve_fit
         from scipy.special import voigt_profile
-        from scipy.integrate import trapezoid
 
         def voigt_func(x, amplitude, center, sigma, gamma):
             return amplitude * voigt_profile(x - center, sigma, gamma)

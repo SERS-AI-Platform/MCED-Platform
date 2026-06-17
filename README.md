@@ -25,11 +25,17 @@ pip install -e ".[all]"
 
 ### Command Line
 ```bash
-# Validate input files
-sers validate -i data/raw
+# Inspect available workflows
+sers --help
 
-# Run pipeline
-sers run -i data/raw -o results/
+# Validate input files
+sers data validate -i data/raw
+
+# Run preprocessing + QC pipeline
+sers preprocess --config config/config.yaml --output-dir results/
+
+# Run active uSERS-Net/STK-V2 training smoke path
+sers train stacking --dry-run
 ```
 
 ### Python API (Stable Public API)
@@ -186,6 +192,23 @@ SERS-AI/
 
 Rule of thumb: `scripts/training` is the button, `src/sers` is the engine, and `models` is a transition/compatibility area unless a file explicitly documents otherwise.
 
+## Quality / DGMP Governance
+
+This repository keeps the working technical evidence for DGMP/QMS readiness. Controlled SOP approval copies should live in SharePoint `/02_Regulatory_QMS`; Git tracks the current engineering matrix and evidence links.
+
+| Pillar | Repo evidence | Current status |
+|---|---|---|
+| Document control | [`docs/qms/SOP_INDEX.md`](docs/qms/SOP_INDEX.md), [`docs/DEVELOPMENT_ASSET_GOVERNANCE.md`](docs/DEVELOPMENT_ASSET_GOVERNANCE.md) | draft index |
+| SDLC / change control | PR workflow, CI, [`CONTRIBUTING.md`](CONTRIBUTING.md) | active internal gate |
+| V&V / coverage evidence | [`docs/COVERAGE_PROCESS_MATRIX.md`](docs/COVERAGE_PROCESS_MATRIX.md), tests, CI | package baseline gated |
+| Data governance | `.gitignore`, [`docs/DEVELOPMENT_ASSET_GOVERNANCE.md`](docs/DEVELOPMENT_ASSET_GOVERNANCE.md), clinical-use docs | partial, controlled storage needed |
+| Software product / IFU traceability | [`docs/sharepoint_sw_product/`](docs/sharepoint_sw_product/), [`docs/clinical_use/`](docs/clinical_use/) | draft working set |
+| Security / access / audit | `scripts/deployment/clinical_auth.py`, `clinical_audit.py`, `clinical_db.py` | implementation present, SOP gate open |
+| Release / configuration management | `pyproject.toml`, `config/`, `infra/`, `artifacts/` | partial, release SOP open |
+| Risk / CAPA / training | [`docs/qms/DGMP_PILLAR_MATRIX.md`](docs/qms/DGMP_PILLAR_MATRIX.md) | open gate |
+
+Detailed pillar ownership and SOP status are tracked in [`docs/qms/DGMP_PILLAR_MATRIX.md`](docs/qms/DGMP_PILLAR_MATRIX.md). This matrix is a readiness tracker, not a claim of regulatory approval.
+
 ## Development
 
 ```bash
@@ -196,25 +219,39 @@ pip install -e ".[dev]"
 python scripts/training/train_usersnet.py --dry-run
 
 # Run tests
-pytest
+pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
+python scripts/quality/coverage_by_process.py coverage.xml
 
 # Lint
-ruff check src/
+ruff check src/ tests/ scripts/quality/
 
-# Type check
-mypy src/
+# Type check the current CI-gated surface
+mypy
 ```
 
 ## License
 
-MIT
+Proprietary and confidential. See [`LICENSE`](LICENSE).
 
-### Team Rule: Import Smoke Check
+### Team Rule: Core Import Smoke Check
 
-To prevent accidental public API breakage, run the following smoke-check in CI and before release:
+To prevent accidental core API breakage, run the following smoke-check in CI and before release:
 
 ```bash
-python -c "from sers import *"
+python - <<'PY'
+import sers
+from sers import (
+    find_spectra,
+    load_config,
+    make_common_grid,
+    parse_filename,
+    preprocess_spectra,
+    read_spectrum,
+    run_qc_pipeline,
+)
+
+print("core import smoke ok")
+PY
 ```
 
-This command must succeed without ImportError.
+This command must succeed without ImportError. Visualization helpers remain optional and require installing `.[viz]`.
