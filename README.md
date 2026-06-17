@@ -202,10 +202,11 @@ pip install -e ".[dev]"
 python scripts/training/train_usersnet.py --dry-run
 
 # Run tests
-pytest
+pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
+python scripts/quality/coverage_by_process.py coverage.xml
 
 # Lint
-ruff check src/ tests/
+ruff check src/ tests/ scripts/quality/
 
 # Type check the current CI-gated surface
 mypy

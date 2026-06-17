@@ -45,7 +45,7 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check src/ tests/
+          ruff check src/ tests/ scripts/quality/
 
       - name: Type check with mypy
         run: |
@@ -54,6 +54,10 @@ jobs:
       - name: Run tests with coverage
         run: |
           pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
+
+      - name: Process coverage summary
+        run: |
+          python scripts/quality/coverage_by_process.py coverage.xml
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

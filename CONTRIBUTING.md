@@ -61,14 +61,15 @@ gh pr create                             # PR 생성 (또는 GitHub 웹에서)
 ## 4. 코드 품질
 
 ```bash
-ruff check src/ tests/                                                # 린트 검사
+ruff check src/ tests/ scripts/quality/                               # 린트 검사
 ruff format src/ tests/                                               # 자동 포맷
 mypy                                                                  # 현재 CI-gated 타입 표면 검사
-pytest --cov=sers --cov-report=term-missing --cov-fail-under=35       # 전체 테스트 + 커버리지 기준선
+pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
+python scripts/quality/coverage_by_process.py coverage.xml            # 과정별 커버리지 요약
 pytest -m "not slow"                                                  # 빠른 테스트만 (실데이터 파일 불필요)
 ```
 
-현재 CI는 Python 3.10/3.11/3.12에서 ruff, mypy, pytest+coverage를 실행합니다.
+현재 CI는 Python 3.10/3.11/3.12에서 ruff, mypy, pytest+coverage, 과정별 coverage summary를 실행합니다.
 mypy는 `pyproject.toml`에 명시한 CLI/config/scoring 표면부터 게이트로 사용하며, 전체 `src/` 타입 검사는 별도 마이그레이션 과제입니다.
 신규/수정 코드는 위 검사를 통과하도록 작성해 주세요.
 
