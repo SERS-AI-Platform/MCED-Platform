@@ -23,7 +23,7 @@
 
     <!-- QC Summary -->
     <div style="margin-bottom: 20px; padding: 16px; background: {% if qc_passed < min_qc_pass_count %}#FEF2F2{% else %}var(--bg-secondary){% endif %}; border-radius: var(--radius);">
-        <strong>{{ s.qc_summary|format(passed=qc_passed, total=qc_total) }}</strong>
+        <strong>{{ qc_summary_label }}</strong>
         <div class="form-hint" style="margin-top: 4px;">{{ s.qc_min_pass }}</div>
     </div>
 
@@ -39,11 +39,7 @@
     <div class="disclaimer" style="background: {% if qc_summary.valid %}#F0FDF4{% else %}#FEF2F2{% endif %}; border-color: {% if qc_summary.valid %}#BBF7D0{% else %}#FECACA{% endif %}; color: {% if qc_summary.valid %}#065F46{% else %}#991B1B{% endif %};">
         <span class="disclaimer-icon">{% if qc_summary.valid %}&#10003;{% else %}&#9888;{% endif %}</span>
         <span>
-            {% if qc_summary.valid %}
-                {{ s.qc_valid_message|format(total=qc_summary.total, passed=qc_summary.passed, rate=qc_summary.pass_rate, min_count=qc_summary.min_valid_count) }}
-            {% else %}
-                {{ s.qc_invalid_message|format(total=qc_summary.total, passed=qc_summary.passed, rate=qc_summary.pass_rate, min_count=qc_summary.min_valid_count) }}
-            {% endif %}
+            {{ qc_status_message }}
         </span>
     </div>
 
@@ -64,6 +60,15 @@
         <span>{{ s.qc_all_fail }}</span>
     </div>
     <div style="margin-top: 24px;">
+        <form method="POST" action="/patient/{{ session.id }}/remeasure"
+              onsubmit="return confirm('{{ s.qc_reupload_confirm }}')">
+            <button type="submit" class="btn btn-primary">
+                {{ s.qc_reupload_same_patient }} &#8594;
+            </button>
+        </form>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; margin-bottom: 16px;">
+            {{ s.qc_reupload_hint }}
+        </p>
         <a href="/patient/{{ session.id }}/report" class="btn btn-secondary" style="text-decoration:none; display:flex;">
             &#128196; {{ s.generate_report }}
         </a>
@@ -81,10 +86,10 @@
         <thead>
             <tr>
                 <th>#</th>
-                <th>File</th>
+                <th>{{ s.file }}</th>
                 <th>{{ s.qc_intensity }}</th>
                 <th>{{ s.qc_correlation }}</th>
-                <th>Status</th>
+                <th>{{ s.status }}</th>
             </tr>
         </thead>
         <tbody>

@@ -44,26 +44,13 @@
   ],
   "n_peak_features": 75,
   "operating_modes": {
-    "screening": {
-      "threshold": 0.48,
-      "cv_sensitivity": 0.9544,
-      "cv_specificity": 0.9425,
-      "description": "High sensitivity for screening (target Sens >= 95%)"
-    },
     "balanced": {
-      "threshold": 0.60,
+      "threshold": 0.6,
       "cv_sensitivity": 0.9461,
       "cv_specificity": 0.9655,
       "description": "Balanced sensitivity/specificity (Youden's J)"
-    },
-    "confirmatory": {
-      "threshold": 0.70,
-      "cv_sensitivity": 0.92,
-      "cv_specificity": 0.98,
-      "description": "High specificity for confirmation (target Spec >= 95%)"
     }
   },
-  "default_mode": "screening",
   "training_metrics": {
     "meta_s1_train_auc": 0.9983,
     "meta_s2_train_f1": 0.9743,

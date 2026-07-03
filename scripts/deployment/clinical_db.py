@@ -176,6 +176,20 @@ def update_session_status(session_id: str, status: str, **kwargs):
         conn.execute(f"UPDATE sessions SET {', '.join(sets)} WHERE id = ?", vals)
 
 
+def reset_session_measurements(session_id: str):
+    """Clear uploaded spectra and derived outputs before same-patient reupload."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM predictions WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM reports WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM spectra WHERE session_id = ?", (session_id,))
+        conn.execute(
+            """UPDATE sessions
+               SET status = 'created', model_variant = NULL, completed_at = NULL
+               WHERE id = ?""",
+            (session_id,),
+        )
+
+
 # --- Spectra CRUD ---
 
 def add_spectrum(session_id: str, filename: str) -> int:

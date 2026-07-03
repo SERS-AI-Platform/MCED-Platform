@@ -4,8 +4,40 @@ Clinical decision display helpers for the usability-test build.
 
 from __future__ import annotations
 
+from src.sers.scoring import ssi_risk_level
 
 SSI_SCALE = 10.0
+
+# SSI risk band N per src/sers/scoring.py validation (STK-V2 nested OOF CV,
+# scripts/analysis/validate_ssi_risk_bands.py). MODERATE is a small cohort —
+# flagged so the UI can show a caveat.
+RISK_BAND_N = {"LOW": 388, "MODERATE": 50, "HIGH": 1190}
+RISK_BAND_RANGES = {
+    "LOW": "SSI 0.0-1.0",
+    "MODERATE": "SSI 1.0-4.0",
+    "HIGH": "SSI 4.0-10.0",
+}
+RISK_BAND_OBSERVED_CANCER_RATE = {
+    "LOW": 1.8,
+    "MODERATE": 46.0,
+    "HIGH": 98.2,
+}
+RISK_BAND_SMALL_N_THRESHOLD = 100
+
+
+def ssi_risk_info(ssi: float) -> dict:
+    """Return risk-band info for an SSI value: level, colors, and small-N flag."""
+    level, color, bg = ssi_risk_level(ssi)
+    n = RISK_BAND_N.get(level)
+    return {
+        "level": level,
+        "color": color,
+        "bg": bg,
+        "n": n,
+        "range_label": RISK_BAND_RANGES.get(level),
+        "observed_cancer_rate": RISK_BAND_OBSERVED_CANCER_RATE.get(level),
+        "small_n": n is not None and n < RISK_BAND_SMALL_N_THRESHOLD,
+    }
 
 
 def screening_index_to_ssi(screening_index: float | None) -> float:
@@ -21,15 +53,11 @@ def screening_index_to_ssi(screening_index: float | None) -> float:
 
 
 def final_decision(prediction: dict, qc_valid: bool) -> str:
-    """Return final display decision: invalid, strong_positive, positive, or negative."""
+    """Return final display decision: invalid, positive, or negative."""
     if not qc_valid:
         return "invalid"
     if not prediction.get("cancer_detected"):
         return "negative"
-    ssi = screening_index_to_ssi(prediction.get("screening_index"))
-    majority_vote = str(prediction.get("majority_vote") or "")
-    if ssi >= 7.0 and majority_vote.startswith(("4/", "5/")):
-        return "strong_positive"
     return "positive"
 
 

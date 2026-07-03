@@ -23,13 +23,19 @@
     </div>
     {% endif %}
     <div class="patient-bar-item">
-        <span class="patient-bar-label">Model:</span>
-        <span class="patient-bar-value">{{ s.model_fusion if session.bmi else s.model_sers_only }}</span>
+        <span class="patient-bar-label">{{ s.model }}:</span>
+        <span class="patient-bar-value">{{ s.model_display_name }}</span>
     </div>
 </div>
 
 <div class="card">
     <h2 class="card-title">{{ s.upload_title }}</h2>
+    {% if remeasure %}
+    <div class="disclaimer" style="background:#EFF6FF; border-color:#BFDBFE; color:#1E40AF; margin-top:0; margin-bottom:20px;">
+        <span class="disclaimer-icon">&#9432;</span>
+        <span>{{ s.upload_remeasure_notice }}</span>
+    </div>
+    {% endif %}
 
     <form id="uploadForm" method="POST" action="/patient/{{ session.id }}/upload" enctype="multipart/form-data">
         <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
@@ -38,9 +44,10 @@
             <p class="form-hint" style="margin-top: 8px;">{{ s.upload_format }}</p>
             <p class="form-hint">{{ s.upload_recommend }}</p>
         </div>
-        <input type="file" id="fileInput" name="files" multiple accept=".csv,.CSV" style="display:none"
+        <input type="file" id="fileInput" name="files" multiple accept=".csv,.CSV,.txt,.TXT" style="display:none"
                onchange="handleFiles(this.files)">
 
+        <div class="inline-alert" id="uploadAlert" style="display:none;"></div>
         <div class="file-list" id="fileList"></div>
 
         <div style="margin-top: 24px;">
@@ -58,7 +65,7 @@
         <div class="dialog-title">{{ s.start_analysis }}</div>
         <div class="dialog-message" id="confirmMsg"></div>
         <div class="dialog-buttons">
-            <button class="btn btn-secondary" onclick="closeDialog()">&#10005; Cancel</button>
+            <button class="btn btn-secondary" onclick="closeDialog()">&#10005; {{ s.cancel }}</button>
             <button class="btn btn-primary" style="width:auto" onclick="submitAnalysis()">&#10003; {{ s.start_analysis }}</button>
         </div>
     </div>
@@ -69,6 +76,18 @@ const files = [];
 const dropZone = document.getElementById('dropZone');
 const fileList = document.getElementById('fileList');
 const analyzeBtn = document.getElementById('analyzeBtn');
+const uploadAlert = document.getElementById('uploadAlert');
+const allowedExtensions = ['.csv', '.txt'];
+
+function showUploadAlert(message) {
+    uploadAlert.textContent = message;
+    uploadAlert.style.display = 'block';
+}
+
+function clearUploadAlert() {
+    uploadAlert.textContent = '';
+    uploadAlert.style.display = 'none';
+}
 
 dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -79,10 +98,21 @@ dropZone.addEventListener('drop', (e) => {
 });
 
 function handleFiles(newFiles) {
+    clearUploadAlert();
+    const rejected = [];
     for (const f of newFiles) {
-        if (f.name.toLowerCase().endsWith('.csv') && files.length < 5) {
+        const lowerName = f.name.toLowerCase();
+        const isAllowed = allowedExtensions.some(ext => lowerName.endsWith(ext));
+        if (!isAllowed) {
+            rejected.push(f.name);
+            continue;
+        }
+        if (files.length < 5) {
             files.push(f);
         }
+    }
+    if (rejected.length > 0) {
+        showUploadAlert(`{{ s.upload_invalid_file }}: ${rejected.join(', ')}`);
     }
     renderFiles();
 }
@@ -118,7 +148,7 @@ function closeDialog() {
 function submitAnalysis() {
     closeDialog();
     analyzeBtn.disabled = true;
-    analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
+    analyzeBtn.innerHTML = '<span class="spinner"></span> {{ s.analysis_in_progress }}';
 
     const formData = new FormData();
     files.forEach(f => formData.append('files', f));
@@ -129,10 +159,21 @@ function submitAnalysis() {
             if (r.ok || r.redirected) {
                 window.location.href = r.url;
             } else {
-                return r.text().then(t => { throw new Error(t); });
+                return r.text().then(t => {
+                    let message = t;
+                    try {
+                        const data = JSON.parse(t);
+                        message = data.error || t;
+                    } catch (_) {}
+                    throw new Error(message);
+                });
             }
         })
-        .catch(e => { alert('Error: ' + e.message); analyzeBtn.disabled = false; analyzeBtn.textContent = '{{ s.start_analysis }}'; });
+        .catch(e => {
+            showUploadAlert(e.message);
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = '{{ s.start_analysis }}';
+        });
 }
 </script>
 {% endblock %}

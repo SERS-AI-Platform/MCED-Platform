@@ -11,12 +11,20 @@ threshold, which always maps to SSI = 4.0 (the positive/negative cutoff).
 SSI_CUTOFF = 4.0
 SSI_MAX = 10.0
 
+# 3-tier risk stratification, validated against STK-V2 nested 5-fold OOF CV
+# (n=1628; scripts/analysis/validate_ssi_risk_bands.py). Boundaries:
+#   - 1.0: data-driven split (CART, min_leaf=30) separating the near-zero-risk
+#     tail from an elevated-risk population, both still below the decision cutoff.
+#   - 4.0: SSI_CUTOFF, i.e. the fixed "balanced" decision threshold — HIGH is
+#     exactly the population flagged cancer_detected=True.
+# Observed cancer rate: LOW 1.8% (n=388), MODERATE 46.0% (n=50, 95% CI
+# 32.7-59.7%), HIGH 98.2% (n=1190). MODERATE sits below the binary decision
+# cutoff but at materially elevated risk — flag this band's smaller N when
+# displaying it.
 RISK_LEVELS = {
-    "LOW":          (0.0, 2.0, "#059669", "#f0fdf4"),
-    "LOW_MODERATE": (2.0, 4.0, "#84cc16", "#f7fee7"),
-    "MODERATE":     (4.0, 6.0, "#d97706", "#fffbeb"),
-    "HIGH":         (6.0, 8.0, "#ea580c", "#fff7ed"),
-    "VERY_HIGH":    (8.0, 10.0, "#dc2626", "#fef2f2"),
+    "LOW":      (0.0, 1.0, "#059669", "#f0fdf4"),
+    "MODERATE": (1.0, 4.0, "#d97706", "#fffbeb"),
+    "HIGH":     (4.0, 10.0, "#dc2626", "#fef2f2"),
 }
 
 
@@ -66,9 +74,9 @@ def compute_cti_scores(type_probs: dict[str, float]) -> dict[str, float]:
 def ssi_risk_level(ssi: float) -> tuple[str, str, str]:
     """Return (level_name, text_color_hex, bg_color_hex) for an SSI value."""
     for name, (lo, hi, color, bg) in RISK_LEVELS.items():
-        if ssi < hi or name == "VERY_HIGH":
+        if ssi < hi or name == "HIGH":
             return name, color, bg
-    return "VERY_HIGH", "#dc2626", "#fef2f2"
+    return "HIGH", "#dc2626", "#fef2f2"
 
 
 def format_ssi(ssi: float) -> str:

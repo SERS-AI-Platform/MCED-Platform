@@ -59,8 +59,14 @@ def generate_report_html(
 
     qc_summary = qc_utils.build_qc_summary(spectra, qc_utils.DEFAULT_MIN_VALID_COUNT)
     type_confidence = decision_utils.type_confidence(cancer_types_sorted)
-    ssi = decision_utils.screening_index_to_ssi(prediction.get("screening_index"))
+    # Use get_patient_ssi_score (not the bare screening_index_to_ssi shim): current-format
+    # predictions always carry ssi_score, which must be returned as-is. The bare shim
+    # reinterprets any value <=1.0 as a legacy 0-1 probability and rescales it ×10 — for
+    # current predictions that collides with genuine low SSI values (the new LOW band is
+    # 0-1), silently inflating a real low-risk patient's displayed risk.
+    ssi = get_patient_ssi_score(prediction, prediction.get("model_probability_threshold"))
     final_decision = decision_utils.final_decision(prediction, qc_summary["valid"])
+    risk_info = decision_utils.ssi_risk_info(ssi)
 
     return template.render(
         s=s,
@@ -70,6 +76,7 @@ def generate_report_html(
         cancer_types_sorted=cancer_types_sorted,
         type_confidence=type_confidence,
         ssi=ssi,
+        risk_info=risk_info,
         final_decision=final_decision,
         qc_summary=qc_summary,
         qc_passed=qc_summary["passed"],

@@ -99,13 +99,10 @@ class ProductionPredictor:
         self.bmi_median = self.manifest["bmi_fill_median"]
         self.s2_classes = self.manifest.get("stage2_classes", list(range(len(self.cancer_types))))
 
-        # Operating modes with pre-computed thresholds
-        self.operating_modes = self.manifest.get("operating_modes", {
-            "screening": {"threshold": 0.35, "description": "High sensitivity for screening (Sens ~95%)"},
-            "balanced": {"threshold": 0.50, "description": "Balanced sensitivity/specificity"},
-            "confirmatory": {"threshold": 0.70, "description": "High specificity for confirmation (Spec ~95%)"},
-        })
-        self.default_mode = self.manifest.get("default_mode", "screening")
+        # Single fixed decision threshold (validated "balanced" operating point).
+        # Multi-mode selection (screening/balanced/confirmatory) was removed from
+        # the product; see manifest["operating_modes"]["balanced"] for provenance.
+        self.threshold = self.manifest.get("operating_modes", {}).get("balanced", {}).get("threshold", 0.5)
 
         # ── Cross-instrument calibration (optional) ──
         # The model was trained on Thermo data. To run inference on spectra from
@@ -235,7 +232,7 @@ class ProductionPredictor:
 
     def predict_single(self, filepath: str | Path,
                        age: float = None, sex: str = None,
-                       bmi: float = None, mode: str = None,
+                       bmi: float = None,
                        instrument: str = "thermo") -> dict:
         """Predict cancer from a single spectrum file.
 
@@ -303,14 +300,10 @@ class ProductionPredictor:
             cancer_prob = float(s1_model.predict_proba(X)[0, 1])
             result["cancer_probability"] = round(cancer_prob, 4)
 
-            # Apply threshold based on operating mode
-            active_mode = mode or self.default_mode
-            if active_mode not in self.operating_modes:
-                active_mode = self.default_mode
-            threshold = self.operating_modes[active_mode]["threshold"]
+            threshold = self.threshold
             ssi_score = probability_to_ssi(cancer_prob, threshold)
             result["cancer_detected"] = cancer_prob > threshold
-            result["decision_rule"] = "standard_balanced" if active_mode == "balanced" else active_mode
+            result["decision_rule"] = "standard_balanced"
             result["threshold"] = threshold
             result["model_probability_threshold"] = threshold
             result["ssi_score"] = round(ssi_score, 2)
@@ -414,7 +407,7 @@ class ProductionPredictor:
 
     def predict_patient(self, filepaths: list[str | Path],
                         age: float = None, sex: str = None,
-                        bmi: float = None, mode: str = None,
+                        bmi: float = None,
                         instrument: str = "thermo") -> dict:
         """Predict cancer for a single patient from multiple replicate spectra.
 
@@ -465,10 +458,7 @@ class ProductionPredictor:
             }
 
         # Step 3: Predict each QC-passing spectrum
-        active_mode = mode or self.default_mode
-        if active_mode not in self.operating_modes:
-            active_mode = self.default_mode
-        threshold = self.operating_modes[active_mode]["threshold"]
+        threshold = self.threshold
 
         use_fusion = (age is not None and sex is not None)
         if use_fusion:
@@ -548,7 +538,7 @@ class ProductionPredictor:
             'calibration': ('pds_medical_to_thermo'
                             if (instrument or '').lower() in ('medical', 'medical_raman')
                             and self.pds is not None else 'none'),
-            'decision_rule': 'standard_balanced' if active_mode == 'balanced' else active_mode,
+            'decision_rule': 'standard_balanced',
             'threshold': threshold,
             'model_probability_threshold': threshold,
             'ssi_threshold': SSI_DECISION_CUTOFF,
@@ -596,11 +586,11 @@ class ProductionPredictor:
 
     def predict_batch(self, filepaths: list[str | Path],
                       age: float = None, sex: str = None,
-                      bmi: float = None, mode: str = None,
+                      bmi: float = None,
                       instrument: str = "thermo") -> list[dict]:
         """Predict cancer for multiple spectrum files (individual, no QC aggregation).
         For patient-level prediction with QC, use predict_patient() instead."""
-        return [self.predict_single(fp, age, sex, bmi, mode, instrument=instrument)
+        return [self.predict_single(fp, age, sex, bmi, instrument=instrument)
                 for fp in filepaths]
 
 
@@ -703,8 +693,7 @@ class StackingPredictor(ProductionPredictor):
         self.n_classes = len(self.cancer_types)
         self.bmi_median = 24.0  # default
 
-        self.operating_modes = self.manifest.get("operating_modes", {})
-        self.default_mode = self.manifest.get("default_mode", "screening")
+        self.threshold = self.manifest.get("operating_modes", {}).get("balanced", {}).get("threshold", 0.5)
 
         # Compatibility: set s1/s2 models for parent class methods that check them
         self.s1_sers = self.meta_s1
@@ -878,7 +867,7 @@ class StackingPredictor(ProductionPredictor):
 
     def predict_single(self, filepath: str | Path,
                        age: float = None, sex: str = None,
-                       bmi: float = None, mode: str = None,
+                       bmi: float = None,
                        instrument: str = "thermo") -> dict:
         """Predict using stacking ensemble."""
         filepath = Path(filepath)
@@ -917,17 +906,13 @@ class StackingPredictor(ProductionPredictor):
 
             cancer_prob = float(self.meta_s1.predict_proba(meta_s1_features)[0, 1])
 
-            # Operating mode
-            active_mode = mode or self.default_mode
-            if active_mode not in self.operating_modes:
-                active_mode = self.default_mode
-            threshold = self.operating_modes[active_mode]["threshold"]
+            threshold = self.threshold
 
             result["cancer_probability"] = round(cancer_prob, 4)
             ssi_score = probability_to_ssi(cancer_prob, threshold)
             result["cancer_detected"] = cancer_prob > threshold
             result["model_variant"] = "stacking_v2"
-            result["decision_rule"] = "standard_balanced" if active_mode == "balanced" else active_mode
+            result["decision_rule"] = "standard_balanced"
             result["threshold"] = threshold
             result["model_probability_threshold"] = threshold
             result["ssi_score"] = round(ssi_score, 2)
@@ -979,7 +964,7 @@ class StackingPredictor(ProductionPredictor):
 
     def predict_patient(self, filepaths: list[str | Path],
                         age: float = None, sex: str = None,
-                        bmi: float = None, mode: str = None,
+                        bmi: float = None,
                         instrument: str = "thermo") -> dict:
         """Patient-level prediction with QC + replicate aggregation.
 
@@ -1024,10 +1009,7 @@ class StackingPredictor(ProductionPredictor):
             }
 
         # Step 3: Predict each QC-passing spectrum via stacking
-        active_mode = mode or self.default_mode
-        if active_mode not in self.operating_modes:
-            active_mode = self.default_mode
-        threshold = self.operating_modes[active_mode]["threshold"]
+        threshold = self.threshold
 
         per_replicate = []
         cancer_probs = []
@@ -1093,7 +1075,7 @@ class StackingPredictor(ProductionPredictor):
             'status': 'ok',
             'pipeline': 'stacking_v2 (10 base + ElasticNet meta)',
             'model_variant': 'stacking_v2',
-            'decision_rule': 'standard_balanced' if active_mode == 'balanced' else active_mode,
+            'decision_rule': 'standard_balanced',
             'threshold': threshold,
             'model_probability_threshold': threshold,
             'ssi_threshold': SSI_DECISION_CUTOFF,
@@ -1141,9 +1123,6 @@ Examples:
     p.add_argument("--age", type=float, default=None, help="Patient age")
     p.add_argument("--sex", type=str, default=None, help="Patient sex (M/F)")
     p.add_argument("--bmi", type=float, default=None, help="Patient BMI")
-    p.add_argument("--mode", "-m", default=None,
-                   choices=["screening", "balanced", "confirmatory"],
-                   help="Internal decision profile: screening, balanced, confirmatory")
     p.add_argument("--instrument", "-i", default="thermo",
                    choices=["thermo", "medical"],
                    help="Source instrument. 'medical' triggers PDS calibration "
@@ -1168,12 +1147,10 @@ Examples:
         print("  SERS Cancer Screening")
         print("=" * 60)
         variant = "SERS + age/sex/BMI (fusion)" if (args.age and args.sex) else "SERS only"
-        mode = args.mode or predictor.default_mode
-        mode_info = predictor.operating_modes.get(mode, {})
         print(f"  Model: {variant}")
-        print(f"  Decision profile: {mode} — {mode_info.get('description', '')}")
+        print(f"  Decision profile: standard_balanced")
         print(f"  SSI threshold: {SSI_DECISION_CUTOFF:.1f}")
-        print(f"  Model probability threshold: {mode_info.get('threshold', 0.5)}")
+        print(f"  Model probability threshold: {predictor.threshold}")
         print(f"  Files: {len(args.spectra)}")
         if args.age:
             print(f"  Patient: age={args.age}, sex={args.sex}, bmi={args.bmi or 'auto'}")
@@ -1181,7 +1158,7 @@ Examples:
 
     # Run predictions
     results = predictor.predict_batch(args.spectra, args.age, args.sex, args.bmi,
-                                       args.mode, instrument=args.instrument)
+                                       instrument=args.instrument)
 
     # Output
     output = {

@@ -62,11 +62,7 @@
         <table>
             <tr><th>{{ s.analysis_standard }}</th><td>{{ s.standard_decision_rule }} ({{ s.mode_balanced_desc }})</td></tr>
             <tr><th>{{ s.decision_threshold }}</th><td>{{ "%.1f"|format(prediction.ssi_threshold) }}</td></tr>
-            <tr><th>모델</th><td>
-                {% if session.model_variant == 'stacking_v2' %}{{ s.model_stacking_v2 }}
-                {% elif session.model_variant == 'fusion' %}{{ s.model_fusion }}
-                {% else %}{{ s.model_sers_only }}{% endif %}
-            </td></tr>
+            <tr><th>{{ s.model }}</th><td>{{ s.model_display_name }}</td></tr>
         </table>
     </div>
 
@@ -100,8 +96,6 @@
             <div class="result-label">
                 {% if not qc_summary.valid %}
                     &#9888; {{ s.invalid_decision }}
-                {% elif final_decision == 'strong_positive' %}
-                    &#9888; {{ s.strong_positive }}
                 {% elif prediction.cancer_detected %}
                     &#9888; {{ s.positive }}
                 {% else %}
@@ -110,9 +104,41 @@
             </div>
             <div class="result-detail">
                 {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
-                {% if prediction.majority_vote %}&middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
+                {% if prediction.majority_vote %}&middot; {{ s.majority_vote_label }}: {{ prediction.majority_vote }}{% endif %}
             </div>
+            <div class="result-detail" style="margin-top: 6px;">
+                <span style="display:inline-block; padding:2px 10px; border-radius:12px; font-weight:600; color:{{ risk_info.color }}; background:{{ risk_info.bg }};">
+                    {{ s.risk_level }}: {{ s['risk_' + risk_info.level.lower()] }}
+                </span>
+            </div>
+            {% if risk_info.small_n %}
+            <div class="result-detail" style="font-size: 0.85em; color:#92400e; margin-top:4px;">
+                &#9888; {{ s.risk_small_n_caveat }}
+            </div>
+            {% endif %}
         </div>
+
+        <table style="margin-top: 10px;">
+            <tr><th>{{ s.ssi_calculation_title }}</th><td>{{ s.ssi_calculation_text }}</td></tr>
+            {% if prediction.model_probability_mean is not none %}
+            <tr><th>{{ s.ssi_source_values }}</th><td>
+                {{ s.model_mean_probability }} p={{ "%.4f"|format(prediction.model_probability_mean) }},
+                {{ s.model_probability_threshold }} θ={{ "%.4f"|format(prediction.model_probability_threshold) }},
+                {{ s.ssi_threshold_label }}={{ "%.1f"|format(prediction.ssi_threshold) }}/10.0
+            </td></tr>
+            {% endif %}
+            <tr><th>{{ s.risk_band_evidence_title }}</th><td>
+                <span style="display:inline-block; padding:2px 10px; border-radius:12px; font-weight:600; color:{{ risk_info.color }}; background:{{ risk_info.bg }};">
+                    {{ s.risk_level }}: {{ s['risk_' + risk_info.level.lower()] }}
+                </span>
+                <br>
+                {{ s.risk_band_range }} {{ risk_info.range_label }},
+                {{ s.risk_observed_cancer_rate }} {{ "%.1f"|format(risk_info.observed_cancer_rate) }}%
+                ({{ s.risk_band_sample_count }} n={{ risk_info.n }})
+                <br>{{ s.risk_band_note }}
+                {% if risk_info.small_n %}<br>{{ s.risk_small_n_caveat }}{% endif %}
+            </td></tr>
+        </table>
 
         {% if prediction.cancer_detected and cancer_types_sorted %}
         <div class="cancer-type-box">
@@ -121,11 +147,22 @@
                 ({{ type_confidence.top.code }})
             </div>
             <div class="cancer-type-conf">
-                {{ s.confidence }}:
+                {{ s.type_score }}:
+                <strong>{{ "%.1f"|format(type_confidence.top.prob * 10) }} / 10.0</strong>
                 {% if type_confidence.level == 'high' %}{{ s.confidence_high }}
                 {% elif type_confidence.level == 'medium' %}{{ s.confidence_medium }}
                 {% else %}{{ s.confidence_low }}{% endif %}
-                ({{ "%.1f"|format(type_confidence.top.prob * 100) }}%)
+                <br>{{ s.type_score_hint }}
+                <br>{{ s.type_score_calculation_text }}
+                <br>{{ s.type_score_source_values }}:
+                {{ s.top_type_probability }} p_type={{ "%.4f"|format(type_confidence.top.prob) }} × 10 =
+                {{ "%.1f"|format(type_confidence.top.prob * 10) }}/10.0
+                {% if type_confidence.second.code %}
+                · {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}%p
+                {% endif %}
+                {% if type_confidence.level == 'high' %}
+                <br>{{ s.high_classification_guide }}
+                {% endif %}
             </div>
         </div>
 

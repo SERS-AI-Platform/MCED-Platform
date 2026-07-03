@@ -19,7 +19,7 @@
         <div class="header-right">
             <span class="user-info">{{ user.display_name }} ({{ user.role }})</span>
             <button class="lang-toggle" onclick="toggleLang()">{{ 'EN' if lang == 'ko' else '한' }}</button>
-            <a href="/manual" class="btn-logout">{{ s.manual_download }}</a>
+            <a href="/manual" class="btn-logout" target="_blank" rel="noopener">{{ s.manual_download }}</a>
             <a href="/logout" class="btn-logout">{{ s.logout }}</a>
         </div>
     </header>
@@ -68,7 +68,7 @@ let idleTimer = null;
 function resetIdleTimer() {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-        alert(`{{ s.auto_logout_notice|format(minutes=idle_timeout_minutes) }}`);
+        alert(`{{ auto_logout_message }}`);
         window.location.href = "/logout";
     }, idleTimeoutMs);
 }

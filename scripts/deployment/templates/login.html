@@ -12,6 +12,11 @@
     {% if error %}
     <div class="login-error">{{ s.login_error }}</div>
     {% endif %}
+    {% if registered %}
+    <div class="success-message">
+        &#10003; {{ s.register_success_login }}
+    </div>
+    {% endif %}
 
     <div class="card">
         <form method="POST" action="/login">

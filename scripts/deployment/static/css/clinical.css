@@ -335,6 +335,29 @@ body {
     font-size: 13px;
 }
 
+.score-explanation {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: #F8FAFC;
+    border-left: 3px solid var(--accent);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.score-explanation-title {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.score-source {
+    margin-top: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
 /* Upload Zone */
 .upload-zone {
     border: 2px dashed var(--border);
@@ -730,6 +753,27 @@ body {
     color: var(--positive-bg);
     font-size: 13px;
     margin-bottom: 16px;
+}
+
+.success-message,
+.inline-alert {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.success-message {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    color: #065F46;
+}
+
+.inline-alert {
+    margin-top: 16px;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #991B1B;
 }
 
 /* Action buttons row */

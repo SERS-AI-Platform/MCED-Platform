@@ -17,12 +17,8 @@
         <span class="patient-bar-value">{{ s.male if session.sex == 'M' else s.female }}</span>
     </div>
     <div class="patient-bar-item">
-        <span class="patient-bar-label">Model:</span>
-        <span class="patient-bar-value">
-            {% if session.model_variant == 'stacking_v2' %}{{ s.model_stacking_v2 }}
-            {% elif session.model_variant == 'fusion' %}{{ s.model_fusion }}
-            {% else %}{{ s.model_sers_only }}{% endif %}
-        </span>
+        <span class="patient-bar-label">{{ s.model }}:</span>
+        <span class="patient-bar-value">{{ s.model_display_name }}</span>
     </div>
     <div class="patient-bar-item">
         <span class="patient-bar-label">{{ s.analysis_standard }}:</span>
@@ -41,8 +37,6 @@
         <div class="result-label">
             {% if not qc_summary.valid %}
                 {{ s.invalid_decision }}
-            {% elif final_decision == 'strong_positive' %}
-                {{ s.strong_positive }}
             {% elif prediction.cancer_detected %}
                 {{ s.positive }}
             {% else %}
@@ -51,7 +45,7 @@
         </div>
         <div class="result-sub">
             {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
-            {% if prediction.majority_vote %} &middot; Majority Vote: {{ prediction.majority_vote }}{% endif %}
+            {% if prediction.majority_vote %} &middot; {{ s.majority_vote_label }}: {{ prediction.majority_vote }}{% endif %}
         </div>
     </div>
 
@@ -68,6 +62,32 @@
             <span>0.0</span>
             <span>{{ s.decision_threshold }}: {{ "%.1f"|format(prediction.ssi_threshold) }}</span>
             <span>10.0</span>
+        </div>
+        <div class="score-explanation">
+            <div class="score-explanation-title">{{ s.ssi_calculation_title }}</div>
+            <p>{{ s.ssi_calculation_text }}</p>
+            {% if prediction.model_probability_mean is not none %}
+            <div class="score-source">
+                {{ s.ssi_source_values }}:
+                {{ s.model_mean_probability }} p={{ "%.4f"|format(prediction.model_probability_mean) }},
+                {{ s.model_probability_threshold }} θ={{ "%.4f"|format(prediction.model_probability_threshold) }},
+                {{ s.ssi_threshold_label }}={{ "%.1f"|format(prediction.ssi_threshold) }}/10.0
+            </div>
+            {% endif %}
+            <div style="margin-top: 10px;">
+                <span style="display:inline-block; padding:2px 10px; border-radius:12px; font-weight:700; color:{{ risk_info.color }}; background:{{ risk_info.bg }};">
+                    {{ s.risk_level }}: {{ s['risk_' + risk_info.level.lower()] }}
+                </span>
+                <span style="margin-left: 8px;">
+                    {{ s.risk_band_range }} {{ risk_info.range_label }},
+                    {{ s.risk_observed_cancer_rate }} {{ "%.1f"|format(risk_info.observed_cancer_rate) }}%
+                    ({{ s.risk_band_sample_count }} n={{ risk_info.n }})
+                </span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                {{ s.risk_band_note }}
+                {% if risk_info.small_n %} {{ s.risk_small_n_caveat }}{% endif %}
+            </div>
         </div>
     </div>
 
@@ -103,7 +123,8 @@
                 ({{ type_confidence.top.code }})
             </div>
             <div style="font-size: 14px; color: var(--text-secondary); margin-top: 4px;">
-                {{ s.confidence }}:
+                {{ s.type_score }}:
+                <strong>{{ "%.1f"|format(type_confidence.top.prob * 10) }} / 10.0</strong>
                 {% if type_confidence.level == 'high' %}
                     <strong style="color: var(--positive-bg);">{{ s.confidence_high }}</strong>
                 {% elif type_confidence.level == 'medium' %}
@@ -111,8 +132,26 @@
                 {% else %}
                     <strong style="color: var(--text-muted);">{{ s.confidence_low }}</strong>
                 {% endif %}
-                ({{ "%.1f"|format(type_confidence.top.prob * 100) }}%)
             </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
+                {{ s.type_score_hint }}
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
+                {{ s.type_score_calculation_text }}
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
+                {{ s.type_score_source_values }}:
+                {{ s.top_type_probability }} p_type={{ "%.4f"|format(type_confidence.top.prob) }} × 10 =
+                {{ "%.1f"|format(type_confidence.top.prob * 10) }}/10.0
+                {% if type_confidence.second.code %}
+                · {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}%p
+                {% endif %}
+            </div>
+            {% if type_confidence.level == 'high' %}
+            <div style="font-size: 12px; color: #7F1D1D; margin-top: 8px;">
+                {{ s.high_classification_guide }}
+            </div>
+            {% endif %}
         </div>
 
         <!-- All Cancer Type Probabilities -->
@@ -153,7 +192,7 @@
     <div class="collapsible-content" id="qcDetail">
         <table class="qc-table">
             <thead>
-                <tr><th>File</th><th>{{ s.qc_intensity }}</th><th>{{ s.qc_correlation }}</th><th>Status</th></tr>
+                <tr><th>{{ s.file }}</th><th>{{ s.qc_intensity }}</th><th>{{ s.qc_correlation }}</th><th>{{ s.status }}</th></tr>
             </thead>
             <tbody>
                 {% for spec in spectra %}
@@ -179,7 +218,7 @@
     <div class="collapsible-content">
         <table class="qc-table">
             <thead>
-                <tr><th>File</th><th>{{ s.screening_index }}</th><th>{{ s.test_result }}</th><th>Correlation</th></tr>
+                <tr><th>{{ s.file }}</th><th>{{ s.screening_index }}</th><th>{{ s.test_result }}</th><th>{{ s.correlation }}</th></tr>
             </thead>
             <tbody>
                 {% for rep in per_replicate %}

@@ -57,7 +57,9 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # Global predictor (loaded once)
 predictor: ProductionPredictor | None = None
-STANDARD_DECISION_PROFILE = "balanced"
+MODEL_DISPLAY_NAME = "uSERS-Net Ver1"
+DECISION_PROFILE = "standard_balanced"
+DB_OPERATING_MODE = "balanced"
 
 
 def get_patient_ssi_score(patient_decision: dict, probability_threshold: float | None = None) -> float:
@@ -79,14 +81,14 @@ def get_patient_ssi_score(patient_decision: dict, probability_threshold: float |
     return score
 
 # Usability-test clinical workflow constants.
-# Operating mode selection was removed from the user workflow; the validated
-# decision policy remains fixed internally for this formative build.
-CLINICAL_DEFAULT_MODE = "screening"
 REQUIRED_SPECTRA_COUNT = 5
 MIN_QC_PASS_COUNT = qc_utils.DEFAULT_MIN_VALID_COUNT
+ALLOWED_SPECTRUM_EXTENSIONS = {".csv", ".txt"}
 
 MANUAL_CANDIDATES = [
     BASE_DIR / "manuals" / "software_ifu.pdf",
+    Path("/mnt/c/Users/user/Downloads/SERS_Software_IFU.pdf"),
+    Path("/mnt/c/Users/user/Downloads/SERS_Software_IFU.docx"),
     Path("/mnt/c/Users/user/OneDrive - solum/바탕 화면/AI BD/사용적합성/소프트웨어 사용설명서_IFU.pdf"),
     Path("/mnt/c/Users/user/OneDrive - solum/바탕 화면/AI BD/사용적합성/소프트웨어 사용설명서_IFU.docx"),
 ]
@@ -100,11 +102,11 @@ def get_predictor() -> ProductionPredictor:
         if stacking_dir.exists():
             predictor = StackingPredictor(stacking_dir)
             logger.info(f"Stacking V2 model loaded: {predictor.cancer_types}, "
-                        f"standard decision profile: {STANDARD_DECISION_PROFILE}")
+                        f"standard decision profile: {DECISION_PROFILE}")
         else:
             predictor = ProductionPredictor()
             logger.info(f"LR model loaded: {predictor.cancer_types}, "
-                        f"standard decision profile: {STANDARD_DECISION_PROFILE}")
+                        f"standard decision profile: {DECISION_PROFILE}")
     return predictor
 
 
@@ -113,13 +115,17 @@ def template_context(request: Request, **kwargs) -> dict:
     user = auth.get_current_user(request)
     lang = get_lang(request)
     s = get_strings(request)
+    auto_logout_message = s["auto_logout_notice"].format(
+        minutes=auth.SESSION_EXPIRY_MINUTES
+    )
     return {
         "request": request,
         "user": user,
         "lang": lang,
         "s": s,
-        "decision_profile": STANDARD_DECISION_PROFILE,
+        "decision_profile": DECISION_PROFILE,
         "idle_timeout_minutes": auth.SESSION_EXPIRY_MINUTES,
+        "auto_logout_message": auto_logout_message,
         **kwargs,
     }
 
@@ -146,7 +152,7 @@ async def login_page(request: Request):
     user = auth.get_current_user(request)
     if user:
         return RedirectResponse("/patient/new", status_code=303)
-    ctx = template_context(request, error=False)
+    ctx = template_context(request, error=False, registered=request.query_params.get("registered") == "1")
     return templates.TemplateResponse("login.html", ctx)
 
 
@@ -205,8 +211,7 @@ async def register_submit(
     db.create_user(username.strip(), password_hash, role, display_name.strip())
     db.log_audit("user_register", detail={"username": username.strip(), "role": role})
 
-    ctx = template_context(request, error=False, success=True)
-    return templates.TemplateResponse("register.html", ctx)
+    return RedirectResponse("/login?registered=1", status_code=303)
 
 
 @app.post("/login")
@@ -272,14 +277,14 @@ async def patient_submit(
 
     user = auth.get_current_user(request)
     pred = get_predictor()
-    threshold = pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"]
+    threshold = pred.threshold
 
     session_id = db.create_session(
         patient_id=patient_id,
         age=age,
         sex=sex,
         bmi=bmi,
-        operating_mode=STANDARD_DECISION_PROFILE,
+        operating_mode=DB_OPERATING_MODE,
         created_by=user["user_id"],
         threshold=threshold,
     )
@@ -312,6 +317,7 @@ async def upload_page(request: Request, session_id: str):
         show_stepper=True,
         current_step="upload",
         completed_steps=["patient"],
+        remeasure=request.query_params.get("remeasure") == "1",
     )
     return templates.TemplateResponse("spectrum_upload.html", ctx)
 
@@ -329,33 +335,61 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
 
     pred = get_predictor()
 
-    # Save uploaded files to temp directory and record in DB
-    temp_dir = tempfile.mkdtemp(prefix="sers_clinical_")
-    filepaths = []
-    spectrum_ids = []
-
+    valid_uploads = []
+    rejected_files = []
     for f in files:
-        if not f.filename.lower().endswith(".csv"):
+        filename = Path(f.filename or "").name
+        suffix = Path(filename).suffix.lower()
+        if suffix not in ALLOWED_SPECTRUM_EXTENSIONS:
+            rejected_files.append(filename or "(unnamed)")
             continue
         content = await f.read()
-        temp_path = Path(temp_dir) / f.filename
-        temp_path.write_bytes(content)
-        filepaths.append(temp_path)
-        spec_id = db.add_spectrum(session_id, f.filename)
-        spectrum_ids.append((spec_id, f.filename))
+        valid_uploads.append((filename, content))
 
-    if not filepaths:
-        return JSONResponse({"error": "No valid CSV files"}, 400)
-    if len(filepaths) != REQUIRED_SPECTRA_COUNT:
+    if rejected_files:
         return JSONResponse(
             {
                 "error": (
-                    f"Exactly {REQUIRED_SPECTRA_COUNT} CSV files are required "
+                    "Only CSV or TXT spectrum files are allowed. "
+                    f"Rejected: {', '.join(rejected_files)}"
+                )
+            },
+            400,
+        )
+    if len(valid_uploads) != REQUIRED_SPECTRA_COUNT:
+        return JSONResponse(
+            {
+                "error": (
+                    f"Exactly {REQUIRED_SPECTRA_COUNT} CSV/TXT files are required "
                     "for the usability-test workflow."
                 )
             },
             400,
         )
+
+    # Reuploading in the same patient session must replace, not append, spectra.
+    # This prevents the formative-evaluation failure mode where browser Back +
+    # reupload produced 10 files for one patient.
+    if db.get_spectra_for_session(session_id):
+        db.reset_session_measurements(session_id)
+        db.log_audit(
+            "measurement_reupload_replace",
+            user_id=user["user_id"],
+            session_id=session_id,
+            detail={"reason": "same_patient_reupload"},
+        )
+
+    # Save uploaded files to temp directory and record in DB
+    temp_dir = tempfile.mkdtemp(prefix="sers_clinical_")
+    filepaths = []
+    spectrum_ids = []
+
+    for filename, content in valid_uploads:
+        temp_path = Path(temp_dir) / filename
+        temp_path.write_bytes(content)
+        filepaths.append(temp_path)
+        spec_id = db.add_spectrum(session_id, filename)
+        spectrum_ids.append((spec_id, filename))
 
     db.update_session_status(session_id, "uploaded")
     db.log_audit(
@@ -371,7 +405,6 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
         age=session["age"],
         sex=session["sex"],
         bmi=session["bmi"],
-        mode=STANDARD_DECISION_PROFILE,
     )
 
     # Update spectra QC info
@@ -447,6 +480,27 @@ async def upload_submit(request: Request, session_id: str, files: list[UploadFil
     return RedirectResponse(f"/patient/{session_id}/qc", status_code=303)
 
 
+@app.post("/patient/{session_id}/remeasure")
+async def remeasure_patient(request: Request, session_id: str):
+    redirect = auth.require_auth(request)
+    if redirect:
+        return redirect
+
+    user = auth.get_current_user(request)
+    session = db.get_session(session_id)
+    if not session:
+        return RedirectResponse("/patient/new", status_code=303)
+
+    db.reset_session_measurements(session_id)
+    db.log_audit(
+        "measurement_reupload_start",
+        user_id=user["user_id"],
+        session_id=session_id,
+        detail={"patient_id": session["patient_id"]},
+    )
+    return RedirectResponse(f"/patient/{session_id}/upload?remeasure=1", status_code=303)
+
+
 # --- QC Review ---
 
 @app.get("/patient/{session_id}/qc", response_class=HTMLResponse)
@@ -461,12 +515,30 @@ async def qc_page(request: Request, session_id: str):
 
     spectra = db.get_spectra_for_session(session_id)
     qc_summary = qc_utils.build_qc_summary(spectra, MIN_QC_PASS_COUNT)
+    strings = get_strings(request)
+    qc_summary_label = strings["qc_summary"].format(
+        passed=qc_summary["passed"],
+        total=qc_summary["total"],
+    )
+    qc_status_template = (
+        strings["qc_valid_message"]
+        if qc_summary["valid"]
+        else strings["qc_invalid_message"]
+    )
+    qc_status_message = qc_status_template.format(
+        total=qc_summary["total"],
+        passed=qc_summary["passed"],
+        rate=qc_summary["pass_rate"],
+        min_count=qc_summary["min_valid_count"],
+    )
 
     ctx = template_context(
         request,
         session=session,
         spectra=spectra,
         qc_summary=qc_summary,
+        qc_summary_label=qc_summary_label,
+        qc_status_message=qc_status_message,
         qc_passed=qc_summary["passed"],
         qc_total=qc_summary["total"],
         min_qc_pass_count=MIN_QC_PASS_COUNT,
@@ -522,8 +594,9 @@ async def results_page(request: Request, session_id: str):
 
     per_replicate = result_json.get("per_replicate", [])
     type_confidence = decision_utils.type_confidence(cancer_types_sorted)
-    ssi = decision_utils.screening_index_to_ssi(prediction.get("screening_index"))
+    ssi = get_patient_ssi_score(prediction, session.get("threshold"))
     final_decision = decision_utils.final_decision(prediction, qc_summary["valid"])
+    risk_info = decision_utils.ssi_risk_info(ssi)
 
     ctx = template_context(
         request,
@@ -532,6 +605,7 @@ async def results_page(request: Request, session_id: str):
         cancer_types_sorted=cancer_types_sorted,
         type_confidence=type_confidence,
         ssi=ssi,
+        risk_info=risk_info,
         final_decision=final_decision,
         per_replicate=per_replicate,
         spectra=spectra,
@@ -594,16 +668,18 @@ async def report_csv(request: Request, session_id: str):
     prediction_row = db.get_prediction(session_id)
     pred = prediction_row["result_json"] if prediction_row else {}
     patient_decision = pred.get("patient_decision", {})
+    ssi_score = get_patient_ssi_score(patient_decision, session.get("threshold"))
     prediction = {
         "cancer_detected": patient_decision.get("cancer_detected", False),
-        "screening_index": patient_decision.get("screening_index", 0.0),
+        "screening_index": ssi_score,
+        "ssi_score": ssi_score,
         "majority_vote": patient_decision.get("majority_vote"),
         "cancer_type_probabilities": pred.get("cancer_type_probabilities", {}) or {},
     }
 
     spectra = db.get_spectra_for_session(session_id)
     qc_summary = qc_utils.build_qc_summary(spectra, MIN_QC_PASS_COUNT)
-    ssi = decision_utils.screening_index_to_ssi(prediction.get("screening_index"))
+    ssi = get_patient_ssi_score(prediction, session.get("threshold"))
     final_decision = decision_utils.final_decision(prediction, qc_summary["valid"])
     cancer_types_sorted = [
         {"code": code, "prob": prob}
@@ -614,13 +690,16 @@ async def report_csv(request: Request, session_id: str):
         )
     ]
     type_confidence = decision_utils.type_confidence(cancer_types_sorted)
+    risk_info = decision_utils.ssi_risk_info(ssi)
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
+    strings = get_strings(request)
     writer.writerow(["section", "item", "value"])
     writer.writerow(["검사 정보", "patient_id", session["patient_id"]])
     writer.writerow(["검사 정보", "age", session["age"]])
     writer.writerow(["검사 정보", "sex", session["sex"]])
+    writer.writerow(["검사 정보", "model", MODEL_DISPLAY_NAME])
     writer.writerow(["QC 요약", "total", qc_summary["total"]])
     writer.writerow(["QC 요약", "passed", qc_summary["passed"]])
     writer.writerow(["QC 요약", "failed", qc_summary["failed"]])
@@ -633,10 +712,29 @@ async def report_csv(request: Request, session_id: str):
     writer.writerow(["검사 결과", "SSI", ssi])
     writer.writerow(["검사 결과", "majority_vote", prediction["majority_vote"]])
     writer.writerow(["검사 결과", "final_decision", final_decision])
+    writer.writerow(["검사 결과", "risk_level", risk_info["level"]])
+    writer.writerow(["검사 결과", "risk_band_range", risk_info["range_label"]])
+    writer.writerow(["검사 결과", "risk_observed_cancer_rate", f"{risk_info['observed_cancer_rate']:.1f}%"])
+    writer.writerow(["검사 결과", "risk_band_n", risk_info["n"]])
+    writer.writerow(["검사 결과", "risk_band_note", strings["risk_band_note"]])
+    writer.writerow(["점수 산출", "ssi_calculation", strings["ssi_calculation_text"]])
+    if patient_decision.get("model_probability_mean") is not None:
+        writer.writerow(["점수 산출", "model_mean_probability", patient_decision.get("model_probability_mean")])
+        writer.writerow(["점수 산출", "model_probability_threshold", patient_decision.get("model_probability_threshold")])
+        writer.writerow(["점수 산출", "ssi_threshold", patient_decision.get("ssi_threshold", SSI_DECISION_CUTOFF)])
     if type_confidence["top"]:
         writer.writerow(["암종별 확률", "top_type", type_confidence["top"]["code"]])
         writer.writerow(["암종별 확률", "top_type_confidence", type_confidence["level"]])
         writer.writerow(["암종별 확률", "top_second_gap", f"{type_confidence['gap']:.4f}"])
+        writer.writerow(["점수 산출", "type_score_calculation", strings["type_score_calculation_text"]])
+        writer.writerow(["점수 산출", "top_type_probability", f"{type_confidence['top']['prob']:.4f}"])
+        writer.writerow(["점수 산출", "type_score", f"{type_confidence['top']['prob'] * 10:.1f}/10.0"])
+        if type_confidence["level"] == "high":
+            writer.writerow([
+                "암종별 확률",
+                "high_classification_guide",
+                strings["high_classification_guide"],
+            ])
     for ct in cancer_types_sorted:
         code = ct["code"]
         prob = ct["prob"]
@@ -664,6 +762,7 @@ async def manual_download():
                 path,
                 media_type=media_type,
                 filename=filename,
+                content_disposition_type="inline",
             )
     return HTMLResponse(
         "<h2>사용설명서 파일을 찾을 수 없습니다.</h2>"
@@ -693,10 +792,11 @@ async def health():
     return {
         "status": "healthy",
         "model_loaded": pred is not None,
+        "model_name": MODEL_DISPLAY_NAME,
         "cancer_types": pred.cancer_types if pred else [],
-        "decision_profile": STANDARD_DECISION_PROFILE,
+        "decision_profile": DECISION_PROFILE,
         "ssi_threshold": SSI_DECISION_CUTOFF,
-        "model_probability_threshold": pred.operating_modes[STANDARD_DECISION_PROFILE]["threshold"] if pred else None,
+        "model_probability_threshold": pred.threshold if pred else None,
         "required_spectra": REQUIRED_SPECTRA_COUNT,
         "min_qc_pass_count": MIN_QC_PASS_COUNT,
         "timestamp": datetime.now().isoformat(),

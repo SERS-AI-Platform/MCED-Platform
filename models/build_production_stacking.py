@@ -370,27 +370,25 @@ def main():
     cv_auc = roc_auc_score(y_bin, prod_meta_probs)
     logger.info(f"  OOF→meta AUC: {cv_auc:.4f}")
 
+    # Single fixed decision threshold (Youden's J). Multi-mode selection
+    # (screening/balanced/confirmatory) was removed from the product — the
+    # "balanced" operating point is now the only supported decision policy.
     j_scores = tpr - fpr
     balanced_thresh = float(thresholds[np.argmax(j_scores)])
-    screening_thresh = float(thresholds[np.argmin(np.abs(tpr - 0.95))])
-    confirmatory_thresh = float(thresholds[np.argmin(np.abs((1 - fpr) - 0.95))])
 
-    operating_modes = {}
-    for name, thresh in [("screening", screening_thresh), ("balanced", balanced_thresh), ("confirmatory", confirmatory_thresh)]:
-        preds_pos = prod_meta_probs[y_bin == 1] > thresh
-        preds_neg = prod_meta_probs[y_bin == 0] <= thresh
-        sens = float(preds_pos.mean())
-        spec = float(preds_neg.mean())
-        operating_modes[name] = {
-            "threshold": round(thresh, 4),
+    preds_pos = prod_meta_probs[y_bin == 1] > balanced_thresh
+    preds_neg = prod_meta_probs[y_bin == 0] <= balanced_thresh
+    sens = float(preds_pos.mean())
+    spec = float(preds_neg.mean())
+    operating_modes = {
+        "balanced": {
+            "threshold": round(balanced_thresh, 4),
             "cv_sensitivity": round(sens, 4),
             "cv_specificity": round(spec, 4),
+            "description": "Standard decision policy (Youden's J)",
         }
-        logger.info(f"  {name:>14s}: threshold={thresh:.4f}, Sens={sens:.3f}, Spec={spec:.3f}")
-
-    operating_modes["screening"]["description"] = "High sensitivity for screening (target Sens >= 95%)"
-    operating_modes["balanced"]["description"] = "Balanced sensitivity/specificity (Youden's J)"
-    operating_modes["confirmatory"]["description"] = "High specificity for confirmation (target Spec >= 95%)"
+    }
+    logger.info(f"  balanced: threshold={balanced_thresh:.4f}, Sens={sens:.3f}, Spec={spec:.3f}")
 
     # ── Save artifacts ──
     logger.info("\n--- Saving artifacts ---")
@@ -457,7 +455,6 @@ def main():
         "non_cancer_groups": NON_CANCER,
         "n_peak_features": int(X_peak.shape[1]),
         "operating_modes": operating_modes,
-        "default_mode": "screening",
         "training_metrics": {
             "meta_s1_train_auc": round(meta_s1_auc, 4),
             "meta_s2_train_f1": round(meta_s2_f1, 4),

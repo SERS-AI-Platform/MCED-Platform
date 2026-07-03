@@ -53,24 +53,11 @@
     4
   ],
   "operating_modes": {
-    "screening": {
-      "threshold": 0.3854,
-      "description": "High sensitivity for screening (target Sens >= 95%)",
-      "cv_sensitivity": 0.9495,
-      "cv_specificity": 0.906
-    },
     "balanced": {
       "threshold": 0.7777,
       "description": "Balanced sensitivity/specificity (Youden's J)",
       "cv_sensitivity": 0.905,
       "cv_specificity": 0.9635
-    },
-    "confirmatory": {
-      "threshold": 0.6993,
-      "description": "High specificity for confirmation (target Spec >= 95%)",
-      "cv_sensitivity": 0.9148,
-      "cv_specificity": 0.9505
     }
-  },
-  "default_mode": "screening"
+  }
 }
