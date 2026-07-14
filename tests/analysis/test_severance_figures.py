@@ -21,7 +21,7 @@ def test_load_cohort_spectra_when_replicates_present_aggregates_by_subject(
 ) -> None:
     # Given
     processed = tmp_path / "processed.csv"
-    with processed.open("w", newline="", encoding="utf-8") as handle:
+    with processed.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.writer(handle)
         writer.writerow(["group", "sample_id", "replicate", "x_400.0", "x_500.0"])
         writer.writerows(
@@ -36,7 +36,7 @@ def test_load_cohort_spectra_when_replicates_present_aggregates_by_subject(
             ]
         )
     manifest = tmp_path / "clean.csv"
-    with manifest.open("w", newline="", encoding="utf-8") as handle:
+    with manifest.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.writer(handle)
         writer.writerow(["source_group", "sample_id"])
         writer.writerow(["CPAN", 4])
