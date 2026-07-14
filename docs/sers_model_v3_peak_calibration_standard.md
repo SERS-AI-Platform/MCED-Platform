@@ -31,6 +31,11 @@ the peak/window has been defined by data-driven criteria.
 
 Primary peak existence criteria:
 
+The peak registry must be discovered from the locked training split only. The
+validation split is reserved for model and calibration selection, and the test
+split is used once for final evaluation. Registry provenance stores only the
+training subject count and a SHA-256 digest of the sorted pseudonymous IDs.
+
 1. Smooth the subject-level spectrum with Savitzky-Golay filter.
 2. Estimate local noise from the residual between raw processed intensity and
    the smoothed spectrum using robust MAD.

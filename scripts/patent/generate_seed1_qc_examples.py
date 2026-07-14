@@ -40,10 +40,7 @@ RNG = np.random.default_rng(20260604)
 
 
 def configure_matplotlib_fonts() -> None:
-    font_candidates = [
-        Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
-        Path("/mnt/c/Windows/Fonts/malgun.ttf"),
-    ]
+    font_candidates = [Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")]
     for font_path in font_candidates:
         if font_path.exists():
             font_manager.fontManager.addfont(str(font_path))

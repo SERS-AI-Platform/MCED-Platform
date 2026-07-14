@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -50,12 +51,53 @@ def _load_subject_spectra(path: Path) -> tuple[pd.DataFrame, np.ndarray, list[st
     df["sample_id_str"] = df["sample_id"].astype(str).str.replace(r"\.0$", "", regex=True)
     df["subject_id"] = df["source_group"] + "_" + df["sample_id_str"]
     df["model_group"] = df["source_group"].replace(GROUP_ALIASES)
+    model_sample_id = np.where(
+        df["source_group"].isin({"YPAN", "YNOR"}),
+        df["source_group"] + "_" + df["sample_id_str"],
+        df["sample_id_str"],
+    )
+    df["model_subject_id"] = df["model_group"] + "_" + model_sample_id
     df["display_group"] = np.where(
         df["model_group"].isin(CANCER_GROUPS), df["model_group"], "CONTROL"
     )
-    meta_cols = ["subject_id", "source_group", "sample_id_str", "model_group", "display_group"]
+    meta_cols = [
+        "subject_id",
+        "model_subject_id",
+        "source_group",
+        "sample_id_str",
+        "model_group",
+        "display_group",
+    ]
     subject = df.groupby(meta_cols, dropna=False)[feature_cols].mean().reset_index()
     return subject, wavenumbers, feature_cols
+
+
+def _sample_id_digest(sample_ids: set[str]) -> str:
+    payload = "\n".join(sorted(sample_ids)).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _training_sample_ids(split_artifact: Path) -> set[str]:
+    with np.load(split_artifact, allow_pickle=True) as split:
+        if "sample_ids_train" not in split:
+            raise ValueError(f"Missing sample_ids_train in split artifact: {split_artifact}")
+        sample_ids = {str(value) for value in split["sample_ids_train"]}
+    if not sample_ids:
+        raise ValueError("Training split contains no sample IDs")
+    return sample_ids
+
+
+def _select_training_subjects(subject: pd.DataFrame, training_ids: set[str]) -> pd.DataFrame:
+    available = set(subject["model_subject_id"].astype(str))
+    missing = training_ids - available
+    if missing:
+        raise ValueError(
+            f"Training split has {len(missing)} sample IDs absent from the registry cohort"
+        )
+    selected = subject[subject["model_subject_id"].isin(training_ids)].copy()
+    if len(selected) != len(training_ids):
+        raise ValueError("Training sample IDs do not map one-to-one to registry subjects")
+    return selected.reset_index(drop=True)
 
 
 def _odd_window(n: int, target: int) -> int:
@@ -157,6 +199,7 @@ def _cohen_d(a: np.ndarray, b: np.ndarray) -> float:
 
 def build_registry(
     cohort_csv: Path,
+    split_artifact: Path,
     out_dir: Path,
     *,
     smooth_window: int = 21,
@@ -172,11 +215,19 @@ def build_registry(
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     subject, wavenumbers, feature_cols = _load_subject_spectra(cohort_csv)
+    training_ids = _training_sample_ids(split_artifact)
+    subject = _select_training_subjects(subject, training_ids)
     X_all = subject[feature_cols].to_numpy(dtype=float)
     control_mask = subject["display_group"].to_numpy() == "CONTROL"
     X_control = X_all[control_mask]
 
     criteria = {
+        "selection_scope": {
+            "split_role": "train",
+            "subject_count": len(training_ids),
+            "sample_id_sha256": _sample_id_digest(training_ids),
+            "split_artifact": split_artifact.name,
+        },
         "smoothing": {
             "method": "Savitzky-Golay",
             "window_points": smooth_window,
@@ -407,6 +458,7 @@ def plot_peak_registry(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cohort-csv", type=Path, default=DEFAULT_COHORT)
+    parser.add_argument("--training-split-artifact", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--smooth-window", type=int, default=21)
     parser.add_argument("--polyorder", type=int, default=3)
@@ -420,6 +472,7 @@ def main() -> int:
     args = parser.parse_args()
     build_registry(
         args.cohort_csv.resolve(),
+        args.training_split_artifact.resolve(),
         args.out_dir.resolve(),
         smooth_window=args.smooth_window,
         polyorder=args.polyorder,

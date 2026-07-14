@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -131,6 +132,31 @@ def _load_training_data(cohort_csv: Path):
     stk.DATA_DIR = cohort_csv
     stk.EXCLUDE_SOURCE_GROUPS = set()
     return stk.load_data(cohort_csv)
+
+
+def _sample_id_digest(sample_ids: np.ndarray) -> str:
+    payload = "\n".join(sorted(str(value) for value in sample_ids)).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_registry_provenance(
+    registry_csv: Path,
+    training_sample_ids: np.ndarray,
+) -> dict[str, object]:
+    criteria_path = registry_csv.with_name("peak_registry_criteria.json")
+    if not criteria_path.exists():
+        raise ValueError(f"Missing peak registry provenance: {criteria_path}")
+    criteria = json.loads(criteria_path.read_text(encoding="utf-8"))
+    scope = criteria.get("selection_scope", {})
+    expected_count = len(training_sample_ids)
+    expected_digest = _sample_id_digest(training_sample_ids)
+    if scope.get("split_role") != "train":
+        raise ValueError("Peak registry was not selected on the training split")
+    if scope.get("subject_count") != expected_count:
+        raise ValueError("Peak registry training subject count does not match the model split")
+    if scope.get("sample_id_sha256") != expected_digest:
+        raise ValueError("Peak registry training subjects do not match the model split")
+    return scope
 
 
 def _select_registry_peaks(registry_csv: Path, peak_filter: str) -> pd.DataFrame:
@@ -263,6 +289,7 @@ def build(
     train_idx = split["train_idx"]
     val_idx = split["val_idx"]
     test_idx = split["test_idx"]
+    registry_scope = _validate_registry_provenance(registry_csv, sample_ids[train_idx])
     registry = _select_registry_peaks(registry_csv, peak_filter)
     X_peak, feature_names, feature_meta = _extract_peak_features(X_3ch[:, 0, :], grid, registry)
 
@@ -425,6 +452,7 @@ def build(
         "model": "sparse_peak_evidence_model_v1",
         "cohort_csv": str(cohort_csv),
         "registry_csv": str(registry_csv),
+        "registry_selection_scope": registry_scope,
         "split_npz": str(split_npz),
         "peak_filter": peak_filter,
         "n_registry_peaks": int(len(registry)),
