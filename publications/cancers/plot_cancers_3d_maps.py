@@ -78,10 +78,13 @@ def configure_3d_axes(ax: plt.Axes) -> None:
 def save_figure(fig: plt.Figure, stem: str) -> None:
     png_path = OUT_DIR / f"{stem}.png"
     tiff_path = OUT_DIR / f"{stem}.tiff"
+    pdf_path = OUT_DIR / f"{stem}.pdf"
     fig.savefig(png_path, dpi=600, bbox_inches="tight", facecolor="white")
     fig.savefig(tiff_path, dpi=600, bbox_inches="tight", facecolor="white")
+    fig.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     print(f"[saved] {png_path}")
     print(f"[saved] {tiff_path}")
+    print(f"[saved] {pdf_path}")
 
 
 def load_subject_mean_spectra() -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
