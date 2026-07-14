@@ -2,25 +2,27 @@
 Shared Nature-style figure configuration for SERS-AI paper.
 """
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
 import os
+
+import matplotlib as mpl
+import numpy as np
 
 # ── Paths ──
 AACR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROOT = os.path.dirname(os.path.dirname(AACR_DIR))  # SERS-AI project root (publications/aacr → publications → SERS-AI)
-OUTPUT_DIR = os.path.join(AACR_DIR, "figures")
+ROOT = os.path.dirname(
+    os.path.dirname(AACR_DIR)
+)  # SERS-AI project root (publications/aacr → publications → SERS-AI)
+OUTPUT_DIR = os.environ.get("SERS_AACR_OUTPUT_DIR", os.path.join(AACR_DIR, "figures"))
 
 # ── Color palettes (muted, Nature-style) ──
 CANCER_COLORS = {
-    "PRO": "#8B4513",   # warm brown
-    "BRE": "#D4527A",   # rose pink
-    "OVA": "#6A5ACD",   # slate blue-purple
-    "LUN": "#2E8B57",   # sea green
-    "CRC": "#4682B4",   # steel blue
-    "PAN": "#CD5C5C",   # indian red
-    "BLC": "#E8960C",   # amber orange
+    "PRO": "#8B4513",  # warm brown
+    "BRE": "#D4527A",  # rose pink
+    "OVA": "#6A5ACD",  # slate blue-purple
+    "LUN": "#2E8B57",  # sea green
+    "CRC": "#4682B4",  # steel blue
+    "PAN": "#CD5C5C",  # indian red
+    "BLC": "#E8960C",  # amber orange
 }
 
 CANCER_LABELS = {
@@ -35,7 +37,11 @@ CANCER_LABELS = {
 
 # Fold prediction group → display name mapping
 FOLD_GROUP_TO_DISPLAY = {
-    "PRO": "PRO", "LUN": "LUN", "CRC": "CRC", "CPAN": "PAN", "OVA": "OVA",
+    "PRO": "PRO",
+    "LUN": "LUN",
+    "CRC": "CRC",
+    "CPAN": "PAN",
+    "OVA": "OVA",
 }
 
 NON_CANCER_COLOR = "#808080"
@@ -43,76 +49,80 @@ NON_CANCER_GROUPS = {"NOR", "DIA", "HBP", "H.D."}
 
 MODEL_COLORS = {
     "Logistic Regression": "#2C3E50",
-    "Random Forest":       "#7F8C8D",
-    "XGBoost":             "#8E44AD",
-    "CNN1D":               "#2980B9",
-    "ResNet18":            "#C0392B",
-    "Ensemble":            "#D4A017",
+    "Random Forest": "#7F8C8D",
+    "XGBoost": "#8E44AD",
+    "CNN1D": "#2980B9",
+    "ResNet18": "#C0392B",
+    "Ensemble": "#D4A017",
 }
 
 MODEL_ORDER = [
-    "Ensemble", "Logistic Regression", "XGBoost",
-    "ResNet18", "Random Forest", "CNN1D",
+    "Ensemble",
+    "Logistic Regression",
+    "XGBoost",
+    "ResNet18",
+    "Random Forest",
+    "CNN1D",
 ]
 
 # ── Cancer-specific discriminative peak regions ──
 PEAK_REGIONS = [
     ("PRO", 2088, 2118, "2100"),
-    ("PAN", 710,  745,  "725"),
+    ("PAN", 710, 745, "725"),
     ("OVA", 1588, 1620, "1603"),
-    ("LUN", 975,  1005, "990"),
+    ("LUN", 975, 1005, "990"),
     ("CRC", 1330, 1365, "1350"),
 ]
 
 # ── Typography (Nature conventions) ──
 MM_TO_INCH = 1 / 25.4
-SINGLE_COL = 89 * MM_TO_INCH    # ~3.5 in
-DOUBLE_COL = 183 * MM_TO_INCH   # ~7.2 in
+SINGLE_COL = 89 * MM_TO_INCH  # ~3.5 in
+DOUBLE_COL = 183 * MM_TO_INCH  # ~7.2 in
 
 FONT_SIZE = {
     "panel_label": 12,
-    "title":       9,
-    "axis_label":  8,
-    "tick":        7,
-    "legend":      7,
-    "annotation":  6.5,
+    "title": 9,
+    "axis_label": 8,
+    "tick": 7,
+    "legend": 7,
+    "annotation": 6.5,
 }
 
 LINE_WIDTH = {
     "spectrum": 1.0,
-    "thin":     0.5,
-    "spine":    0.6,
-    "roc":      1.2,
+    "thin": 0.5,
+    "spine": 0.6,
+    "roc": 1.2,
 }
 
 
 def nature_rcparams():
     """Return rcParams dict for Nature-style figures."""
     return {
-        "font.family":       "sans-serif",
-        "font.sans-serif":   ["Arial", "Helvetica", "DejaVu Sans"],
-        "font.size":         FONT_SIZE["tick"],
-        "axes.titlesize":    FONT_SIZE["title"],
-        "axes.labelsize":    FONT_SIZE["axis_label"],
-        "xtick.labelsize":   FONT_SIZE["tick"],
-        "ytick.labelsize":   FONT_SIZE["tick"],
-        "legend.fontsize":   FONT_SIZE["legend"],
-        "axes.linewidth":    LINE_WIDTH["spine"],
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+        "font.size": FONT_SIZE["tick"],
+        "axes.titlesize": FONT_SIZE["title"],
+        "axes.labelsize": FONT_SIZE["axis_label"],
+        "xtick.labelsize": FONT_SIZE["tick"],
+        "ytick.labelsize": FONT_SIZE["tick"],
+        "legend.fontsize": FONT_SIZE["legend"],
+        "axes.linewidth": LINE_WIDTH["spine"],
         "xtick.major.width": 0.5,
         "ytick.major.width": 0.5,
-        "xtick.major.size":  3,
-        "ytick.major.size":  3,
-        "xtick.minor.size":  1.5,
-        "ytick.minor.size":  1.5,
-        "axes.spines.top":   False,
+        "xtick.major.size": 3,
+        "ytick.major.size": 3,
+        "xtick.minor.size": 1.5,
+        "ytick.minor.size": 1.5,
+        "axes.spines.top": False,
         "axes.spines.right": False,
-        "axes.grid":         False,
-        "figure.dpi":        150,
-        "savefig.dpi":       300,
-        "savefig.bbox":      "tight",
+        "axes.grid": False,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
         "savefig.pad_inches": 0.05,
-        "pdf.fonttype":      42,   # TrueType for editability
-        "ps.fonttype":       42,
+        "pdf.fonttype": 42,  # TrueType for editability
+        "ps.fonttype": 42,
     }
 
 
@@ -133,11 +143,14 @@ def apply_nature_style(ax, xlabel=None, ylabel=None):
 def add_panel_label(ax, label, x=-0.12, y=1.06):
     """Add bold lowercase panel label (a, b, c ...) at top-left."""
     ax.text(
-        x, y, label,
+        x,
+        y,
+        label,
         transform=ax.transAxes,
         fontsize=FONT_SIZE["panel_label"],
         fontweight="bold",
-        va="top", ha="left",
+        va="top",
+        ha="left",
     )
 
 
@@ -153,7 +166,17 @@ def save_figure(fig, name, formats=("pdf", "png")):
 def load_spectra():
     """Load processed spectra and return (DataFrame, wavenumber_array, feature_columns)."""
     import pandas as pd
-    spec = pd.read_csv(os.path.join(ROOT, "results", "processed_spectra.csv"))
+
+    data_dir = os.environ.get("SERS_AACR_DATA_DIR")
+    if data_dir:
+        path = (
+            data_dir
+            if data_dir.endswith(".csv")
+            else os.path.join(data_dir, "processed_spectra.csv")
+        )
+    else:
+        path = os.path.join(ROOT, "results", "processed_spectra.csv")
+    spec = pd.read_csv(path)
     wn_cols = [c for c in spec.columns if c.startswith("x_")]
     wavenumbers = np.array([float(c.replace("x_", "")) for c in wn_cols])
     return spec, wavenumbers, wn_cols

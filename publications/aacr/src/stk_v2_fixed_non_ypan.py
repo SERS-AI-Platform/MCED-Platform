@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,27 +22,89 @@ from sklearn.metrics import (
 )
 from sklearn.pipeline import Pipeline
 
-
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-RUN_DIR = ROOT / "results" / "training" / "stacking_v2_non_ypan"
-DATA_DIR = ROOT / "results" / "preprocessing_dacr_all"
+
+CANCER_TYPES = ("PRO", "LUN", "CRC", "PAN", "OVA", "BRE", "BLC")
+
+
+class AacrEnvironmentError(RuntimeError):
+    def __init__(self, name: str, unsupported: tuple[str, ...]) -> None:
+        self.name = name
+        self.unsupported = unsupported
+        values = ", ".join(unsupported)
+        super().__init__(f"{name} contains unsupported values: {values}")
+
+
+def _env_path(name: str, default: Path) -> Path:
+    value = os.environ.get(name)
+    if not value:
+        return default
+    return Path(value).expanduser().resolve()
+
+
+def _env_tuple(
+    name: str,
+    default: tuple[str, ...],
+    allowed: frozenset[str],
+) -> tuple[str, ...]:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    items = [part.strip().upper() for part in value.split(",") if part.strip()]
+    if not items:
+        return default
+    unsupported = tuple(sorted(set(items) - allowed))
+    if unsupported:
+        raise AacrEnvironmentError(name, unsupported)
+    return tuple(items)
+
+
+def _env_exclude(default: tuple[str, ...] = ("YPAN",)) -> set[str]:
+    value = os.environ.get("SERS_AACR_EXCLUDE_SOURCE_GROUPS")
+    if value is None:
+        return set(default)
+    return {part.strip().upper() for part in value.split(",") if part.strip()}
+
+
+RUN_DIR = _env_path("SERS_AACR_RUN_DIR", ROOT / "results" / "training" / "stacking_v2_non_ypan")
+DATA_DIR = _env_path("SERS_AACR_DATA_DIR", ROOT / "results" / "preprocessing_dacr_all")
+TRAINING_FIG_DIR = _env_path(
+    "SERS_AACR_TRAINING_FIG_DIR",
+    ROOT / "results" / "figures" / "training" / RUN_DIR.name,
+)
 ATTRIBUTION_PATH = RUN_DIR / "overall_stacking_peak_attribution.csv"
 SPECTRAL_IMPORTANCE_PATH = RUN_DIR / "overall_stacking_spectral_importance.npz"
 TYPE_FEATURE_IMPORTANCE_PATH = RUN_DIR / "cancer_type_peak_feature_importance.csv"
 TYPE_SPECTRAL_IMPORTANCE_PATH = RUN_DIR / "cancer_type_spectral_feature_importance.npz"
 BINARY_FEATURE_IMPORTANCE_PATH = RUN_DIR / "cancer_detection_peak_feature_importance.csv"
 BINARY_SPECTRAL_IMPORTANCE_PATH = RUN_DIR / "cancer_detection_spectral_feature_importance.npz"
-BINARY_TYPE_FEATURE_IMPORTANCE_PATH = RUN_DIR / "cancer_detection_by_type_peak_feature_importance.csv"
-BINARY_TYPE_SPECTRAL_IMPORTANCE_PATH = RUN_DIR / "cancer_detection_by_type_spectral_feature_importance.npz"
+BINARY_TYPE_FEATURE_IMPORTANCE_PATH = (
+    RUN_DIR / "cancer_detection_by_type_peak_feature_importance.csv"
+)
+BINARY_TYPE_SPECTRAL_IMPORTANCE_PATH = (
+    RUN_DIR / "cancer_detection_by_type_spectral_feature_importance.npz"
+)
 
-CANCER_TYPES = ("PRO", "LUN", "CRC", "PAN", "OVA", "BRE", "BLC")
-DISPLAY_CANCERS = ("LUN", "CRC", "BLC", "PRO", "OVA", "PAN")
+DISPLAY_CANCERS = _env_tuple(
+    "SERS_AACR_DISPLAY_CANCERS",
+    ("LUN", "CRC", "BLC", "PRO", "OVA", "PAN"),
+    frozenset(CANCER_TYPES),
+)
+EXCLUDE_SOURCE_GROUPS = _env_exclude()
 NON_CANCER_GROUPS = ("NOR", "DIA", "HBP", "H.D.")
 BASE_MODELS = (
-    "lr_raw", "lr_d1", "lr_d2", "lr_concat", "lr_peak",
-    "xgb_raw", "xgb_d1", "rf_raw", "rf_d1", "ridge_concat",
+    "lr_raw",
+    "lr_d1",
+    "lr_d2",
+    "lr_concat",
+    "lr_peak",
+    "xgb_raw",
+    "xgb_d1",
+    "rf_raw",
+    "rf_d1",
+    "ridge_concat",
 )
 
 KNOWN_PEAKS = (
@@ -278,15 +341,15 @@ def load_non_ypan_data():
     from scripts.training import train_usersnet as trainer
 
     trainer.DATA_TYPE = "processed_csv"
-    return trainer.load_data(DATA_DIR, exclude_source_groups={"YPAN"})
+    return trainer.load_data(DATA_DIR, exclude_source_groups=EXCLUDE_SOURCE_GROUPS)
 
 
 def load_plot_data():
-    """Load spectra for display, excluding the YPAN cancer external source."""
+    """Load spectra for display using the configured source-group filter."""
     from scripts.training import train_usersnet as trainer
 
     trainer.DATA_TYPE = "processed_csv"
-    return trainer.load_data(DATA_DIR, exclude_source_groups={"YPAN"})
+    return trainer.load_data(DATA_DIR, exclude_source_groups=EXCLUDE_SOURCE_GROUPS)
 
 
 def get_fixed_split():
@@ -295,20 +358,24 @@ def get_fixed_split():
 
 
 def get_meta_input_weights() -> pd.DataFrame:
-    path = ROOT / "results" / "figures" / "training" / "stacking_v2_non_ypan" / "meta_shap_input_importance.csv"
+    path = TRAINING_FIG_DIR / "meta_shap_input_importance.csv"
     if path.exists():
         df = pd.read_csv(path)
     else:
         df = _compute_meta_input_weights()
     rows = []
     for model in BASE_MODELS:
-        s1 = df[(df["task"] == "Cancer vs Non-cancer") & (df["base_model"] == model)]["mean_abs_linear_shap"]
+        s1 = df[(df["task"] == "Cancer vs Non-cancer") & (df["base_model"] == model)][
+            "mean_abs_linear_shap"
+        ]
         s2 = df[(df["task"] == "Cancer Type") & (df["base_model"] == model)]["mean_abs_linear_shap"]
-        rows.append({
-            "base_model": model,
-            "s1_weight": float(s1.iloc[0]) if len(s1) else 0.0,
-            "s2_weight": float(s2.iloc[0]) if len(s2) else 0.0,
-        })
+        rows.append(
+            {
+                "base_model": model,
+                "s1_weight": float(s1.iloc[0]) if len(s1) else 0.0,
+                "s2_weight": float(s2.iloc[0]) if len(s2) else 0.0,
+            }
+        )
     out = pd.DataFrame(rows)
     for col in ("s1_weight", "s2_weight"):
         total = out[col].sum()
@@ -317,35 +384,52 @@ def get_meta_input_weights() -> pd.DataFrame:
     return out
 
 
+def _new_meta_classifier(meta_name: str) -> LogisticRegression:
+    if meta_name == "elasticnet":
+        return LogisticRegression(
+            C=0.5,
+            penalty="elasticnet",
+            l1_ratio=0.5,
+            max_iter=2000,
+            solver="saga",
+            n_jobs=1,
+            random_state=42,
+        )
+    return LogisticRegression(C=1.0, max_iter=2000, solver="lbfgs", n_jobs=1)
+
+
 def _compute_meta_input_weights() -> pd.DataFrame:
     oof = np.load(RUN_DIR / "fixed_train_oof.npz", allow_pickle=True)
     meta = json.loads((RUN_DIR / "fixed_split_results.json").read_text())
     meta_name = meta.get("best_meta", "elasticnet")
-    if meta_name == "elasticnet":
-        mk = lambda: LogisticRegression(
-            C=0.5, penalty="elasticnet", l1_ratio=0.5, max_iter=2000,
-            solver="saga", n_jobs=1, random_state=42,
-        )
-    else:
-        mk = lambda: LogisticRegression(C=1.0, max_iter=2000, solver="lbfgs", n_jobs=1)
     rows = []
     x1 = np.asarray(oof["meta_s1"], dtype=float)
     yb = np.asarray(oof["y_bin"], dtype=int)
-    m1 = mk()
+    m1 = _new_meta_classifier(meta_name)
     m1.fit(x1, yb)
     s1_imp = np.abs((x1 - x1.mean(axis=0)) * np.ravel(m1.coef_)).mean(axis=0)
     x2 = np.asarray(oof["meta_s2"], dtype=float)
     yt = np.asarray(oof["y_type"], dtype=int)
     cancer = yb == 1
-    m2 = mk()
+    m2 = _new_meta_classifier(meta_name)
     m2.fit(x2[cancer], yt[cancer])
     coefs = np.asarray(m2.coef_, dtype=float)
-    s2_imp_feature = np.abs((x2[cancer] - x2[cancer].mean(axis=0))[:, None, :] * coefs[None, :, :]).mean(axis=(0, 1))
+    s2_imp_feature = np.abs(
+        (x2[cancer] - x2[cancer].mean(axis=0))[:, None, :] * coefs[None, :, :]
+    ).mean(axis=(0, 1))
     s2_imp = s2_imp_feature.reshape(len(BASE_MODELS), len(CANCER_TYPES)).mean(axis=1)
     for model, value in zip(BASE_MODELS, s1_imp):
-        rows.append({"task": "Cancer vs Non-cancer", "base_model": model, "mean_abs_linear_shap": float(value)})
+        rows.append(
+            {
+                "task": "Cancer vs Non-cancer",
+                "base_model": model,
+                "mean_abs_linear_shap": float(value),
+            }
+        )
     for model, value in zip(BASE_MODELS, s2_imp):
-        rows.append({"task": "Cancer Type", "base_model": model, "mean_abs_linear_shap": float(value)})
+        rows.append(
+            {"task": "Cancer Type", "base_model": model, "mean_abs_linear_shap": float(value)}
+        )
     return pd.DataFrame(rows)
 
 
@@ -425,19 +509,11 @@ def get_meta_type_input_weights() -> pd.DataFrame:
     oof = np.load(RUN_DIR / "fixed_train_oof.npz", allow_pickle=True)
     meta = json.loads((RUN_DIR / "fixed_split_results.json").read_text())
     meta_name = meta.get("best_meta", "elasticnet")
-    if meta_name == "elasticnet":
-        mk = lambda: LogisticRegression(
-            C=0.5, penalty="elasticnet", l1_ratio=0.5, max_iter=2000,
-            solver="saga", n_jobs=1, random_state=42,
-        )
-    else:
-        mk = lambda: LogisticRegression(C=1.0, max_iter=2000, solver="lbfgs", n_jobs=1)
-
     x2 = np.asarray(oof["meta_s2"], dtype=float)
     yb = np.asarray(oof["y_bin"], dtype=int)
     yt = np.asarray(oof["y_type"], dtype=int)
     cancer = yb == 1
-    model = mk()
+    model = _new_meta_classifier(meta_name)
     model.fit(x2[cancer], yt[cancer])
     coefs = np.asarray(model.coef_, dtype=float)
     classes = np.asarray(getattr(model, "classes_", np.unique(yt[cancer])), dtype=int)
@@ -458,11 +534,13 @@ def get_meta_type_input_weights() -> pd.DataFrame:
             raw_weights.append(value)
         total = float(np.sum(raw_weights))
         for base_model, value in zip(BASE_MODELS, raw_weights):
-            rows.append({
-                "cancer_type": CANCER_TYPES[int(class_id)],
-                "base_model": base_model,
-                "weight": value / total if total > 0 else 0.0,
-            })
+            rows.append(
+                {
+                    "cancer_type": CANCER_TYPES[int(class_id)],
+                    "base_model": base_model,
+                    "weight": value / total if total > 0 else 0.0,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -481,7 +559,7 @@ def _map_feature_importance_to_grid(
         peak_lookup = {name: (center, half_w) for center, name, half_w in KNOWN_PEAKS}
         for value, feature in zip(imp, names):
             if feature.startswith("ratio_"):
-                body = feature[len("ratio_"):]
+                body = feature[len("ratio_") :]
                 if "_over_" in body:
                     a, b = body.split("_over_", 1)
                     targets = [a, b]
@@ -512,7 +590,9 @@ def _map_feature_importance_to_grid(
     return score, peak_scores
 
 
-def compute_overall_stacking_attribution(force: bool = False) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+def compute_overall_stacking_attribution(
+    force: bool = False,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     if ATTRIBUTION_PATH.exists() and SPECTRAL_IMPORTANCE_PATH.exists() and not force:
         df = add_peak_assignment_columns(pd.read_csv(ATTRIBUTION_PATH))
         d = np.load(SPECTRAL_IMPORTANCE_PATH, allow_pickle=True)
@@ -537,7 +617,6 @@ def compute_overall_stacking_attribution(force: bool = False) -> tuple[pd.DataFr
 
     total_score = np.zeros(len(grid), dtype=float)
     peak_totals = {name: 0.0 for _, name, _ in KNOWN_PEAKS}
-    rows = []
 
     for model_name, spec in trainer.EXTENDED_BASE_MODELS.items():
         if model_name not in weights.index:
@@ -584,26 +663,34 @@ def compute_overall_stacking_attribution(force: bool = False) -> tuple[pd.DataFr
     for center, name, half_w in KNOWN_PEAKS:
         band = np.abs(grid - center) <= half_w
         band_score = float(total_score[band].sum()) if band.any() else 0.0
-        peak_rows.append({
-            "peak_position_cm-1": int(round(center)),
-            "peak_name": name,
-            "major_assignment": peak_representative_assignment(name),
-            "representative_assignment": peak_representative_assignment(name),
-            "candidate_assignments": peak_candidate_assignments(name),
-            "shade_min_cm-1": int(round(center - half_w)),
-            "shade_max_cm-1": int(round(center + half_w)),
-            "overall_attribution_score": band_score,
-            "rank": 0,
-        })
+        peak_rows.append(
+            {
+                "peak_position_cm-1": int(round(center)),
+                "peak_name": name,
+                "major_assignment": peak_representative_assignment(name),
+                "representative_assignment": peak_representative_assignment(name),
+                "candidate_assignments": peak_candidate_assignments(name),
+                "shade_min_cm-1": int(round(center - half_w)),
+                "shade_max_cm-1": int(round(center + half_w)),
+                "overall_attribution_score": band_score,
+                "rank": 0,
+            }
+        )
     df = pd.DataFrame(peak_rows).sort_values("overall_attribution_score", ascending=False)
     df["rank"] = np.arange(1, len(df) + 1)
-    df.to_csv(ATTRIBUTION_PATH, index=False)
+    df.to_csv(ATTRIBUTION_PATH, index=False, encoding="utf-8-sig")
     np.savez_compressed(SPECTRAL_IMPORTANCE_PATH, grid=grid, score=total_score)
     return df, grid, total_score
 
 
-def compute_cancer_type_peak_feature_importance(force: bool = False) -> tuple[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]:
-    if TYPE_FEATURE_IMPORTANCE_PATH.exists() and TYPE_SPECTRAL_IMPORTANCE_PATH.exists() and not force:
+def compute_cancer_type_peak_feature_importance(
+    force: bool = False,
+) -> tuple[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]:
+    if (
+        TYPE_FEATURE_IMPORTANCE_PATH.exists()
+        and TYPE_SPECTRAL_IMPORTANCE_PATH.exists()
+        and not force
+    ):
         df = add_peak_assignment_columns(pd.read_csv(TYPE_FEATURE_IMPORTANCE_PATH))
         d = np.load(TYPE_SPECTRAL_IMPORTANCE_PATH, allow_pickle=True)
         return df, d["grid"], {str(k): d[k] for k in d.files if k != "grid"}
@@ -657,8 +744,11 @@ def compute_cancer_type_peak_feature_importance(force: bool = False) -> tuple[pd
             if not target_mask.any():
                 continue
             imp = _class_feature_importance(
-                s2_model_obj, Xte_c[target_mask], Xtr_c,
-                target_class=target_idx, fitted_classes=fitted_classes,
+                s2_model_obj,
+                Xte_c[target_mask],
+                Xtr_c,
+                target_class=target_idx,
+                fitted_classes=fitted_classes,
             )
             grid_score, _peak_score = _map_feature_importance_to_grid(model_name, spec, imp, grid)
             if grid_score.sum() > 0:
@@ -677,29 +767,37 @@ def compute_cancer_type_peak_feature_importance(force: bool = False) -> tuple[pd
         for center, name, half_w in KNOWN_PEAKS:
             band = np.abs(grid - center) <= half_w
             feature_score = float(score[band].sum()) if band.any() else 0.0
-            rows.append({
-                "cancer_type": cancer_type,
-                "peak_position_cm-1": int(round(center)),
-                "peak_name": name,
-                "major_assignment": peak_representative_assignment(name),
-                "representative_assignment": peak_representative_assignment(name),
-                "candidate_assignments": peak_candidate_assignments(name),
-                "shade_min_cm-1": int(round(center - half_w)),
-                "shade_max_cm-1": int(round(center + half_w)),
-                "feature_importance_score": feature_score,
-                "rank": 0,
-            })
+            rows.append(
+                {
+                    "cancer_type": cancer_type,
+                    "peak_position_cm-1": int(round(center)),
+                    "peak_name": name,
+                    "major_assignment": peak_representative_assignment(name),
+                    "representative_assignment": peak_representative_assignment(name),
+                    "candidate_assignments": peak_candidate_assignments(name),
+                    "shade_min_cm-1": int(round(center - half_w)),
+                    "shade_max_cm-1": int(round(center + half_w)),
+                    "feature_importance_score": feature_score,
+                    "rank": 0,
+                }
+            )
         sub = pd.DataFrame(rows).sort_values("feature_importance_score", ascending=False)
         sub["rank"] = np.arange(1, len(sub) + 1)
         peak_rows.extend(sub.to_dict("records"))
     df = pd.DataFrame(peak_rows)
-    df.to_csv(TYPE_FEATURE_IMPORTANCE_PATH, index=False)
+    df.to_csv(TYPE_FEATURE_IMPORTANCE_PATH, index=False, encoding="utf-8-sig")
     np.savez_compressed(TYPE_SPECTRAL_IMPORTANCE_PATH, **npz_payload)
     return df, grid, {k: v for k, v in npz_payload.items() if k != "grid"}
 
 
-def compute_cancer_detection_peak_feature_importance(force: bool = False) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
-    if BINARY_FEATURE_IMPORTANCE_PATH.exists() and BINARY_SPECTRAL_IMPORTANCE_PATH.exists() and not force:
+def compute_cancer_detection_peak_feature_importance(
+    force: bool = False,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    if (
+        BINARY_FEATURE_IMPORTANCE_PATH.exists()
+        and BINARY_SPECTRAL_IMPORTANCE_PATH.exists()
+        and not force
+    ):
         df = add_peak_assignment_columns(pd.read_csv(BINARY_FEATURE_IMPORTANCE_PATH))
         d = np.load(BINARY_SPECTRAL_IMPORTANCE_PATH, allow_pickle=True)
         return df, d["grid"], d["score"]
@@ -745,26 +843,34 @@ def compute_cancer_detection_peak_feature_importance(force: bool = False) -> tup
     for center, name, half_w in KNOWN_PEAKS:
         band = np.abs(grid - center) <= half_w
         feature_score = float(total_score[band].sum()) if band.any() else 0.0
-        peak_rows.append({
-            "rank": 0,
-            "peak_position_cm-1": int(round(center)),
-            "peak_name": name,
-            "major_assignment": peak_representative_assignment(name),
-            "representative_assignment": peak_representative_assignment(name),
-            "candidate_assignments": peak_candidate_assignments(name),
-            "shade_min_cm-1": int(round(center - half_w)),
-            "shade_max_cm-1": int(round(center + half_w)),
-            "feature_importance_score": feature_score,
-        })
+        peak_rows.append(
+            {
+                "rank": 0,
+                "peak_position_cm-1": int(round(center)),
+                "peak_name": name,
+                "major_assignment": peak_representative_assignment(name),
+                "representative_assignment": peak_representative_assignment(name),
+                "candidate_assignments": peak_candidate_assignments(name),
+                "shade_min_cm-1": int(round(center - half_w)),
+                "shade_max_cm-1": int(round(center + half_w)),
+                "feature_importance_score": feature_score,
+            }
+        )
     df = pd.DataFrame(peak_rows).sort_values("feature_importance_score", ascending=False)
     df["rank"] = np.arange(1, len(df) + 1)
-    df.to_csv(BINARY_FEATURE_IMPORTANCE_PATH, index=False)
+    df.to_csv(BINARY_FEATURE_IMPORTANCE_PATH, index=False, encoding="utf-8-sig")
     np.savez_compressed(BINARY_SPECTRAL_IMPORTANCE_PATH, grid=grid, score=total_score)
     return df, grid, total_score
 
 
-def compute_cancer_detection_by_type_peak_feature_importance(force: bool = False) -> tuple[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]:
-    if BINARY_TYPE_FEATURE_IMPORTANCE_PATH.exists() and BINARY_TYPE_SPECTRAL_IMPORTANCE_PATH.exists() and not force:
+def compute_cancer_detection_by_type_peak_feature_importance(
+    force: bool = False,
+) -> tuple[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]:
+    if (
+        BINARY_TYPE_FEATURE_IMPORTANCE_PATH.exists()
+        and BINARY_TYPE_SPECTRAL_IMPORTANCE_PATH.exists()
+        and not force
+    ):
         df = add_peak_assignment_columns(pd.read_csv(BINARY_TYPE_FEATURE_IMPORTANCE_PATH))
         d = np.load(BINARY_TYPE_SPECTRAL_IMPORTANCE_PATH, allow_pickle=True)
         return df, d["grid"], {str(k): d[k] for k in d.files if k != "grid"}
@@ -821,28 +927,32 @@ def compute_cancer_detection_by_type_peak_feature_importance(force: bool = False
         for center, name, half_w in KNOWN_PEAKS:
             band = np.abs(grid - center) <= half_w
             feature_score = float(score[band].sum()) if band.any() else 0.0
-            rows.append({
-                "cancer_type": cancer_type,
-                "rank": 0,
-                "peak_position_cm-1": int(round(center)),
-                "peak_name": name,
-                "major_assignment": peak_representative_assignment(name),
-                "representative_assignment": peak_representative_assignment(name),
-                "candidate_assignments": peak_candidate_assignments(name),
-                "shade_min_cm-1": int(round(center - half_w)),
-                "shade_max_cm-1": int(round(center + half_w)),
-                "feature_importance_score": feature_score,
-            })
+            rows.append(
+                {
+                    "cancer_type": cancer_type,
+                    "rank": 0,
+                    "peak_position_cm-1": int(round(center)),
+                    "peak_name": name,
+                    "major_assignment": peak_representative_assignment(name),
+                    "representative_assignment": peak_representative_assignment(name),
+                    "candidate_assignments": peak_candidate_assignments(name),
+                    "shade_min_cm-1": int(round(center - half_w)),
+                    "shade_max_cm-1": int(round(center + half_w)),
+                    "feature_importance_score": feature_score,
+                }
+            )
         sub = pd.DataFrame(rows).sort_values("feature_importance_score", ascending=False)
         sub["rank"] = np.arange(1, len(sub) + 1)
         peak_rows.extend(sub.to_dict("records"))
     df = pd.DataFrame(peak_rows)
-    df.to_csv(BINARY_TYPE_FEATURE_IMPORTANCE_PATH, index=False)
+    df.to_csv(BINARY_TYPE_FEATURE_IMPORTANCE_PATH, index=False, encoding="utf-8-sig")
     np.savez_compressed(BINARY_TYPE_SPECTRAL_IMPORTANCE_PATH, **npz_payload)
     return df, grid, {k: v for k, v in npz_payload.items() if k != "grid"}
 
 
-def group_spectrum_stats(groups_to_keep: tuple[str, ...] = DISPLAY_CANCERS + ("CONTROL",)) -> dict[str, dict[str, np.ndarray | int]]:
+def group_spectrum_stats(
+    groups_to_keep: tuple[str, ...] = DISPLAY_CANCERS + ("CONTROL",),
+) -> dict[str, dict[str, np.ndarray | int]]:
     X_3ch, _meta, grid, groups, _sample_ids, _yb, _yt = load_plot_data()
     stats = {}
     for group in groups_to_keep:
@@ -879,17 +989,26 @@ def binary_metric_table(n_bootstrap: int = 1000) -> pd.DataFrame:
     for metric, (k, n, value) in counts.items():
         lo, hi = wilson_ci(k, n)
         rows.append({"metric": metric, "value": value, "ci_low": lo, "ci_high": hi, "n": n})
-    f1_lo, f1_hi = bootstrap_metric_ci(y, p, lambda yy, pp: f1_score(yy, (pp >= 0.5).astype(int), zero_division=0),
-                                       n_bootstrap=n_bootstrap, seed=44)
-    rows.append({"metric": "F1", "value": f1_score(y, pred), "ci_low": f1_lo, "ci_high": f1_hi, "n": len(y)})
+    f1_lo, f1_hi = bootstrap_metric_ci(
+        y,
+        p,
+        lambda yy, pp: f1_score(yy, (pp >= 0.5).astype(int), zero_division=0),
+        n_bootstrap=n_bootstrap,
+        seed=44,
+    )
+    rows.append(
+        {"metric": "F1", "value": f1_score(y, pred), "ci_low": f1_lo, "ci_high": f1_hi, "n": len(y)}
+    )
     roc_stats = bootstrap_roc_ci(y, p, n_bootstrap=n_bootstrap, seed=42)
-    rows.append({
-        "metric": "AUROC",
-        "value": float(roc_stats["auc"]),
-        "ci_low": float(roc_stats["auc_ci_low"]),
-        "ci_high": float(roc_stats["auc_ci_high"]),
-        "n": len(y),
-    })
+    rows.append(
+        {
+            "metric": "AUROC",
+            "value": float(roc_stats["auc"]),
+            "ci_low": float(roc_stats["auc_ci_low"]),
+            "ci_high": float(roc_stats["auc_ci_high"]),
+            "n": len(y),
+        }
+    )
     return pd.DataFrame(rows)
 
 
@@ -912,12 +1031,14 @@ def cancer_type_sensitivity_table() -> pd.DataFrame:
         if n == 0:
             continue
         lo, hi = wilson_ci(correct, n)
-        rows.append({
-            "cancer_type": labels[idx],
-            "sensitivity": correct / n,
-            "ci_low": lo,
-            "ci_high": hi,
-            "correct": correct,
-            "n": n,
-        })
+        rows.append(
+            {
+                "cancer_type": labels[idx],
+                "sensitivity": correct / n,
+                "ci_low": lo,
+                "ci_high": hi,
+                "correct": correct,
+                "n": n,
+            }
+        )
     return pd.DataFrame(rows)
