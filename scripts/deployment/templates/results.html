@@ -91,6 +91,36 @@
         </div>
     </div>
 
+    <div class="card-subsection">
+        <h3>{{ s.risk_band_guide_title }}</h3>
+        <table class="qc-table risk-band-guide">
+            <thead>
+                <tr>
+                    <th>{{ s.risk_band_guide_band }}</th>
+                    <th>{{ s.risk_band_range }}</th>
+                    <th>{{ s.risk_band_guide_meaning }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr {% if risk_info.level == 'LOW' %}aria-current="true"{% endif %}>
+                    <td><strong>{{ s.risk_low }}</strong></td>
+                    <td>{{ s.risk_low_range }}</td>
+                    <td>{{ s.risk_low_interpretation }}</td>
+                </tr>
+                <tr {% if risk_info.level == 'MODERATE' %}aria-current="true"{% endif %}>
+                    <td><strong>{{ s.risk_moderate }}</strong></td>
+                    <td>{{ s.risk_moderate_range }}</td>
+                    <td>{{ s.risk_moderate_interpretation }}</td>
+                </tr>
+                <tr {% if risk_info.level == 'HIGH' %}aria-current="true"{% endif %}>
+                    <td><strong>{{ s.risk_high }}</strong></td>
+                    <td>{{ s.risk_high_range }}</td>
+                    <td>{{ s.risk_high_interpretation }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
     <!-- QC Summary -->
     <div class="qc-summary-grid">
         <div><span>{{ s.qc_total_count }}</span><strong>{{ qc_summary.total }}회</strong></div>

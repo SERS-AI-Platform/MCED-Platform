@@ -716,7 +716,7 @@ async def report_csv(request: Request, session_id: str):
     writer.writerow(["검사 결과", "risk_band_range", risk_info["range_label"]])
     writer.writerow(["검사 결과", "risk_observed_cancer_rate", f"{risk_info['observed_cancer_rate']:.1f}%"])
     writer.writerow(["검사 결과", "risk_band_n", risk_info["n"]])
-    writer.writerow(["검사 결과", "risk_band_note", strings["risk_band_note"]])
+    writer.writerow(["검사 결과", "risk_band_note", f"{strings['risk_band_note']} LOW ({strings['risk_low_range']}): {strings['risk_low_interpretation']} MODERATE ({strings['risk_moderate_range']}): {strings['risk_moderate_interpretation']} HIGH ({strings['risk_high_range']}): {strings['risk_high_interpretation']}"])
     writer.writerow(["점수 산출", "ssi_calculation", strings["ssi_calculation_text"]])
     if patient_decision.get("model_probability_mean") is not None:
         writer.writerow(["점수 산출", "model_mean_probability", patient_decision.get("model_probability_mean")])

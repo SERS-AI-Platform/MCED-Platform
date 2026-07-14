@@ -444,6 +444,13 @@ body {
     background: var(--bg-secondary);
 }
 
+.risk-band-guide { table-layout: fixed; }
+.risk-band-guide th, .risk-band-guide td { word-break: keep-all; }
+.risk-band-guide th:nth-child(1), .risk-band-guide td:nth-child(1) { width: 14%; }
+.risk-band-guide th:nth-child(2), .risk-band-guide td:nth-child(2) { width: 24%; }
+.risk-band-guide th:nth-child(3), .risk-band-guide td:nth-child(3) { width: 62%; }
+.risk-band-guide tr[aria-current="true"] { background: var(--bg-secondary); }
+
 .qc-badge {
     display: inline-flex;
     align-items: center;
@@ -809,4 +816,22 @@ body {
     .form-row, .form-row-3 { grid-template-columns: 1fr; }
     .header { flex-wrap: wrap; gap: 8px; }
     .header-right { flex-wrap: wrap; }
+    .risk-band-guide, .risk-band-guide tbody,
+    .risk-band-guide tr, .risk-band-guide td {
+        display: block;
+        width: 100%;
+    }
+    .risk-band-guide thead { display: none; }
+    .risk-band-guide tr {
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .risk-band-guide td {
+        padding: 4px 12px;
+        border-bottom: 0;
+    }
+    .risk-band-guide td:nth-child(2) {
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
 }

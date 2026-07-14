@@ -35,6 +35,11 @@
 
         .disclaimer-box { padding: 12px 16px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px; font-size: 9pt; color: #92400E; margin-top: 24px; }
 
+        .risk-band-guide { table-layout: fixed; font-size: 9pt; }
+        .risk-band-guide th:nth-child(1), .risk-band-guide td:nth-child(1) { width: 10%; }
+        .risk-band-guide th:nth-child(2), .risk-band-guide td:nth-child(2) { width: 20%; }
+        .risk-band-guide th:nth-child(3), .risk-band-guide td:nth-child(3) { width: 70%; }
+
         .footer-line { margin-top: 32px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 9pt; color: #94A3B8; display: flex; justify-content: space-between; }
     </style>
 </head>
@@ -138,6 +143,30 @@
                 <br>{{ s.risk_band_note }}
                 {% if risk_info.small_n %}<br>{{ s.risk_small_n_caveat }}{% endif %}
             </td></tr>
+        </table>
+
+        <div class="section-title" style="margin-top: 16px; margin-bottom: 0;">{{ s.risk_band_guide_title }}</div>
+        <table class="risk-band-guide">
+            <tr>
+                <th>{{ s.risk_band_guide_band }}</th>
+                <th>{{ s.risk_band_range }}</th>
+                <th>{{ s.risk_band_guide_meaning }}</th>
+            </tr>
+            <tr>
+                <td><strong>{{ s.risk_low }}</strong></td>
+                <td>{{ s.risk_low_range }}</td>
+                <td>{{ s.risk_low_interpretation }}</td>
+            </tr>
+            <tr>
+                <td><strong>{{ s.risk_moderate }}</strong></td>
+                <td>{{ s.risk_moderate_range }}</td>
+                <td>{{ s.risk_moderate_interpretation }}</td>
+            </tr>
+            <tr>
+                <td><strong>{{ s.risk_high }}</strong></td>
+                <td>{{ s.risk_high_range }}</td>
+                <td>{{ s.risk_high_interpretation }}</td>
+            </tr>
         </table>
 
         {% if prediction.cancer_detected and cancer_types_sorted %}
