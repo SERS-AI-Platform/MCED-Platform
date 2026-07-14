@@ -75,6 +75,8 @@ monthly_meeting_*.pptx
 *.tif
 *.ico
 *.webp
+# Keep the Windows application icon used by the clinical app build.
+!scripts/deployment/static/icon.ico
 # Allow analysis figures and SVGs
 # *.png — allowed for reports
 # *.svg — allowed for reports

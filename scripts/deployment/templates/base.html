@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ s.app_title }} — {% block page_title %}{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/static/img/aecd-app-icon.png">
+    <link rel="apple-touch-icon" href="/static/img/aecd-app-icon.png">
     <link rel="stylesheet" href="/static/css/clinical.css">
     {% block head %}{% endblock %}
 </head>
@@ -13,7 +15,7 @@
     <!-- Header -->
     <header class="header">
         <div class="header-left">
-            <div class="header-logo">S</div>
+            <img class="header-logo" src="/static/img/aecd-app-icon.png" alt="" aria-hidden="true">
             <span class="header-title">{{ s.app_title }}</span>
         </div>
         <div class="header-right">
