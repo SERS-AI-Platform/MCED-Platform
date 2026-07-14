@@ -23,6 +23,11 @@ PACKAGE_AVAILABLE = pytest.mark.skipif(
 import generate_sharepoint_cohort_package as generator  # noqa: E402
 from yonsei_sharepoint.outputs import write_workbook  # noqa: E402
 
+GENERATOR_INPUTS_AVAILABLE = pytest.mark.skipif(
+    not any(generator.REACQUIRED_ROOT.rglob("*.CSV")),
+    reason="SharePoint regeneration requires external reacquired spectra",
+)
+
 
 def read_csv(name: str) -> list[dict[str, str]]:
     with (PACKAGE / "csv" / name).open(encoding="utf-8-sig", newline="") as handle:
@@ -58,6 +63,7 @@ def test_generator_rejects_missing_reacquired_measurements(
         generator.main()
 
 
+@GENERATOR_INPUTS_AVAILABLE
 def test_generator_removes_stale_package_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
