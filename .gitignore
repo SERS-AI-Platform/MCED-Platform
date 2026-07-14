@@ -65,6 +65,28 @@ monthly_meeting_*.pptx
 *.db
 *.sqlite
 .cache/
+/.omo/
+
+# Generated review and SharePoint deliverables
+/reports/
+/publications/대한암학회_*/
+/publications/전향검체/*/sharepoint_upload/
+/publications/전향검체/*/internal/
+
+# Publication source is versioned; large rendered cancer maps stay in SharePoint.
+/publications/cancers/*.csv
+/publications/cancers/*.pdf
+/publications/cancers/*.png
+
+# Internal Yonsei linkage and subject-level prediction exports
+/publications/전향검체/연세세브란스 병원/tables/yonsei_clinical_data_mapping.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_sample_clinical_mapping_compact.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_specimen_clinical_mapping.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_cohort_manifest.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_cv_folds.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_oof_predictions.csv
+/publications/전향검체/연세세브란스 병원/tables/severance_lr_cv_folds.csv
+/publications/전향검체/연세세브란스 병원/tables/severance_lr_oof_predictions.csv
 
 # Images & Figures (general)
 *.jpg
