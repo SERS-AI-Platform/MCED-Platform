@@ -1,0 +1,10 @@
+﻿item,value
+spectrum_level,Group mean of subject-level preprocessed spectra
+preprocessing,trim -> Savitzky-Golay smooth -> baseline correction -> SNV -> model grid
+local_maximum,scipy.signal.find_peaks on each group mean spectrum
+prominence_threshold,"max(0.08, 0.1 * group_mean_range)"
+min_distance_cm_minus_1,18.0
+common_peak_definition,All plotted groups have a detected peak within +/- tolerance
+consensus_tolerance_cm_minus_1,12.0
+differential_peak_score,Range of plotted group mean intensities at a detected peak cluster
+shaded_area_definition,"Top 5 differential peak clusters, +/-12.0 cm^-1"

@@ -1,0 +1,4 @@
+﻿true_label,pred_Control,pred_Biopsy-negative,pred_Cancer
+Control,14,6,1
+Biopsy-negative,2,33,12
+Cancer,3,12,26
