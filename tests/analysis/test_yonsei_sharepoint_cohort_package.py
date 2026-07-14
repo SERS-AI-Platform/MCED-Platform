@@ -52,15 +52,19 @@ def configure_outputs(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
 
 
 def test_generator_rejects_missing_reacquired_measurements(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    empty = tmp_path / "empty"
-    empty.mkdir()
-    configure_outputs(monkeypatch, tmp_path)
-    monkeypatch.setattr(generator, "REACQUIRED_ROOT", empty)
+    expected = [
+        {
+            "source_group": "YNOR",
+            "solum_label": "YNOR 1",
+            "acquisition_type": "reacquired",
+        }
+    ]
+    monkeypatch.setattr(generator, "read_rows", lambda _: expected)
 
     with pytest.raises(RuntimeError, match="reacquired measurement inventory"):
-        generator.main()
+        generator.validate_reacquired_measurements({})
 
 
 @GENERATOR_INPUTS_AVAILABLE
