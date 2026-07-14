@@ -1,0 +1,6 @@
+﻿item,value
+spectrum_level,Group mean of subject-level preprocessed spectra
+prominence_threshold,"max(0.08, 0.10 * group_mean_range)"
+min_distance_cm_minus_1,18.0
+consensus_tolerance_cm_minus_1,12.0
+common_peak_definition,Both YNOR and YPAN within tolerance

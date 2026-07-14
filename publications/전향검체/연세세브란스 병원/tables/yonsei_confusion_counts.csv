@@ -1,0 +1,5 @@
+﻿analysis_group,true_label,pred_label,n
+Cancer,1,0,12
+Cancer,1,1,18
+Control,0,0,16
+Control,0,1,14
