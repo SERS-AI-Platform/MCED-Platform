@@ -34,9 +34,9 @@
 ## 생성 표
 
 - `tables/yonsei_ynor_ypan_group_inventory.csv`
-- `tables/yonsei_ynor_ypan_acquisition_inventory.csv`
-- `tables/yonsei_ynor_ypan_processed_inventory.csv`
-- `tables/yonsei_ynor_ypan_clinical_records.csv`
+- `tables/yonsei_ynor_ypan_acquisition_inventory.csv` (검체 단위, Git 비추적)
+- `tables/yonsei_ynor_ypan_processed_inventory.csv` (검체 단위, Git 비추적)
+- `tables/yonsei_ynor_ypan_clinical_records.csv` (검체 단위, Git 비추적)
 - `tables/yonsei_ynor_ypan_clinical_completeness.csv`
 
 직접 환자 ID, 임상 원본 파일명, exact date, 자유서술 과거력은 새 표에서 제외했다. 날짜는 연도만 보존했다.

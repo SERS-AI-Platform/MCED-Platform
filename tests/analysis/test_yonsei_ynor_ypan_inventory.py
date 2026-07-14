@@ -3,8 +3,19 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2] / "publications" / "전향검체" / "연세세브란스 병원"
 TABLES = ROOT / "tables"
+SUBJECT_TABLE_NAMES = (
+    "yonsei_ynor_ypan_acquisition_inventory.csv",
+    "yonsei_ynor_ypan_clinical_records.csv",
+    "yonsei_ynor_ypan_processed_inventory.csv",
+)
+SUBJECT_TABLES_AVAILABLE = pytest.mark.skipif(
+    not all((TABLES / name).exists() for name in SUBJECT_TABLE_NAMES),
+    reason="Subject-level clinical exports are stored outside Git",
+)
 
 
 def read_rows(name: str) -> list[dict[str, str]]:
@@ -23,6 +34,7 @@ def test_group_inventory_separates_clinical_subject_and_acquisition_counts() -> 
     assert rows["YPAN"]["primary_model_subjects"] == "30"
 
 
+@SUBJECT_TABLES_AVAILABLE
 def test_acquisition_inventory_has_primary_and_reacquired_sets() -> None:
     rows = read_rows("yonsei_ynor_ypan_acquisition_inventory.csv")
 
@@ -32,6 +44,7 @@ def test_acquisition_inventory_has_primary_and_reacquired_sets() -> None:
     assert sum(int(row["n_replicates"]) for row in rows) == 590
 
 
+@SUBJECT_TABLES_AVAILABLE
 def test_clinical_inventory_is_pseudonymized_and_complete() -> None:
     rows = read_rows("yonsei_ynor_ypan_clinical_records.csv")
 
@@ -45,6 +58,7 @@ def test_clinical_inventory_is_pseudonymized_and_complete() -> None:
     assert "diagnosis_year" in rows[0]
 
 
+@SUBJECT_TABLES_AVAILABLE
 def test_processed_inventory_marks_repeat_acquisition_excluded() -> None:
     rows = read_rows("yonsei_ynor_ypan_processed_inventory.csv")
 

@@ -207,6 +207,6 @@ save_plot(make_corrected_plot(TRUE), "02_corrected_peak_structure_paper", width 
 save_plot(make_summary_plot(FALSE), "03_background_burden_titled", width = 5.6, height = 3.7)
 save_plot(make_summary_plot(TRUE), "03_background_burden_paper", width = 4.8, height = 3.4)
 
-write_csv(method_summary, file.path(out_dir, "baseline_correction_effect_plot_values.csv"))
+write_excel_csv(method_summary, file.path(out_dir, "baseline_correction_effect_plot_values.csv"))
 
 cat("Wrote signal-level baseline-correction figures to", out_dir, "\n")

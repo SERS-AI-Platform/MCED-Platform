@@ -150,6 +150,6 @@ save_plot(make_replicate_plot(TRUE), "01_replicate_consistency_paper", width = 5
 save_plot(make_corr_plot(FALSE), "02_replicate_correlation_titled", width = 5.6, height = 3.9)
 save_plot(make_corr_plot(TRUE), "02_replicate_correlation_paper", width = 5.0, height = 3.5)
 
-write_csv(summary_df, file.path(out_dir, "baseline_replicate_effect_plot_values.csv"))
+write_excel_csv(summary_df, file.path(out_dir, "baseline_replicate_effect_plot_values.csv"))
 
 cat("Wrote replicate-level baseline-correction figures to", out_dir, "\n")

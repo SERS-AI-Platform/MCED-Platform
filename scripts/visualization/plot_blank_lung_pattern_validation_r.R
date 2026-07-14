@@ -218,6 +218,6 @@ save_plot(make_lung_difference_plot(TRUE), "03_lun_class_difference_paper", widt
 save_plot(make_lung_affinity_plot(FALSE), "04_lun_subject_affinity_titled", width = 5.5, height = 3.8)
 save_plot(make_lung_affinity_plot(TRUE), "04_lun_subject_affinity_paper", width = 5.1, height = 3.3)
 
-write_csv(lung_summary, file.path(out_dir, "lung_pattern_plot_values.csv"))
+write_excel_csv(lung_summary, file.path(out_dir, "lung_pattern_plot_values.csv"))
 
 cat("Wrote blank/LUN pattern validation figures to", out_dir, "\n")

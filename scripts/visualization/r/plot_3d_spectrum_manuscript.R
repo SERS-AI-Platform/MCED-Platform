@@ -152,7 +152,7 @@ make_subject_mean_waterfall <- function() {
   spectrum_counts <- subject_mean %>%
     count(display_group, name = "n_subjects") %>%
     mutate(group_label = unname(group_labels[as.character(display_group)]))
-  write_csv(spectrum_counts, file.path(out_dir, "fig_sers_3d_subject_mean_spectra_counts.csv"))
+  write_excel_csv(spectrum_counts, file.path(out_dir, "fig_sers_3d_subject_mean_spectra_counts.csv"))
 
   wavenumbers <- as.numeric(sub("^x_", "", wn_cols))
   intensity_matrix <- as.matrix(subject_mean[, wn_cols])

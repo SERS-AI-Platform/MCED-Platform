@@ -29,13 +29,14 @@
 - 전체 정리: `YNOR_YPAN_DATA_SUMMARY.md`
 - 임상 레코드: YNOR 30명, YPAN 30명
 - Primary spectrum 독립 피험자: YNOR 29명, YPAN 30명
-- Primary/reacquired acquisition inventory: `tables/yonsei_ynor_ypan_acquisition_inventory.csv`
-- Pseudonymized full clinical records: `tables/yonsei_ynor_ypan_clinical_records.csv`
+- Primary/reacquired acquisition inventory: `tables/yonsei_ynor_ypan_acquisition_inventory.csv` (검체 단위, Git 비추적)
+- Pseudonymized full clinical records: `tables/yonsei_ynor_ypan_clinical_records.csv` (검체 단위, Git 비추적)
 - Clinical field completeness: `tables/yonsei_ynor_ypan_clinical_completeness.csv`
-- Processed acquisition 포함·제외 상태: `tables/yonsei_ynor_ypan_processed_inventory.csv`
+- Processed acquisition 포함·제외 상태: `tables/yonsei_ynor_ypan_processed_inventory.csv` (검체 단위, Git 비추적)
 
 ### SharePoint 업로드본
 
+- 아래 패키지는 생성 후 SharePoint에 보관하며 Git에는 포함하지 않는다.
 - 통합 Excel: `sharepoint_upload/2026_SERS-AI_Yonsei_Prospective_Cohort_v1.0/2026_SERS-AI_Yonsei_Prospective_Cohort_v1.0.xlsx`
 - 업로드용 ZIP: `sharepoint_upload/2026_SERS-AI_Yonsei_Prospective_Cohort_v1.0.zip`
 - 내용: cohort 요약, 측정 일정, 비식별 subject manifest, 1차·2차 acquisition inventory, YNOR ID mapping, 임상정보 completeness
@@ -64,6 +65,8 @@
 ## Cancer Screening 결과
 
 Primary setting: production preprocessing → subject mean → 32-point block mean → StandardScaler → Logistic Regression (`C=3`). Unique-subject stratified 5-fold CV를 100회 반복했다.
+
+> 주의: 이 Cancer Screening 성능은 병원별 모집군·측정 조건 차이의 영향을 받을 수 있으므로 cross-hospital 일반화 성능으로 해석할 수 없다. 독립 병원 검증이 필요하다.
 
 | Metric | Estimate | Interval / variability |
 |---|---:|---:|

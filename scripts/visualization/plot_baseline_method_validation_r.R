@@ -227,7 +227,7 @@ for (spec in plot_specs) {
   save_plot(p_paper, paste0(spec$stem, "_paper"), width = 4.8, height = 3.6)
 }
 
-write_csv(
+write_excel_csv(
   df %>%
     select(
       method,

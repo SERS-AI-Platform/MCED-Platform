@@ -87,6 +87,14 @@ monthly_meeting_*.pptx
 /publications/전향검체/연세세브란스 병원/tables/yonsei_oof_predictions.csv
 /publications/전향검체/연세세브란스 병원/tables/severance_lr_cv_folds.csv
 /publications/전향검체/연세세브란스 병원/tables/severance_lr_oof_predictions.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_ynor_ypan_acquisition_inventory.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_ynor_ypan_clinical_records.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_ynor_ypan_processed_inventory.csv
+
+# Subject-level Boramae clinical and prediction exports
+/publications/전향검체/보라매병원/tables/clinical_classification_analysis.csv
+/publications/전향검체/보라매병원/tables/*_oof_predictions.csv
+/publications/전향검체/보라매병원/clean_vs_prospective/tables/*_oof_predictions.csv
 
 # Images & Figures (general)
 *.jpg

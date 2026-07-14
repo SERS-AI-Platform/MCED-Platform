@@ -4,9 +4,9 @@ This script compares the current rolling-minimum baseline correction against
 reference-friendly penalized least-squares alternatives while keeping the rest
 of the pipeline fixed:
 
-    load raw -> fixed grid -> calibration -> Stage 1 raw QC
+    load raw -> fixed grid -> calibration -> raw-signal QC
     -> smooth -> baseline method -> SNV -> fixed-grid resampling
-    -> Stage 2 processed QC -> subject aggregation -> LR evaluation
+    -> processed-signal QC -> subject aggregation -> LR evaluation
 
 Outputs are written to results/baseline_method_validation/.
 """
@@ -482,7 +482,7 @@ def main() -> int:
         shift_df.to_csv(out_dir / "calibration_shifts.csv", index=False, encoding="utf-8-sig")
 
     qc = config.qc
-    LOGGER.info("Running Stage 1 raw QC")
+    LOGGER.info("Running raw-signal QC")
     s1_pass, stage1_drops = apply_stage1_qc(
         raw_for_qc,
         fingerprint_region=tuple(qc.fingerprint_region),
@@ -493,7 +493,7 @@ def main() -> int:
     )
     stage1_drops.to_csv(out_dir / "stage1_raw_qc_drops.csv", index=False, encoding="utf-8-sig")
     raw_stage1 = {key: raw_for_qc[key] for key in s1_pass}
-    LOGGER.info("Stage 1 retained %d/%d spectra", len(raw_stage1), len(raw_for_qc))
+    LOGGER.info("Raw-signal QC retained %d/%d spectra", len(raw_stage1), len(raw_for_qc))
 
     summary_rows = []
     all_fold_rows = []

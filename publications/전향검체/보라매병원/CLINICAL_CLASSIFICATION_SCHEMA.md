@@ -116,8 +116,8 @@ error_direction:
 
 ## 현재 데이터에서의 적용 범위
 
-- 실제 결합 표: `tables/clinical_classification_analysis.csv` (109 subjects, 35 fields, UTF-8 BOM)
-- 내부 매칭 표: `internal/clinical_classification_analysis_bpro.csv` (원본 `BPRO n` 라벨 기준, 109 subjects, 35 fields)
+- 실제 결합 표: `tables/clinical_classification_analysis.csv` (109 subjects, 35 fields, UTF-8 BOM, Git 비추적)
+- 내부 매칭 표: `internal/clinical_classification_analysis_bpro.csv` (원본 `BPRO n` 라벨 기준, 109 subjects, 35 fields, Git 비추적)
 - 현재 모델 결과는 subject-level nested 5-fold OOF prediction이다.
 - 현재 보라매 cohort는 Control 21명, Biopsy-negative 47명, Prostate cancer 41명이다.
 - Grade Group은 Cancer 내부의 일부 환자에서만 확인되므로 `Unknown`을 별도 상태로 유지한다.
