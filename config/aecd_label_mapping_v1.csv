@@ -1,0 +1,4 @@
+mapping_version,source_cancer_file,cohort_group,source_cancer_type,study_cancer_type,case_status
+aecd-label-v1,control,control,prostate,prostate,healthy_control
+aecd-label-v1,control,prostate disease control,prostate,prostate,disease_control
+aecd-label-v1,prostate,prostate,prostate,prostate,cancer_case
