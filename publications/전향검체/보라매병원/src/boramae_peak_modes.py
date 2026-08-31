@@ -87,7 +87,7 @@ def three_groups(subjects: list[SubjectSpectrum]) -> tuple[PeakGroup, ...]:
             group_matrix(subjects, "Biopsy-negative"),
         ),
         PeakGroup(
-            "Prostate cancer",
+            "Cancer",
             "Cancer",
             COLORS["Prostate cancer"],
             group_matrix(subjects, "Prostate cancer"),

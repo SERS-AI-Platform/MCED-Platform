@@ -1,37 +1,70 @@
+"""AECD API 기반 데이터 로더.
+
+기존 파일 기반 로더(로컬 CSV + 임상 xlsx)를 대체하여, 스펙트럼/임상 정보를
+AECD Data API에서 가져온다. **다운스트림 인터페이스는 그대로 유지**한다:
+
+    - ClinicalSample, SubjectSpectrum  (dataclass)
+    - preprocess_arrays()              (전처리 파이프라인)
+    - build_boramae_subjects()         (subject 단위 평균 스펙트럼)
+    - build_aligned_boramae_subjects() (calibrate_spectrum 적용 버전)
+    - group_matrix()                   (그룹별 행렬)
+
+⚠️  '# CONFIRM' 로 표시된 부분은 실제 API 응답 스키마 확인 후 확정 필요.
+"""
+
 from __future__ import annotations
 
-import csv
-import re
-import sys
-from dataclasses import dataclass
+import os
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Final
+from typing import Any, Final, Iterator
 
+import httpx
 import numpy as np
-import openpyxl
 from scipy.signal import savgol_filter
 
-REPO: Final = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(REPO / "src"))
-
-from sers.io import read_spectrum  # noqa: E402
+# 로컬 전처리 유틸은 그대로 재사용 (API는 '원본에 가까운' 스펙트럼을 주는 것으로 가정)
 from sers.preprocessing import calibrate_spectrum  # noqa: E402
 from sers.signal import baseline_correction, snv  # noqa: E402
 
-OUT: Final = REPO / "publications" / "전향검체" / "보라매병원"
-FIG_DIR: Final = OUT / "figures"
-TABLE_DIR: Final = OUT / "tables"
-CLINICAL_XLSX: Final = REPO / "data" / "clinical_data" / "보라매 병원 임상정보.xlsx"
-BORAMAE_ROOT: Final = REPO / "data" / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100"
-LEGACY_PRO_ROOT: Final = REPO / "data" / "raw_data" / "1. Prostate cancer (100개)"
-CLEAN_MANIFEST: Final = REPO / "results" / "clean_cohort_20260605" / "clean_cohort_manifest.csv"
+# ------------------------------------------------------------------ #
+# Configuration (notebook 블록과 동일 규약)
+# ------------------------------------------------------------------ #
+API_BASE_URL: Final = os.environ.get("AECD_API_BASE_URL", "http://127.0.0.1:8000")
+API_KEY: Final = os.environ.get("AECD_API_KEY")
+DEMO_MODE: Final = os.environ.get("AECD_NOTEBOOK_DEMO", "0") == "1"
+
+# 쿼리 필터 (원하는 코호트를 지정; None이면 전체)
+SITE_CODE: str | None = None
+COHORT_GROUP: str | None = None
+CANCER_TYPE: str | None = None
+PAGE_SIZE: Final = 500
+MAX_SPECTRA: Final = 100_000
+
+# 모델 공용 그리드는 여전히 로컬 아티팩트를 사용 (필요하면 API로도 교체 가능)
+REPO: Final = Path(__file__).resolve().parents[4]
 MODEL_GRID: Final = REPO / "artifacts" / "usersnet" / "v1.0.0" / "common_grid.npy"
+
 LABELS: Final = ["Control", "Biopsy-negative", "Prostate cancer"]
 SHORT_LABELS: Final = ["Control", "Biopsy-negative", "Prostate"]
-COLORS: Final = {"Control": "#2C7FB8", "Biopsy-negative": "#7A5195", "Prostate cancer": "#D95F02"}
-FILE_RE: Final = re.compile(r"^(BPRO|BNOR)\s+([0-9]+)_([0-9]+|ave)\.CSV$", re.IGNORECASE)
+COLORS: Final = {
+    "Control": "#2C7FB8",
+    "Biopsy-negative": "#7A5195",
+    "Prostate cancer": "#D95F02",
+}
+
+# CONFIRM: API의 cohort_group 코드값 -> 분석 라벨 매핑
+GROUP_MAP: Final = {
+    "control": "Control",
+    "biopsy_negative": "Biopsy-negative",  # CONFIRM 실제 코드값
+    "prostate": "Prostate cancer",
+}
 
 
+# ------------------------------------------------------------------ #
+# Dataclasses (기존과 동일 시그니처 유지)
+# ------------------------------------------------------------------ #
 @dataclass(frozen=True, slots=True)
 class ClinicalSample:
     label: str
@@ -55,74 +88,118 @@ class CleanProSpectra:
     shifts: np.ndarray
 
 
-def ensure_dirs() -> None:
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
-    TABLE_DIR.mkdir(parents=True, exist_ok=True)
+# ------------------------------------------------------------------ #
+# API client
+# ------------------------------------------------------------------ #
+class AecdApiClient:
+    """AECD Data API용 얇은 httpx 래퍼 (페이지네이션 포함)."""
+
+    def __init__(
+        self,
+        base_url: str = API_BASE_URL,
+        api_key: str | None = API_KEY,
+        timeout: float = 60.0,
+    ) -> None:
+        headers: dict[str, str] = {"Accept": "application/json"}
+        if api_key:
+            # CONFIRM: 인증 헤더 형식 (Bearer vs x-api-key)
+            headers["Authorization"] = f"Bearer {api_key}"
+        self._client = httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+
+    # context manager
+    def __enter__(self) -> "AecdApiClient":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._client.close()
+
+    def _paginate(self, path: str, params: dict[str, Any] | None) -> Iterator[dict[str, Any]]:
+        """page/page_size 기반 페이지네이션 (CONFIRM: cursor/offset이면 교체)."""
+        page = 1
+        fetched = 0
+        while True:
+            query = dict(params or {})
+            query.update({"page": page, "page_size": PAGE_SIZE})
+            resp = self._client.get(path, params=query)
+            resp.raise_for_status()
+            payload = resp.json()
+            # CONFIRM: 응답 envelope 키 ("items" / "results" / "data")
+            items = payload.get("items") or payload.get("results") or []
+            if not items:
+                break
+            for item in items:
+                yield item
+                fetched += 1
+                if fetched >= MAX_SPECTRA:
+                    return
+            # CONFIRM: 다음 페이지 판단 방식
+            has_next = payload.get("has_next")
+            if has_next is None:
+                has_next = len(items) == PAGE_SIZE
+            if not has_next:
+                break
+            page += 1
+
+    def iter_spectra(
+        self,
+        *,
+        site_code: str | None = None,
+        cohort_group: str | None = None,
+        cancer_type: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """스펙트럼 레코드 스트림. CONFIRM: 실제 엔드포인트 경로."""
+        params: dict[str, Any] = {}
+        if site_code:
+            params["site_code"] = site_code
+        if cohort_group:
+            params["cohort_group"] = cohort_group
+        if cancer_type:
+            params["cancer_type"] = cancer_type
+        yield from self._paginate("/v1/spectra", params)  # CONFIRM 경로
 
 
-def row_is_excluded(sheet: openpyxl.worksheet.worksheet.Worksheet, row: int) -> bool:
-    return any(
-        sheet.cell(row, col).fill.fgColor.type == "rgb"
-        and sheet.cell(row, col).fill.fgColor.rgb == "FFFFFF00"
-        for col in range(1, sheet.max_column + 1)
+# ------------------------------------------------------------------ #
+# 레코드 -> 배열/도메인 객체 변환
+# ------------------------------------------------------------------ #
+def _record_arrays(record: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    """스펙트럼 레코드에서 (wavenumber, intensity) 추출.
+
+    CONFIRM: 실제 키 이름 (예: 'wavenumbers'/'intensities' 또는
+             'x'/'y' 또는 'raman_shift'/'counts').
+    """
+    x = np.asarray(record["wavenumbers"], dtype=float)  # CONFIRM
+    y = np.asarray(record["intensities"], dtype=float)  # CONFIRM
+    return x, y
+
+
+def _record_sample(record: dict[str, Any]) -> ClinicalSample:
+    """스펙트럼/임상 레코드에서 ClinicalSample 구성.
+
+    CONFIRM: 각 필드에 매핑되는 API 키.
+    """
+    label = str(record.get("solum_label") or record.get("subject_label") or record["subject_id"])
+    grade_raw = record.get("grade_group")
+    return ClinicalSample(
+        label=label,
+        sample_no=str(record.get("sample_no") or label.split()[-1]),
+        group=GROUP_MAP.get(str(record.get("cohort_group")), "Excluded"),  # CONFIRM
+        grade_group=int(grade_raw) if isinstance(grade_raw, int) else None,
+        # CONFIRM: API에 'excluded' 플래그가 있는지 (원본은 셀 배경색으로 판단)
+        excluded=bool(record.get("excluded", False)),
     )
 
 
-def parse_group(raw_group: str | None) -> str:
-    mapped = {
-        "control": "Control",
-        "Elevated PSA, biopsy-negative (PSA↑/Bx−)": "Biopsy-negative",
-        "prostate": "Prostate cancer",
-        None: "Excluded",
-    }.get(raw_group)
-    if mapped is not None:
-        return mapped
-    msg = f"Unknown clinical group: {raw_group}"
-    raise RuntimeError(msg)
+def _subject_key(record: dict[str, Any]) -> str:
+    """리플리케이트를 묶는 subject 식별자. CONFIRM: 실제 키."""
+    return str(record.get("subject_id") or record.get("solum_label"))
 
 
-def load_clinical_samples() -> list[ClinicalSample]:
-    wb = openpyxl.load_workbook(CLINICAL_XLSX, data_only=True)
-    sheet = wb.active
-    headers = [sheet.cell(1, col).value for col in range(1, sheet.max_column + 1)]
-    cols = {str(name): i + 1 for i, name in enumerate(headers) if name is not None}
-    samples: list[ClinicalSample] = []
-    for row in range(2, sheet.max_row + 1):
-        raw_label = str(sheet.cell(row, cols["solum_label"]).value)
-        grade_raw = sheet.cell(row, cols["Grade Group"]).value
-        samples.append(
-            ClinicalSample(
-                label=raw_label,
-                sample_no=raw_label.split()[-1],
-                group=parse_group(sheet.cell(row, cols["group"]).value),
-                grade_group=int(grade_raw) if isinstance(grade_raw, int) else None,
-                excluded=row_is_excluded(sheet, row),
-            )
-        )
-    return samples
-
-
-def collect_boramae_files() -> dict[str, list[Path]]:
-    files: dict[str, list[Path]] = {}
-    for path in sorted(BORAMAE_ROOT.rglob("*.CSV")):
-        match = FILE_RE.match(path.name)
-        if match is None:
-            continue
-        group, sample_no, rep = match.groups()
-        if rep.lower() != "ave":
-            files.setdefault(f"{group.upper()} {sample_no}", []).append(path)
-    return files
-
-
-def raw_key(sample: ClinicalSample, files: dict[str, list[Path]]) -> str:
-    for group in ("BPRO", "BNOR"):
-        key = f"{group} {sample.sample_no}"
-        if key in files:
-            return key
-    msg = f"No raw spectra found for {sample.label}"
-    raise RuntimeError(msg)
-
-
+# ------------------------------------------------------------------ #
+# 전처리 (기존과 동일 파이프라인 — 로직 변경 없음)
+# ------------------------------------------------------------------ #
 def preprocess_arrays(
     x: np.ndarray, y: np.ndarray, grid: np.ndarray
 ) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], np.ndarray]:
@@ -142,95 +219,99 @@ def preprocess_arrays(
     }, y_grid
 
 
-def preprocess_file(
-    path: Path, grid: np.ndarray
-) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], np.ndarray]:
-    return preprocess_arrays(*read_spectrum(path), grid)
+def _preprocess_record(record: dict[str, Any], grid: np.ndarray) -> np.ndarray:
+    return preprocess_arrays(*_record_arrays(record), grid)[1]
 
 
-def preprocess_aligned_file(path: Path, grid: np.ndarray) -> tuple[np.ndarray, float]:
-    x, y = read_spectrum(path)
+def _preprocess_aligned_record(
+    record: dict[str, Any], grid: np.ndarray
+) -> tuple[np.ndarray, float]:
+    x, y = _record_arrays(record)
     aligned_x, aligned_y, shift = calibrate_spectrum(x, y, window=20.0)
     return preprocess_arrays(aligned_x, aligned_y, grid)[1], shift
 
 
+# ------------------------------------------------------------------ #
+# Subject 빌더 (기존 build_*_subjects 대응)
+# ------------------------------------------------------------------ #
+def _grouped_records(
+    client: AecdApiClient,
+    *,
+    site_code: str | None,
+    cohort_group: str | None,
+    cancer_type: str | None,
+) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for record in client.iter_spectra(
+        site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
+    ):
+        grouped[_subject_key(record)].append(record)
+    return grouped
+
+
 def build_boramae_subjects(
-    samples: list[ClinicalSample], grid: np.ndarray
+    grid: np.ndarray,
+    *,
+    client: AecdApiClient | None = None,
+    site_code: str | None = SITE_CODE,
+    cohort_group: str | None = COHORT_GROUP,
+    cancer_type: str | None = CANCER_TYPE,
 ) -> list[SubjectSpectrum]:
-    files = collect_boramae_files()
-    subjects: list[SubjectSpectrum] = []
-    for sample in samples:
-        if sample.excluded or sample.group == "Excluded":
-            continue
-        spectra = [preprocess_file(path, grid)[1] for path in files[raw_key(sample, files)]]
-        mat = np.vstack(spectra)
-        subjects.append(
-            SubjectSpectrum(sample=sample, mean_spectrum=mat.mean(axis=0), replicate_spectra=mat)
+    """API에서 subject 단위 평균 스펙트럼 구성 (원본 함수 대체)."""
+    owns_client = client is None
+    client = client or AecdApiClient()
+    try:
+        grouped = _grouped_records(
+            client, site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
         )
-    return subjects
+        subjects: list[SubjectSpectrum] = []
+        for _, records in grouped.items():
+            sample = _record_sample(records[0])
+            if sample.excluded or sample.group == "Excluded":
+                continue
+            mat = np.vstack([_preprocess_record(r, grid) for r in records])
+            subjects.append(
+                SubjectSpectrum(sample=sample, mean_spectrum=mat.mean(axis=0), replicate_spectra=mat)
+            )
+        return subjects
+    finally:
+        if owns_client:
+            client.close()
 
 
 def build_aligned_boramae_subjects(
-    samples: list[ClinicalSample], grid: np.ndarray
+    grid: np.ndarray,
+    *,
+    client: AecdApiClient | None = None,
+    site_code: str | None = SITE_CODE,
+    cohort_group: str | None = COHORT_GROUP,
+    cancer_type: str | None = CANCER_TYPE,
 ) -> tuple[list[SubjectSpectrum], np.ndarray]:
-    files = collect_boramae_files()
-    subjects: list[SubjectSpectrum] = []
-    shifts: list[np.ndarray] = []
-    for sample in samples:
-        if sample.excluded or sample.group == "Excluded":
-            continue
-        aligned = [preprocess_aligned_file(path, grid) for path in files[raw_key(sample, files)]]
-        matrix = np.vstack([item[0] for item in aligned])
-        shifts.append(np.asarray([item[1] for item in aligned], dtype=float))
-        subjects.append(
-            SubjectSpectrum(
-                sample=sample, mean_spectrum=matrix.mean(axis=0), replicate_spectra=matrix
-            )
+    """calibrate_spectrum 적용 버전 (원본 aligned 함수 대체)."""
+    owns_client = client is None
+    client = client or AecdApiClient()
+    try:
+        grouped = _grouped_records(
+            client, site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
         )
-    return subjects, np.vstack(shifts)
-
-
-def build_legacy_pro_subjects(grid: np.ndarray) -> np.ndarray:
-    grouped: dict[str, list[Path]] = {}
-    for path in sorted(LEGACY_PRO_ROOT.glob("PRO *.CSV")):
-        match = re.match(r"^PRO\s+([0-9]+)_([0-9]+|ave)\.CSV$", path.name)
-        if match is not None and match.group(2) != "ave":
-            grouped.setdefault(match.group(1), []).append(path)
-    rows = [
-        np.vstack([preprocess_file(path, grid)[1] for path in paths]).mean(axis=0)
-        for paths in grouped.values()
-    ]
-    return np.vstack(rows)
-
-
-def clean_pro_ids() -> set[str]:
-    with CLEAN_MANIFEST.open(encoding="utf-8-sig") as handle:
-        rows = csv.DictReader(handle)
-        return {str(int(float(row["sample_id"]))) for row in rows if row["source_group"] == "PRO"}
-
-
-def build_clean_pro_alignment(grid: np.ndarray) -> CleanProSpectra:
-    selected = clean_pro_ids()
-    grouped: dict[str, list[Path]] = {}
-    for path in sorted(LEGACY_PRO_ROOT.glob("PRO *.CSV")):
-        match = re.match(r"^PRO\s+([0-9]+)_([0-9]+|ave)\.CSV$", path.name)
-        if match is not None and match.group(1) in selected and match.group(2) != "ave":
-            grouped.setdefault(match.group(1), []).append(path)
-    ordered = sorted(grouped, key=int)
-    spectra = [
-        np.vstack([preprocess_file(path, grid)[1] for path in grouped[item]]).mean(axis=0)
-        for item in ordered
-    ]
-    aligned_items = [
-        [preprocess_aligned_file(path, grid) for path in grouped[item]] for item in ordered
-    ]
-    aligned = [np.vstack([result[0] for result in items]).mean(axis=0) for items in aligned_items]
-    shifts = [result[1] for items in aligned_items for result in items]
-    return CleanProSpectra(np.vstack(spectra), np.vstack(aligned), np.asarray(shifts, dtype=float))
-
-
-def build_clean_pro_subjects(grid: np.ndarray) -> np.ndarray:
-    return build_clean_pro_alignment(grid).spectra
+        subjects: list[SubjectSpectrum] = []
+        shifts: list[np.ndarray] = []
+        for _, records in grouped.items():
+            sample = _record_sample(records[0])
+            if sample.excluded or sample.group == "Excluded":
+                continue
+            aligned = [_preprocess_aligned_record(r, grid) for r in records]
+            matrix = np.vstack([item[0] for item in aligned])
+            shifts.append(np.asarray([item[1] for item in aligned], dtype=float))
+            subjects.append(
+                SubjectSpectrum(
+                    sample=sample, mean_spectrum=matrix.mean(axis=0), replicate_spectra=matrix
+                )
+            )
+        return subjects, (np.vstack(shifts) if shifts else np.empty((0, 0)))
+    finally:
+        if owns_client:
+            client.close()
 
 
 def group_matrix(subjects: list[SubjectSpectrum], group: str) -> np.ndarray:

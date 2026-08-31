@@ -10,8 +10,8 @@ from prostate_comparison_model import OofResult
 from prostate_shift_alignment import PeakMatch
 from sklearn.metrics import RocCurveDisplay
 
-SCREENING_TITLE: Final = "Fig03. Screening: Control + Biopsy-negative vs prostate cancer"
-THREE_GROUP_TITLE: Final = "Fig06. 3-group: Control / Biopsy-negative / prostate cancer"
+SCREENING_TITLE: Final = "Fig03. Cancer vs Non-cancer: Control + Biopsy-negative vs Cancer"
+THREE_GROUP_TITLE: Final = "Fig06. 3-group: Control / Biopsy-negative / Cancer"
 
 
 @dataclass(frozen=True, slots=True)

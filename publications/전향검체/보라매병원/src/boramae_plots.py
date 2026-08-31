@@ -58,7 +58,7 @@ def plot_clean_pro_comparison(
     fig, axes = plt.subplots(2, 1, figsize=(11, 8), sharex=True)
     items = [
         ("Clean PRO", clean_pro, "#4D4D4D"),
-        ("Boramae prostate", boramae, COLORS["Prostate cancer"]),
+        ("Boramae Cancer", boramae, COLORS["Prostate cancer"]),
     ]
     for name, mat, color in items:
         mean = mat.mean(axis=0)
@@ -94,7 +94,7 @@ def plot_prostate_grade_difference(subjects: list[SubjectSpectrum], grid: np.nda
         axes[0].scatter(
             pca[mask, 0], pca[mask, 1], label=f"{label} (n={mask.sum()})", color=color, alpha=0.85
         )
-    axes[0].set_title("PCA of prostate cancer spectra")
+    axes[0].set_title("PCA of Cancer spectra")
     axes[0].set_xlabel("PC1")
     axes[0].set_ylabel("PC2")
     axes[0].legend(frameon=False)
@@ -125,7 +125,7 @@ def plot_prostate_grade_difference(subjects: list[SubjectSpectrum], grid: np.nda
         ax.grid(alpha=0.2)
     axes[1].set_xlabel("Raman shift (cm$^{-1}$)")
     axes[2].set_xlabel("Raman shift (cm$^{-1}$)")
-    fig.suptitle("Fig05. Prostate cancer internal subgroup check by Grade Group", y=1.02)
+    fig.suptitle("Fig05. Cancer internal subgroup check by Grade Group", y=1.02)
     save_plot("fig05_prostate_grade_group_difference")
 
 
