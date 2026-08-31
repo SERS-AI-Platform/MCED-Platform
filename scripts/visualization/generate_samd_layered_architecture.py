@@ -4,7 +4,7 @@ and Authentication & Audit). Mirrors the "Layered Architecture of the
 Clinical Analysis Web Application" reference diagram style.
 
 Usage: python scripts/visualization/generate_samd_layered_architecture.py
-Output: docs/images/samd_layered_architecture.png
+Output: docs/assets/images/samd_layered_architecture.png
 """
 
 from pathlib import Path
@@ -13,7 +13,7 @@ import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "docs" / "images"
+OUT_DIR = Path(__file__).resolve().parents[2] / "docs" / "assets" / "images"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 for f in fm.fontManager.ttflist:

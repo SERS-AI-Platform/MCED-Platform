@@ -1,9 +1,9 @@
 """Option-specific app-structure diagrams for dGMP review.
 
 The output intentionally keeps the existing filenames used by
-docs/samd_infra_security_options.md:
+docs/architecture/samd_infra_security_options.md:
 
-    docs/images/pipeline_option_{a,b,c}.png
+    docs/assets/images/pipeline_option_{a,b,c}.png
 
 Each figure maps one infrastructure option onto the same SaMD web-app layers.
 The point is not to prescribe a hospital deployment or business model. The
@@ -22,7 +22,7 @@ import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "docs" / "images"
+OUT_DIR = Path(__file__).resolve().parents[2] / "docs" / "assets" / "images"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 for font in fm.fontManager.ttflist:
