@@ -229,7 +229,7 @@ dataset:
       label: "Prostate Cancer (Boramae)"
       category: "cancer"
       n_samples: 300
-      protocol: "BORAMAE_CURRENT"
+      protocol: "SMCXD07"
       study_type: "prospective"
       hospital: "Seoul National University Boramae Hospital"
       hospital_kr: "서울대보라매병원"
@@ -239,7 +239,7 @@ dataset:
       label: "Normal Control (Boramae)"
       category: "control"
       n_samples: 150
-      protocol: "BORAMAE_CURRENT"
+      protocol: "SMCXD07"
       study_type: "prospective"
       hospital: "Seoul National University Boramae Hospital"
       hospital_kr: "서울대보라매병원"
