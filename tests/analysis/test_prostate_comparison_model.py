@@ -102,10 +102,10 @@ def test_parse_group_when_biopsy_is_negative_uses_publication_label() -> None:
 
 def test_publication_figure_titles_use_exact_biopsy_negative_label() -> None:
     assert prostate_comparison_plots.SCREENING_TITLE == (
-        "Fig03. Screening: Control + Biopsy-negative vs prostate cancer"
+        "Fig03. Cancer vs Non-cancer: Control + Biopsy-negative vs Cancer"
     )
     assert prostate_comparison_plots.THREE_GROUP_TITLE == (
-        "Fig06. 3-group: Control / Biopsy-negative / prostate cancer"
+        "Fig06. 3-group: Control / Biopsy-negative / Cancer"
     )
 
 
