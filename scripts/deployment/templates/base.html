@@ -20,6 +20,10 @@
         </div>
         <div class="header-right">
             <span class="user-info">{{ user.display_name }} ({{ user.role }})</span>
+            <a href="/history" class="btn-logout">{{ s.history }}</a>
+            {% if user.role == 'admin' %}
+            <a href="/account" class="btn-logout">{{ s.account }}</a>
+            {% endif %}
             <button class="lang-toggle" onclick="toggleLang()">{{ 'EN' if lang == 'ko' else '한' }}</button>
             <a href="/manual" class="btn-logout" target="_blank" rel="noopener">{{ s.manual_download }}</a>
             <a href="/logout" class="btn-logout">{{ s.logout }}</a>

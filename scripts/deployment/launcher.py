@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-SERS Clinical Webapp - Desktop Launcher
+AECD Software - Desktop Launcher
 
 PyInstaller로 .exe 빌드 시 사용되는 런처.
 서버 시작 → 브라우저 자동 열기 → 종료 시 정리
 """
 
 import os
-import sys
-import time
 import socket
-import webbrowser
+import sys
 import threading
+import time
+import webbrowser
 from pathlib import Path
 
 # Determine bundle location (PyInstaller _MEIPASS or source dir)
@@ -45,12 +45,13 @@ def find_free_port(start: int = 8080) -> int:
 def wait_for_server(url: str, timeout: int = 30) -> bool:
     """Poll the server until it responds or timeout."""
     import urllib.request
+
     start = time.time()
     while time.time() - start < timeout:
         try:
             urllib.request.urlopen(f"{url}/health", timeout=1)
             return True
-        except Exception:
+        except OSError:
             time.sleep(0.3)
     return False
 
@@ -66,7 +67,7 @@ def open_browser_when_ready(url: str):
 
 def print_banner():
     print("=" * 60)
-    print("  SERS 암 선별검사 시스템 (Clinical Webapp)")
+    print("  AECD Software")
     print("  SOLUM Healthcare")
     print("=" * 60)
     print(f"  서버 주소: {URL}")
@@ -78,11 +79,10 @@ def print_banner():
 def main():
     global PORT, URL
 
-    print_banner()
-
     # Find free port
     PORT = find_free_port(8080)
     URL = f"http://{HOST}:{PORT}"
+    print_banner()
 
     # Set working directory to app bundle (so DB and templates are found)
     if getattr(sys, "frozen", False):
@@ -94,6 +94,7 @@ def main():
     # Start uvicorn server (blocks until Ctrl+C / window close)
     try:
         import uvicorn
+
         from scripts.deployment.sers_clinical_webapp import app
 
         uvicorn.run(
@@ -105,7 +106,7 @@ def main():
         )
     except KeyboardInterrupt:
         print("\n\n  Server stopped by user.")
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:
         print(f"\n\n  ERROR: {e}")
         input("\n  Press Enter to exit...")
         sys.exit(1)

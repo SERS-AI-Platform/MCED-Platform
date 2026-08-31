@@ -17,128 +17,140 @@
         <span class="patient-bar-value">{{ s.male if session.sex == 'M' else s.female }}</span>
     </div>
     <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.bmi }}:</span>
+        <span class="patient-bar-value">{{ session.bmi if session.bmi is not none else "—" }}</span>
+    </div>
+    <div class="patient-bar-item">
         <span class="patient-bar-label">{{ s.model }}:</span>
         <span class="patient-bar-value">{{ s.model_display_name }}</span>
     </div>
     <div class="patient-bar-item">
         <span class="patient-bar-label">{{ s.analysis_standard }}:</span>
-        <span class="patient-bar-value">{{ s.standard_decision_rule }}</span>
+        <span class="patient-bar-value">{{ s.legacy_decision_policy if is_legacy_decision else s.standard_decision_rule }}</span>
     </div>
 </div>
 
-<div class="card">
-    <h2 class="card-title">{{ s.results_title }}</h2>
+<div class="card results-card">
+    <h1 class="card-title">{{ s.results_title }}</h1>
 
     <!-- Primary Result -->
-    <div class="result-primary {% if not qc_summary.valid %}invalid{% elif prediction.cancer_detected %}positive{% else %}negative{% endif %}">
-        <div class="result-icon">
-            {% if not qc_summary.valid %}&#9888;{% elif prediction.cancer_detected %}&#9888;{% else %}&#10003;{% endif %}
+    <div class="result-primary {{ final_decision }}">
+        <div class="result-icon" aria-hidden="true">
+            {% if final_decision == 'negative' %}&#10003;{% else %}&#9888;{% endif %}
         </div>
         <div class="result-label">
-            {% if not qc_summary.valid %}
+            {% if final_decision == 'invalid' %}
                 {{ s.invalid_decision }}
-            {% elif prediction.cancer_detected %}
-                {{ s.positive }}
+            {% elif final_decision == 'positive' %}
+                {{ s.positive_decision }}
+            {% elif final_decision == 'moderate' %}
+                {{ s.moderate_decision }}
             {% else %}
-                {{ s.negative }}
+                {{ s.negative_decision }}
             {% endif %}
         </div>
         <div class="result-sub">
-            {{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}
-            {% if prediction.majority_vote %} &middot; {{ s.majority_vote_label }}: {{ prediction.majority_vote }}{% endif %}
+            <span class="result-metric">{{ s.screening_index }}: {{ "%.2f"|format(prediction.screening_index) }}</span>
+            {% if prediction.cancer_signal_spectra_count is not none %}
+            <span class="result-metric">&middot; {{ s.majority_vote_label }}: {{ prediction.cancer_signal_spectra_count }}{{ s.spectra_unit }}</span>
+            <span class="result-metric">&middot; {{ s.qc_valid_spectra_label }}: {{ prediction.qc_valid_spectra_count }}{{ s.spectra_unit }}</span>
+            {% elif prediction.majority_vote %}<span class="result-metric">&middot; {{ s.majority_vote_label }}: {{ prediction.majority_vote }}</span>{% endif %}
         </div>
     </div>
 
     <!-- Screening Index Gauge -->
     <div style="margin-bottom: 32px;">
+        {% if is_legacy_decision %}
+        <section class="mean-ssi-reference" aria-labelledby="mean-ssi-reference-title">
+            <h2 id="mean-ssi-reference-title">{{ s.legacy_mean_ssi_reference_title }}</h2>
+            <p class="mean-ssi-note">{{ s.legacy_ssi_calculation_text }}</p>
+        </section>
+        {% else %}
         <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">{{ s.screening_index }}</div>
         <div class="gauge-container">
-            <div class="gauge-threshold" style="left: {{ ((prediction.ssi_threshold / 10) * 100)|round }}%;"></div>
+            <div class="gauge-boundary" style="left: 10%;" aria-hidden="true"></div>
+            <div class="gauge-boundary" style="left: 40%;" aria-hidden="true"></div>
             <div class="gauge-marker" style="left: {{ ((prediction.screening_index / 10) * 100)|round }}%;">
                 <div class="gauge-value">{{ "%.2f"|format(prediction.screening_index) }}</div>
             </div>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-            <span>0.0</span>
-            <span>{{ s.decision_threshold }}: {{ "%.1f"|format(prediction.ssi_threshold) }}</span>
-            <span>10.0</span>
+        <div class="gauge-axis" aria-hidden="true">
+            <span style="left: 0%;">0.0</span>
+            <span style="left: 10%;">1.0</span>
+            <span style="left: 40%;">4.0</span>
+            <span style="left: 100%;">10.0</span>
         </div>
-        <div class="score-explanation">
-            <div class="score-explanation-title">{{ s.ssi_calculation_title }}</div>
-            <p>{{ s.ssi_calculation_text }}</p>
-            {% if prediction.model_probability_mean is not none %}
-            <div class="score-source">
-                {{ s.ssi_source_values }}:
-                {{ s.model_mean_probability }} p={{ "%.4f"|format(prediction.model_probability_mean) }},
-                {{ s.model_probability_threshold }} θ={{ "%.4f"|format(prediction.model_probability_threshold) }},
-                {{ s.ssi_threshold_label }}={{ "%.1f"|format(prediction.ssi_threshold) }}/10.0
-            </div>
-            {% endif %}
-            <div style="margin-top: 10px;">
-                <span style="display:inline-block; padding:2px 10px; border-radius:12px; font-weight:700; color:{{ risk_info.color }}; background:{{ risk_info.bg }};">
+        <section class="mean-ssi-reference" aria-labelledby="mean-ssi-reference-title">
+            <h2 id="mean-ssi-reference-title">{{ s.legacy_mean_ssi_reference_title if is_legacy_decision else s.mean_ssi_reference_title }}</h2>
+            <div class="mean-ssi-summary">
+                <span class="risk-badge risk-{{ risk_info.level.lower() }}">
                     {{ s.risk_level }}: {{ s['risk_' + risk_info.level.lower()] }}
                 </span>
-                <span style="margin-left: 8px;">
-                    {{ s.risk_band_range }} {{ risk_info.range_label }},
-                    {{ s.risk_observed_cancer_rate }} {{ "%.1f"|format(risk_info.observed_cancer_rate) }}%
-                    ({{ s.risk_band_sample_count }} n={{ risk_info.n }})
-                </span>
+                <span>{{ s.risk_band_range }} {{ risk_info.range_label }}</span>
             </div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                {{ s.risk_band_note }}
-                {% if risk_info.small_n %} {{ s.risk_small_n_caveat }}{% endif %}
-            </div>
-        </div>
+            <p class="mean-ssi-observation">
+                {{ s.risk_observed_cancer_rate }}
+                <strong>{{ "%.1f"|format(risk_info.observed_cancer_rate) }}%</strong>
+                <span>({{ s.risk_band_sample_count }} n={{ risk_info.n }})</span>
+            </p>
+            {% if risk_info.small_n %}
+            <p class="mean-ssi-caveat">{{ s.risk_small_n_caveat }}</p>
+            {% endif %}
+            <p class="mean-ssi-note">{{ s.risk_band_note if not is_legacy_decision else s.legacy_ssi_calculation_text }}</p>
+        </section>
+        {% endif %}
     </div>
 
+    {% if not is_legacy_decision %}
     <div class="card-subsection">
-        <h3>{{ s.risk_band_guide_title }}</h3>
+        <h2>{{ s.risk_band_guide_title }}</h2>
         <table class="qc-table risk-band-guide">
             <thead>
                 <tr>
-                    <th>{{ s.risk_band_guide_band }}</th>
-                    <th>{{ s.risk_band_range }}</th>
-                    <th>{{ s.risk_band_guide_meaning }}</th>
+                    <th scope="col">{{ s.risk_band_guide_band }}</th>
+                    <th scope="col">{{ s.risk_band_range }}</th>
+                    <th scope="col">{{ s.risk_band_guide_meaning }}</th>
                 </tr>
             </thead>
             <tbody>
                 <tr {% if risk_info.level == 'LOW' %}aria-current="true"{% endif %}>
-                    <td><strong>{{ s.risk_low }}</strong></td>
-                    <td>{{ s.risk_low_range }}</td>
-                    <td>{{ s.risk_low_interpretation }}</td>
+                    <td data-label="{{ s.risk_band_guide_band }}"><strong>{{ s.risk_low }}</strong></td>
+                    <td data-label="{{ s.risk_band_range }}">{{ s.risk_low_range }}</td>
+                    <td data-label="{{ s.risk_band_guide_meaning }}">{{ s.risk_low_interpretation }}</td>
                 </tr>
                 <tr {% if risk_info.level == 'MODERATE' %}aria-current="true"{% endif %}>
-                    <td><strong>{{ s.risk_moderate }}</strong></td>
-                    <td>{{ s.risk_moderate_range }}</td>
-                    <td>{{ s.risk_moderate_interpretation }}</td>
+                    <td data-label="{{ s.risk_band_guide_band }}"><strong>{{ s.risk_moderate }}</strong></td>
+                    <td data-label="{{ s.risk_band_range }}">{{ s.risk_moderate_range }}</td>
+                    <td data-label="{{ s.risk_band_guide_meaning }}">{{ s.risk_moderate_interpretation }}</td>
                 </tr>
                 <tr {% if risk_info.level == 'HIGH' %}aria-current="true"{% endif %}>
-                    <td><strong>{{ s.risk_high }}</strong></td>
-                    <td>{{ s.risk_high_range }}</td>
-                    <td>{{ s.risk_high_interpretation }}</td>
+                    <td data-label="{{ s.risk_band_guide_band }}"><strong>{{ s.risk_high }}</strong></td>
+                    <td data-label="{{ s.risk_band_range }}">{{ s.risk_high_range }}</td>
+                    <td data-label="{{ s.risk_band_guide_meaning }}">{{ s.risk_high_interpretation }}</td>
                 </tr>
             </tbody>
         </table>
     </div>
+    {% endif %}
 
     <!-- QC Summary -->
     <div class="qc-summary-grid">
-        <div><span>{{ s.qc_total_count }}</span><strong>{{ qc_summary.total }}회</strong></div>
-        <div><span>{{ s.qc_pass_count }}</span><strong>{{ qc_summary.passed }}회</strong></div>
-        <div><span>{{ s.qc_fail_count }}</span><strong>{{ qc_summary.failed }}회</strong></div>
+        <div><span>{{ s.qc_total_count }}</span><strong>{{ qc_summary.total }}{{ s.measurement_unit }}</strong></div>
+        <div><span>{{ s.qc_pass_count }}</span><strong>{{ qc_summary.passed }}{{ s.measurement_unit }}</strong></div>
+        <div><span>{{ s.qc_fail_count }}</span><strong>{{ qc_summary.failed }}{{ s.measurement_unit }}</strong></div>
         <div><span>{{ s.qc_pass_rate }}</span><strong>{{ "%.1f"|format(qc_summary.pass_rate) }}%</strong></div>
-        <div><span>{{ s.qc_min_valid_count }}</span><strong>{{ qc_summary.min_valid_count }}회</strong></div>
+        <div><span>{{ s.qc_min_valid_count }}</span><strong>{{ qc_summary.min_valid_count }}{{ s.measurement_unit }}</strong></div>
         <div><span>{{ s.qc_validity }}</span><strong>{{ s.qc_valid if qc_summary.valid else s.qc_invalid }}</strong></div>
     </div>
 
     <div class="card-subsection">
-        <h3>{{ s.qc_failure_reasons }}</h3>
+        <h2>{{ s.qc_failure_reasons }}</h2>
         <div class="reason-list">
-            <span>{{ s.qc_reason_low_intensity }} {{ qc_summary.reason_counts.low_intensity }}건</span>
-            <span>{{ s.qc_reason_spike_noise }} {{ qc_summary.reason_counts.spike_noise }}건</span>
-            <span>{{ s.qc_reason_saturation }} {{ qc_summary.reason_counts.saturation }}건</span>
-            <span>{{ s.qc_reason_low_correlation }} {{ qc_summary.reason_counts.low_correlation }}건</span>
-            <span>{{ s.qc_reason_other }} {{ qc_summary.reason_counts.other }}건</span>
+            <span>{{ s.qc_reason_low_intensity }} {{ qc_summary.reason_counts.low_intensity }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_spike_noise }} {{ qc_summary.reason_counts.spike_noise }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_saturation }} {{ qc_summary.reason_counts.saturation }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_low_correlation }} {{ qc_summary.reason_counts.low_correlation }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_other }} {{ qc_summary.reason_counts.other }}{{ s.case_unit }}</span>
         </div>
     </div>
 
@@ -147,7 +159,7 @@
     <div style="margin-bottom: 24px;">
         <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">{{ s.estimated_type }}</div>
 
-        <div style="padding: 16px; background: #FEF2F2; border-radius: var(--radius); margin-bottom: 16px;">
+        <div class="cancer-type-copy" style="padding: 16px; background: #FEF2F2; border-radius: var(--radius); margin-bottom: 16px;">
             <div style="font-size: 20px; font-weight: 700; color: var(--positive-bg);">
                 {{ s['cancer_' + type_confidence.top.code] }}
                 ({{ type_confidence.top.code }})
@@ -171,10 +183,9 @@
             </div>
             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
                 {{ s.type_score_source_values }}:
-                {{ s.top_type_probability }} p_type={{ "%.4f"|format(type_confidence.top.prob) }} × 10 =
-                {{ "%.1f"|format(type_confidence.top.prob * 10) }}/10.0
+                {{ s.top_type_probability }} {{ "%.1f"|format(type_confidence.top.prob * 100) }}%
                 {% if type_confidence.second.code %}
-                · {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}%p
+                · {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}{{ s.percentage_point_unit }}
                 {% endif %}
             </div>
             {% if type_confidence.level == 'high' %}
@@ -206,8 +217,8 @@
             <strong>{{ s.top_type_rationale }}:</strong>
             {{ s['cancer_' + type_confidence.top.code] }} {{ "%.1f"|format(type_confidence.top.prob * 100) }}%,
             {% if type_confidence.second.code %}
-            2순위 {{ s['cancer_' + type_confidence.second.code] }} {{ "%.1f"|format(type_confidence.second.prob * 100) }}%,
-            {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}%p
+            {{ s.second_rank }} {{ s['cancer_' + type_confidence.second.code] }} {{ "%.1f"|format(type_confidence.second.prob * 100) }}%,
+            {{ s.probability_gap }} {{ "%.1f"|format(type_confidence.gap * 100) }}{{ s.percentage_point_unit }}
             {% endif %}
         </div>
         {% endif %}
@@ -215,22 +226,22 @@
     {% endif %}
 
     <!-- QC Summary (Collapsible) -->
-    <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+    <button class="collapsible-toggle" aria-expanded="false" aria-controls="qcDetail" onclick="toggleCollapsible(this)">
         <span class="arrow">&#9654;</span>
         {{ s.qc_summary_label }} ({{ qc_passed }}/{{ qc_total }})
     </button>
     <div class="collapsible-content" id="qcDetail">
-        <table class="qc-table">
+        <table class="qc-table result-detail-table">
             <thead>
-                <tr><th>{{ s.file }}</th><th>{{ s.qc_intensity }}</th><th>{{ s.qc_correlation }}</th><th>{{ s.status }}</th></tr>
+                <tr><th scope="col">{{ s.file }}</th><th scope="col">{{ s.qc_intensity }}</th><th scope="col">{{ s.qc_correlation }}</th><th scope="col">{{ s.status }}</th></tr>
             </thead>
             <tbody>
                 {% for spec in spectra %}
                 <tr>
-                    <td>{{ spec.filename }}</td>
-                    <td>{{ "%.2f"|format(spec.fp_mean) if spec.fp_mean else "—" }}</td>
-                    <td>{{ "%.4f"|format(spec.replicate_correlation) if spec.replicate_correlation else "—" }}</td>
-                    <td><span class="qc-badge {{ 'pass' if spec.qc_pass else 'fail' }}">
+                    <td data-label="{{ s.file }}">{{ spec.filename }}</td>
+                    <td data-label="{{ s.qc_intensity }}">{{ "%.2f"|format(spec.fp_mean) if spec.fp_mean else "—" }}</td>
+                    <td data-label="{{ s.qc_correlation }}">{{ "%.4f"|format(spec.replicate_correlation) if spec.replicate_correlation else "—" }}</td>
+                    <td data-label="{{ s.status }}"><span class="qc-badge {{ 'pass' if spec.qc_pass else 'fail' }}">
                         {{ s.qc_pass if spec.qc_pass else s.qc_fail }}
                     </span></td>
                 </tr>
@@ -241,22 +252,22 @@
 
     <!-- Replicate Details (Collapsible) -->
     {% if per_replicate %}
-    <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+    <button class="collapsible-toggle" aria-expanded="false" aria-controls="replicateDetail" onclick="toggleCollapsible(this)">
         <span class="arrow">&#9654;</span>
         {{ s.replicate_details }}
     </button>
-    <div class="collapsible-content">
-        <table class="qc-table">
+    <div class="collapsible-content" id="replicateDetail">
+        <table class="qc-table result-detail-table">
             <thead>
-                <tr><th>{{ s.file }}</th><th>{{ s.screening_index }}</th><th>{{ s.test_result }}</th><th>{{ s.correlation }}</th></tr>
+                <tr><th scope="col">{{ s.file }}</th><th scope="col">{{ s.screening_index }}</th><th scope="col">{{ s.test_result }}</th><th scope="col">{{ s.correlation }}</th></tr>
             </thead>
             <tbody>
                 {% for rep in per_replicate %}
                 <tr>
-                    <td>{{ rep.file }}</td>
-                    <td>{{ "%.2f"|format(rep.ssi_score if rep.ssi_score is defined else rep.cancer_probability) }}</td>
-                    <td>{{ s.positive if rep.cancer_detected else s.negative }}</td>
-                    <td>{{ "%.4f"|format(rep.replicate_correlation) if rep.replicate_correlation else "—" }}</td>
+                    <td data-label="{{ s.file }}">{{ rep.file }}</td>
+                    <td data-label="{{ s.screening_index }}">{{ "%.2f"|format(rep.ssi_score if rep.ssi_score is defined else rep.cancer_probability) }}</td>
+                    <td data-label="{{ s.test_result }}">{{ s.replicate_above_internal_threshold if rep.cancer_detected else s.replicate_below_internal_threshold }}</td>
+                    <td data-label="{{ s.correlation }}">{{ "%.4f"|format(rep.replicate_correlation) if rep.replicate_correlation else "—" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -273,7 +284,7 @@
     <!-- Actions -->
     <div class="action-row">
         <a href="/patient/{{ session.id }}/report" class="btn btn-primary" style="text-decoration:none;">
-            &#128196; {{ s.generate_report }}
+            {{ s.generate_report }}
         </a>
         <a href="/patient/{{ session.id }}/report.csv" class="btn btn-secondary" style="text-decoration:none;">
             {{ s.csv_download }}
@@ -287,11 +298,4 @@
     </p>
 </div>
 
-<script>
-function toggleCollapsible(btn) {
-    btn.classList.toggle('open');
-    const content = btn.nextElementSibling;
-    content.classList.toggle('open');
-}
-</script>
 {% endblock %}

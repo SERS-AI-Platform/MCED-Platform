@@ -1,0 +1,12 @@
+﻿patient_id,age,sex,bmi,scenario,relative_path,source_split,source_group,source_sample_id,expected_qc_passed,expected_ssi,expected_ssi_band,expected_cancer_detected,expected_cancer_type,verified_model
+UT-DUMMY-001,71,M,30.9,heldout_pass,usability/heldout_pass/UT-DUMMY-001_PRO,heldout_test_60_20_20_seed42,PRO,31,5,6.96,high,true,PRO,usersnet/v1.0.0
+UT-DUMMY-002,72,F,25.45,heldout_pass,usability/heldout_pass/UT-DUMMY-002_LUN,heldout_test_60_20_20_seed42,LUN,212,5,7.35,high,true,LUN,usersnet/v1.0.0
+UT-DUMMY-003,79,F,24.8,heldout_pass,usability/heldout_pass/UT-DUMMY-003_CRC,heldout_test_60_20_20_seed42,CRC,277,5,9.22,high,true,CRC,usersnet/v1.0.0
+UT-DUMMY-004,78,F,18.7,heldout_pass,usability/heldout_pass/UT-DUMMY-004_PAN,heldout_test_60_20_20_seed42,PAN,43,5,9.98,high,true,PAN,usersnet/v1.0.0
+UT-DUMMY-005,65,F,28.2,heldout_pass,usability/heldout_pass/UT-DUMMY-005_OVA,heldout_test_60_20_20_seed42,OVA,48,5,4.81,high,true,OVA,usersnet/v1.0.0
+UT-DUMMY-006,54,F,22.0,heldout_pass,usability/heldout_pass/UT-DUMMY-006_BRE,heldout_test_60_20_20_seed42,BRE,29,5,6.81,high,true,BRE,usersnet/v1.0.0
+UT-DUMMY-007,82,M,23.8,heldout_pass,usability/heldout_pass/UT-DUMMY-007_BLC,heldout_test_60_20_20_seed42,BLC,298,5,5.90,high,true,BLC,usersnet/v1.0.0
+UT-DUMMY-008,43,F,20.1,heldout_pass,usability/heldout_pass/UT-DUMMY-008_NOR,heldout_test_60_20_20_seed42,NOR,13,5,0.17,low,false,,usersnet/v1.0.0
+UT-DUMMY-009,35,F,22.5,heldout_pass,usability/heldout_pass/UT-DUMMY-009_NOR,heldout_test_60_20_20_seed42,NOR,1,5,1.32,medium,false,,usersnet/v1.0.0
+UT-QC-001,75,M,21.66,qc_initial_fail,usability/qc_remeasurement/UT-QC-001/initial_fail,heldout_test_60_20_20_seed42,LUN,261,2,,,,,usersnet/v1.0.0
+UT-QC-001,75,M,21.66,qc_remeasure_pass,usability/qc_remeasurement/UT-QC-001/remeasure_pass,heldout_test_60_20_20_seed42,LUN,261,5,9.98,high,true,LUN,usersnet/v1.0.0

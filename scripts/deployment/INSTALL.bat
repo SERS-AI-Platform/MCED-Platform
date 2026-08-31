@@ -2,20 +2,20 @@
 setlocal enabledelayedexpansion
 
 REM ============================================================
-REM SERS Clinical Webapp - One-Click Installer
+REM AECD Software - One-Click Installer
 REM ============================================================
 
 REM Auto-navigate to project root (parent of scripts\deployment)
 cd /d "%~dp0..\..\"
 
-title SERS Clinical Webapp - Installer
+title AECD Software - Installer
 
 color 0B
 cls
 echo.
 echo  ============================================================
 echo.
-echo                SERS Cancer Screening System
+echo                       AECD Software
 echo                    SOLUM Healthcare
 echo.
 echo                  Installer v1.0
@@ -151,7 +151,7 @@ echo [5/5] Creating desktop shortcut...
 
 set EXEPATH=%CD%\dist\SERS_Clinical\SERS_Clinical.exe
 set ICONPATH=%CD%\scripts\deployment\static\icon.ico
-set SHORTCUT=%USERPROFILE%\Desktop\SERS Clinical.lnk
+set SHORTCUT=%USERPROFILE%\Desktop\AECD Software.lnk
 
 REM Use PowerShell to create shortcut
 powershell -NoProfile -Command ^
@@ -159,7 +159,7 @@ powershell -NoProfile -Command ^
     "$sc = $ws.CreateShortcut('%SHORTCUT%');" ^
     "$sc.TargetPath = '%EXEPATH%';" ^
     "$sc.WorkingDirectory = '%CD%\dist\SERS_Clinical';" ^
-    "$sc.Description = 'SERS Cancer Screening System';" ^
+    "$sc.Description = 'AECD Software';" ^
     "if (Test-Path '%ICONPATH%') { $sc.IconLocation = '%ICONPATH%' };" ^
     "$sc.Save()"
 
@@ -182,13 +182,12 @@ echo.
 echo  ============================================================
 echo.
 echo   How to run:
-echo     1. Double-click "SERS Clinical" icon on desktop
+echo     1. Double-click "AECD Software" icon on desktop
 echo     2. Or run directly:
 echo        %EXEPATH%
 echo.
 echo   Default accounts:
 echo     - admin   / admin123  (Admin)
-echo     - tech1   / admin123  (Lab Technician)
 echo     - doctor1 / admin123  (Clinician)
 echo.
 echo   Browser will open automatically (http://127.0.0.1:8080)

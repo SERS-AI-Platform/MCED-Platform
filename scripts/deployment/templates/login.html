@@ -10,10 +10,12 @@
     </div>
 
     {% if error %}
-    <div class="login-error">{{ s.login_error }}</div>
+    <div class="login-error" role="alert" aria-live="assertive" tabindex="-1" autofocus>
+        {{ s.login_error }}
+    </div>
     {% endif %}
     {% if registered %}
-    <div class="success-message">
+    <div class="success-message" role="status" aria-live="polite">
         &#10003; {{ s.register_success_login }}
     </div>
     {% endif %}
@@ -41,5 +43,8 @@
             {{ s.password_reset_notice }}
         </div>
     </div>
+    <a href="/manual" class="btn btn-secondary login-manual">
+        {{ s.manual_download }}
+    </a>
 </div>
 {% endblock %}

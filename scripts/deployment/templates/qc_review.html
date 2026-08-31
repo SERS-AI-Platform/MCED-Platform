@@ -16,23 +16,31 @@
         <span class="patient-bar-label">{{ s.sex }}:</span>
         <span class="patient-bar-value">{{ s.male if session.sex == 'M' else s.female }}</span>
     </div>
+    {% if session.bmi is not none %}
+    <div class="patient-bar-item">
+        <span class="patient-bar-label">{{ s.bmi }}:</span>
+        <span class="patient-bar-value">{{ session.bmi }}</span>
+    </div>
+    {% endif %}
 </div>
 
 <div class="card">
     <h2 class="card-title">{{ s.qc_title }}</h2>
 
     <!-- QC Summary -->
-    <div style="margin-bottom: 20px; padding: 16px; background: {% if qc_passed < min_qc_pass_count %}#FEF2F2{% else %}var(--bg-secondary){% endif %}; border-radius: var(--radius);">
-        <strong>{{ qc_summary_label }}</strong>
-        <div class="form-hint" style="margin-top: 4px;">{{ s.qc_min_pass }}</div>
+    <div style="margin-bottom: 20px; padding: 16px; background: {% if not qc_summary.valid %}#FEF2F2{% else %}var(--bg-secondary){% endif %}; border-radius: var(--radius);">
+        <strong>{{ qc_summary_label if qc_summary.valid else s.qc_invalid_heading }}</strong>
+        <div class="form-hint" style="margin-top: 4px;">
+            {% if not qc_summary.valid %}{{ qc_summary_label }} &middot; {% endif %}{{ s.qc_min_pass }}
+        </div>
     </div>
 
     <div class="qc-summary-grid">
-        <div><span>{{ s.qc_total_count }}</span><strong>{{ qc_summary.total }}회</strong></div>
-        <div><span>{{ s.qc_pass_count }}</span><strong>{{ qc_summary.passed }}회</strong></div>
-        <div><span>{{ s.qc_fail_count }}</span><strong>{{ qc_summary.failed }}회</strong></div>
+        <div><span>{{ s.qc_total_count }}</span><strong>{{ qc_summary.total }}{{ s.measurement_unit }}</strong></div>
+        <div><span>{{ s.qc_pass_count }}</span><strong>{{ qc_summary.passed }}{{ s.measurement_unit }}</strong></div>
+        <div><span>{{ s.qc_fail_count }}</span><strong>{{ qc_summary.failed }}{{ s.measurement_unit }}</strong></div>
         <div><span>{{ s.qc_pass_rate }}</span><strong>{{ "%.1f"|format(qc_summary.pass_rate) }}%</strong></div>
-        <div><span>{{ s.qc_min_valid_count }}</span><strong>{{ qc_summary.min_valid_count }}회</strong></div>
+        <div><span>{{ s.qc_min_valid_count }}</span><strong>{{ qc_summary.min_valid_count }}{{ s.measurement_unit }}</strong></div>
         <div><span>{{ s.qc_validity }}</span><strong>{{ s.qc_valid if qc_summary.valid else s.qc_invalid }}</strong></div>
     </div>
 
@@ -46,31 +54,39 @@
     <div class="card-subsection">
         <h3>{{ s.qc_failure_reasons }}</h3>
         <div class="reason-list">
-            <span>{{ s.qc_reason_low_intensity }} {{ qc_summary.reason_counts.low_intensity }}건</span>
-            <span>{{ s.qc_reason_spike_noise }} {{ qc_summary.reason_counts.spike_noise }}건</span>
-            <span>{{ s.qc_reason_saturation }} {{ qc_summary.reason_counts.saturation }}건</span>
-            <span>{{ s.qc_reason_low_correlation }} {{ qc_summary.reason_counts.low_correlation }}건</span>
-            <span>{{ s.qc_reason_other }} {{ qc_summary.reason_counts.other }}건</span>
+            <span>{{ s.qc_reason_low_intensity }} {{ qc_summary.reason_counts.low_intensity }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_spike_noise }} {{ qc_summary.reason_counts.spike_noise }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_saturation }} {{ qc_summary.reason_counts.saturation }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_low_correlation }} {{ qc_summary.reason_counts.low_correlation }}{{ s.case_unit }}</span>
+            <span>{{ s.qc_reason_other }} {{ qc_summary.reason_counts.other }}{{ s.case_unit }}</span>
         </div>
     </div>
 
-    {% if qc_passed < min_qc_pass_count %}
+    {% if not qc_summary.valid %}
     <div class="disclaimer" style="background: #FEF2F2; border-color: #FECACA; color: #991B1B;">
         <span class="disclaimer-icon">&#9888;</span>
-        <span>{{ s.qc_all_fail }}</span>
+        <span>{{ s.qc_remeasure_required }}</span>
     </div>
     <div style="margin-top: 24px;">
-        <form method="POST" action="/patient/{{ session.id }}/remeasure"
-              onsubmit="return confirm('{{ s.qc_reupload_confirm }}')">
-            <button type="submit" class="btn btn-primary">
-                {{ s.qc_reupload_same_patient }} &#8594;
-            </button>
-        </form>
+        <div class="action-row">
+            <form method="POST" action="/patient/{{ session.id }}/retest"
+                  onsubmit="return confirm('{{ s.qc_reupload_confirm }}')">
+                <button type="submit" class="btn btn-primary">
+                    {{ s.qc_reupload_same_patient }} &#8594;
+                </button>
+            </form>
+            <a href="/patient/new" class="btn btn-secondary" style="text-decoration:none;">
+                {{ s.qc_new_patient }} &#8594;
+            </a>
+        </div>
         <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; margin-bottom: 16px;">
             {{ s.qc_reupload_hint }}
         </p>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
+            {{ s.qc_new_patient_hint }}
+        </p>
         <a href="/patient/{{ session.id }}/report" class="btn btn-secondary" style="text-decoration:none; display:flex;">
-            &#128196; {{ s.generate_report }}
+            {{ s.generate_report }}
         </a>
         <a href="/patient/{{ session.id }}/report.csv" class="btn btn-secondary" style="text-decoration:none; display:flex; margin-top: 8px;">
             {{ s.csv_download }}
@@ -82,6 +98,7 @@
     {% endif %}
 
     <!-- QC Detail Table -->
+    <div class="table-scroll" role="region" aria-label="{{ s.qc_title }}">
     <table class="qc-table">
         <thead>
             <tr>
@@ -95,11 +112,11 @@
         <tbody>
             {% for spec in spectra %}
             <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ spec.filename }}</td>
-                <td>{{ "%.2f"|format(spec.fp_mean) if spec.fp_mean else "—" }}</td>
-                <td>{{ "%.4f"|format(spec.replicate_correlation) if spec.replicate_correlation else "—" }}</td>
-                <td>
+                <td data-label="#">{{ loop.index }}</td>
+                <td data-label="{{ s.file }}">{{ spec.filename }}</td>
+                <td data-label="{{ s.qc_intensity }}">{{ "%.2f"|format(spec.fp_mean) if spec.fp_mean else "—" }}</td>
+                <td data-label="{{ s.qc_correlation }}">{{ "%.4f"|format(spec.replicate_correlation) if spec.replicate_correlation else "—" }}</td>
+                <td data-label="{{ s.status }}">
                     {% if spec.qc_pass %}
                     <span class="qc-badge pass">&#10003; {{ s.qc_pass }}</span>
                     {% else %}
@@ -110,8 +127,9 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 
-    {% if qc_passed >= min_qc_pass_count %}
+    {% if qc_summary.valid %}
     <div style="margin-top: 24px;">
         <a href="/patient/{{ session.id }}/results" class="btn btn-primary" style="text-decoration:none; display:flex;">
             {{ s.view_results }} &#8594;

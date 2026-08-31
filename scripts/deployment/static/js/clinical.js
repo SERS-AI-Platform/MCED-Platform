@@ -5,6 +5,7 @@ function toggleCollapsible(btn) {
     btn.classList.toggle('open');
     const content = btn.nextElementSibling;
     content.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(content.classList.contains('open')));
 }
 
 // Language toggle

@@ -21,6 +21,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
 import joblib
 import numpy as np
@@ -31,18 +32,68 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.sers.io import read_spectrum
 from src.sers.preprocessing import preprocess_single_spectrum
+from src.sers.qc.qc import detect_cosmic_ray, detect_saturation
+from src.sers.scoring import MEAN_SSI_DECISION_POLICY, ssi_decision_level
 
 logger = logging.getLogger("sers_predict")
 
 # QC thresholds (matching training pipeline)
 INTENSITY_GATE_RATIO = 0.1      # flag if fp_mean < median * 0.1
 MIN_REPLICATE_CORRELATION = 0.90  # flag if corr with median spectrum < 0.90
+CRITICAL_QC_FLAG_MARKERS = ("intensity_gate_fail", "cosmic", "spike", "saturat")
+MIN_VALID_REPLICATE_COUNT = 3
 
-# SSI is the user-facing 0-10 SERS Screening Index. The model still makes the
-# binary decision on probability p, and the active probability threshold maps to
-# SSI 4.0.
+
+class PredictorQcSummary(TypedDict):
+    total: int
+    passed: int
+    failed: int
+    passes: list[dict[str, object]]
+    failures: list[dict[str, object]]
+
+# SSI is the user-facing 0-10 SERS Screening Index. The patient-level mean SSI
+# selects one of three actions after at least three spectra pass QC.
 SSI_MAX_SCORE = 10.0
 SSI_DECISION_CUTOFF = 4.0
+
+
+def _predictor_qc_summary(
+    raw_spectra: list[dict],
+    qc_passed: list[dict],
+    qc_failed: list[dict],
+    read_errors: list[dict] | None = None,
+) -> PredictorQcSummary:
+    read_failures = [
+        {"file": error["file"], "flags": ["read_error"]}
+        for error in (read_errors or [])
+    ]
+    qc_failures = [
+        {"file": spectrum["filepath"].name, "flags": spectrum["qc_flags"]}
+        for spectrum in qc_failed
+    ]
+    return {
+        "total": len(raw_spectra) + len(read_failures),
+        "passed": len(qc_passed),
+        "failed": len(qc_failures) + len(read_failures),
+        "passes": [
+            {
+                "file": spectrum["filepath"].name,
+                "replicate_correlation": spectrum.get("replicate_correlation"),
+                "fp_mean": spectrum.get("fp_mean"),
+            }
+            for spectrum in qc_passed
+        ],
+        "failures": qc_failures + read_failures,
+    }
+
+
+def _has_critical_qc_failure(qc_failed: list[dict]) -> bool:
+    return any(
+        marker in str(flag).lower()
+        for spectrum in qc_failed
+        for flag in spectrum["qc_flags"]
+        for marker in CRITICAL_QC_FLAG_MARKERS
+    )
 
 
 def probability_to_ssi(
@@ -356,7 +407,7 @@ class ProductionPredictor:
         """Run QC on a set of replicate spectra (same patient).
 
         QC steps (matching training pipeline):
-          1. Intensity gate: flag spectra with fp_mean < median * 0.1
+          1. Intensity gate, cosmic-ray spike, and detector saturation checks
           2. Replicate correlation: flag spectra with corr < 0.90 vs median
 
         Parameters
@@ -390,6 +441,12 @@ class ProductionPredictor:
             if s['fp_mean'] < gate_threshold:
                 s['qc_flags'].append(f"intensity_gate_fail (fp_mean={s['fp_mean']:.1f} < {gate_threshold:.1f})")
                 s['qc_pass'] = False
+            if detect_cosmic_ray(np.asarray(s['y'])):
+                s['qc_flags'].append("cosmic_ray_spike")
+                s['qc_pass'] = False
+            if detect_saturation(np.asarray(s['y'])):
+                s['qc_flags'].append("detector_saturation")
+                s['qc_pass'] = False
 
         # Step 2: Replicate correlation (only if multiple spectra)
         if len(raw_spectra) >= 2:
@@ -415,7 +472,7 @@ class ProductionPredictor:
           1. Read & preprocess each spectrum (+ PDS calibration if Medical)
           2. QC: intensity gate + replicate correlation
           3. Predict each QC-passing spectrum individually
-          4. Patient-level decision: mean probability + majority vote
+          4. Patient-level decision: at least three threshold-exceeding replicates
         """
         # Step 1: Read & preprocess all replicates
         raw_spectra = []
@@ -434,27 +491,36 @@ class ProductionPredictor:
                 read_errors.append({'file': fp.name, 'error': str(e)})
 
         if not raw_spectra:
+            qc_summary = _predictor_qc_summary([], [], [], read_errors)
             return {
-                'status': 'error',
-                'message': 'All spectra failed to read',
-                'read_errors': read_errors,
+                'status': 'qc_invalid',
+                'message': 'No readable spectra; inference was not performed',
+                'qc_summary': qc_summary,
             }
 
         # Step 2: QC
         raw_spectra = self._qc_replicate_set(raw_spectra)
         qc_passed = [s for s in raw_spectra if s['qc_pass']]
         qc_failed = [s for s in raw_spectra if not s['qc_pass']]
+        qc_summary = _predictor_qc_summary(
+            raw_spectra, qc_passed, qc_failed, read_errors
+        )
 
-        if not qc_passed:
+        if _has_critical_qc_failure(qc_failed):
             return {
-                'status': 'error',
-                'message': f'All {len(raw_spectra)} spectra failed QC',
-                'qc_summary': {
-                    'total': len(raw_spectra),
-                    'passed': 0,
-                    'failed': len(raw_spectra),
-                    'failures': [{'file': s['filepath'].name, 'flags': s['qc_flags']} for s in qc_failed],
-                },
+                'status': 'qc_invalid',
+                'message': 'Critical QC failure; inference was not performed',
+                'qc_summary': qc_summary,
+            }
+
+        if len(qc_passed) < MIN_VALID_REPLICATE_COUNT:
+            return {
+                'status': 'qc_invalid',
+                'message': (
+                    f'Only {len(qc_passed)} spectra passed QC; '
+                    'inference was not performed'
+                ),
+                'qc_summary': qc_summary,
             }
 
         # Step 3: Predict each QC-passing spectrum
@@ -497,9 +563,10 @@ class ProductionPredictor:
 
         # Step 4: Patient-level aggregation
         mean_prob = float(np.mean(cancer_probs))
-        ssi_score = probability_to_ssi(mean_prob, threshold)
+        ssi_score = round(probability_to_ssi(mean_prob, threshold), 2)
+        decision_level = ssi_decision_level(ssi_score)
         n_detected = sum(1 for cp in cancer_probs if cp > threshold)
-        majority_detected = n_detected > len(cancer_probs) / 2
+        additional_confirmation = decision_level == "positive"
 
         # Mean type probabilities across replicates
         mean_type_probs = np.mean(type_prob_arrays, axis=0)
@@ -539,35 +606,37 @@ class ProductionPredictor:
                             if (instrument or '').lower() in ('medical', 'medical_raman')
                             and self.pds is not None else 'none'),
             'decision_rule': 'standard_balanced',
+            'decision_level': decision_level,
+            'decision_policy': MEAN_SSI_DECISION_POLICY,
             'threshold': threshold,
             'model_probability_threshold': threshold,
             'ssi_threshold': SSI_DECISION_CUTOFF,
+            'cancer_signal_spectra_count': n_detected,
+            'qc_valid_spectra_count': len(qc_passed),
 
             # QC summary
-            'qc_summary': {
-                'total': len(raw_spectra),
-                'passed': len(qc_passed),
-                'failed': len(qc_failed),
-                'failures': [{'file': s['filepath'].name, 'flags': s['qc_flags']} for s in qc_failed],
-            },
+            'qc_summary': qc_summary,
 
             # Patient-level decision
             'patient_decision': {
-                'ssi_score': round(ssi_score, 2),
+                'ssi_score': ssi_score,
                 'ssi_threshold': SSI_DECISION_CUTOFF,
-                'screening_index': round(ssi_score, 2),
-                'cancer_signal_score': round(ssi_score, 2),
+                'screening_index': ssi_score,
+                'cancer_signal_score': ssi_score,
                 'model_probability_mean': round(mean_prob, 4),
                 'model_probability_threshold': round(threshold, 4),
-                'cancer_detected': majority_detected,
-                'majority_vote': f'{n_detected}/{len(qc_passed)}',
-                'method': 'mean_probability + majority_vote',
+                'cancer_detected': additional_confirmation,
+                'decision_level': decision_level,
+                'decision_policy': MEAN_SSI_DECISION_POLICY,
+                'cancer_signal_spectra_count': n_detected,
+                'qc_valid_spectra_count': len(qc_passed),
+                'method': 'mean_ssi_three_band',
             },
 
             # Cancer type (only meaningful if detected)
-            'cancer_type_prediction': best_name if majority_detected else None,
-            'cancer_type_confidence': round(float(mean_type_probs[best_idx]), 4) if majority_detected else None,
-            'cancer_type_probabilities': type_prob_dict if majority_detected else None,
+            'cancer_type_prediction': best_name if additional_confirmation else None,
+            'cancer_type_confidence': round(float(mean_type_probs[best_idx]), 4) if additional_confirmation else None,
+            'cancer_type_probabilities': type_prob_dict if additional_confirmation else None,
 
             # Per-replicate details
             'per_replicate': per_replicate,
@@ -991,21 +1060,35 @@ class StackingPredictor(ProductionPredictor):
                 read_errors.append({'file': fp.name, 'error': str(e)})
 
         if not raw_spectra:
-            return {'status': 'error', 'message': 'All spectra failed to read', 'read_errors': read_errors}
+            return {
+                'status': 'qc_invalid',
+                'message': 'No readable spectra; inference was not performed',
+                'qc_summary': _predictor_qc_summary([], [], [], read_errors),
+            }
 
         # Step 2: QC (reuse parent)
         raw_spectra = self._qc_replicate_set(raw_spectra)
         qc_passed = [s for s in raw_spectra if s['qc_pass']]
         qc_failed = [s for s in raw_spectra if not s['qc_pass']]
+        qc_summary = _predictor_qc_summary(
+            raw_spectra, qc_passed, qc_failed, read_errors
+        )
 
-        if not qc_passed:
+        if _has_critical_qc_failure(qc_failed):
             return {
-                'status': 'error',
-                'message': f'All {len(raw_spectra)} spectra failed QC',
-                'qc_summary': {
-                    'total': len(raw_spectra), 'passed': 0, 'failed': len(raw_spectra),
-                    'failures': [{'file': s['filepath'].name, 'flags': s['qc_flags']} for s in qc_failed],
-                },
+                'status': 'qc_invalid',
+                'message': 'Critical QC failure; inference was not performed',
+                'qc_summary': qc_summary,
+            }
+
+        if len(qc_passed) < MIN_VALID_REPLICATE_COUNT:
+            return {
+                'status': 'qc_invalid',
+                'message': (
+                    f'Only {len(qc_passed)} spectra passed QC; '
+                    'inference was not performed'
+                ),
+                'qc_summary': qc_summary,
             }
 
         # Step 3: Predict each QC-passing spectrum via stacking
@@ -1038,9 +1121,10 @@ class StackingPredictor(ProductionPredictor):
 
         # Step 4: Patient-level aggregation
         mean_prob = float(np.mean(cancer_probs))
-        ssi_score = probability_to_ssi(mean_prob, threshold)
+        ssi_score = round(probability_to_ssi(mean_prob, threshold), 2)
+        decision_level = ssi_decision_level(ssi_score)
         n_detected = sum(1 for cp in cancer_probs if cp > threshold)
-        majority_detected = n_detected > len(cancer_probs) / 2
+        additional_confirmation = decision_level == "positive"
 
         mean_type_probs = np.mean(type_prob_arrays, axis=0)
         s2_classes = self.meta_s2.classes_ if hasattr(self.meta_s2, "classes_") else \
@@ -1076,27 +1160,31 @@ class StackingPredictor(ProductionPredictor):
             'pipeline': 'stacking_v2 (10 base + ElasticNet meta)',
             'model_variant': 'stacking_v2',
             'decision_rule': 'standard_balanced',
+            'decision_level': decision_level,
+            'decision_policy': MEAN_SSI_DECISION_POLICY,
             'threshold': threshold,
             'model_probability_threshold': threshold,
             'ssi_threshold': SSI_DECISION_CUTOFF,
-            'qc_summary': {
-                'total': len(raw_spectra), 'passed': len(qc_passed), 'failed': len(qc_failed),
-                'failures': [{'file': s['filepath'].name, 'flags': s['qc_flags']} for s in qc_failed],
-            },
+            'cancer_signal_spectra_count': n_detected,
+            'qc_valid_spectra_count': len(qc_passed),
+            'qc_summary': qc_summary,
             'patient_decision': {
-                'ssi_score': round(ssi_score, 2),
+                'ssi_score': ssi_score,
                 'ssi_threshold': SSI_DECISION_CUTOFF,
-                'screening_index': round(ssi_score, 2),
-                'cancer_signal_score': round(ssi_score, 2),
+                'screening_index': ssi_score,
+                'cancer_signal_score': ssi_score,
                 'model_probability_mean': round(mean_prob, 4),
                 'model_probability_threshold': round(threshold, 4),
-                'cancer_detected': majority_detected,
-                'majority_vote': f'{n_detected}/{len(qc_passed)}',
-                'method': 'mean_probability + majority_vote',
+                'cancer_detected': additional_confirmation,
+                'decision_level': decision_level,
+                'decision_policy': MEAN_SSI_DECISION_POLICY,
+                'cancer_signal_spectra_count': n_detected,
+                'qc_valid_spectra_count': len(qc_passed),
+                'method': 'mean_ssi_three_band',
             },
-            'cancer_type_prediction': best_name if majority_detected else None,
-            'cancer_type_confidence': round(float(mean_type_probs[best_idx]), 4) if majority_detected else None,
-            'cancer_type_probabilities': type_prob_dict if majority_detected else None,
+            'cancer_type_prediction': best_name if additional_confirmation else None,
+            'cancer_type_confidence': round(float(mean_type_probs[best_idx]), 4) if additional_confirmation else None,
+            'cancer_type_probabilities': type_prob_dict if additional_confirmation else None,
             'per_replicate': per_replicate,
         }
 
@@ -1148,7 +1236,7 @@ Examples:
         print("=" * 60)
         variant = "SERS + age/sex/BMI (fusion)" if (args.age and args.sex) else "SERS only"
         print(f"  Model: {variant}")
-        print(f"  Decision profile: standard_balanced")
+        print("  Decision profile: standard_balanced")
         print(f"  SSI threshold: {SSI_DECISION_CUTOFF:.1f}")
         print(f"  Model probability threshold: {predictor.threshold}")
         print(f"  Files: {len(args.spectra)}")

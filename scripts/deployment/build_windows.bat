@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================
-REM SERS Clinical Webapp - Windows Build Script
+REM AECD Software - Windows Build Script
 REM ============================================================
 REM
 REM Prerequisites:
@@ -17,9 +17,16 @@ REM ============================================================
 
 echo.
 echo ============================================================
-echo   SERS Clinical Webapp - Build Script
+echo   AECD Software - Build Script
 echo ============================================================
 echo.
+
+cd /d "%~dp0\..\.."
+if errorlevel 1 (
+    echo ERROR: Failed to locate the project root
+    pause
+    exit /b 1
+)
 
 REM Check Python
 where python >nul 2>nul
@@ -31,7 +38,7 @@ if errorlevel 1 (
 
 REM Install build dependencies
 echo [1/4] Installing build dependencies...
-pip install pyinstaller fastapi uvicorn jinja2 python-multipart joblib scikit-learn scipy xgboost numpy pandas
+pip install pyinstaller fastapi uvicorn jinja2 python-multipart pyyaml joblib scikit-learn scipy xgboost numpy pandas
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies
     pause
@@ -41,12 +48,22 @@ if errorlevel 1 (
 REM Verify model artifacts exist
 echo.
 echo [2/4] Verifying model artifacts...
-if not exist "artifacts\usersnet\current\manifest.json" (
-    echo WARNING: uSERS-Net model not found at artifacts\usersnet\current
-    echo Build will continue with LR fallback model only.
+set MODEL_FOUND=0
+if exist "artifacts\usersnet\current\manifest.json" (
+    set MODEL_FOUND=1
+    echo OK: uSERS-Net model found at artifacts\usersnet\current
 )
-if not exist "artifacts\baselines\lr-fusion\v1.0.0\manifest.json" (
-    echo ERROR: No LR fallback model found at artifacts\baselines\lr-fusion\v1.0.0
+if exist "artifacts\usersnet\v1.0.0\manifest.json" (
+    set MODEL_FOUND=1
+    echo OK: uSERS-Net model found at artifacts\usersnet\v1.0.0
+)
+if exist "artifacts\baselines\lr-fusion\v1.0.0\manifest.json" (
+    set MODEL_FOUND=1
+    echo OK: LR fallback model found at artifacts\baselines\lr-fusion\v1.0.0
+)
+if %MODEL_FOUND% == 0 (
+    echo ERROR: No supported model artifacts found under %CD%\artifacts
+    echo Restore artifacts\usersnet\v1.0.0 or artifacts\baselines\lr-fusion\v1.0.0
     pause
     exit /b 1
 )

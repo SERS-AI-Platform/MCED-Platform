@@ -3,30 +3,42 @@
 #
 # Output: dist/SERS_Clinical/SERS_Clinical.exe
 
-import sys
 from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 # When running PyInstaller, __file__ may not be defined.
 # Use SPECPATH which is the directory of this .spec file.
-PROJECT_ROOT = Path(SPECPATH).resolve().parents[2]
+PROJECT_ROOT = Path(SPECPATH).resolve().parents[1]
+
+usersnet_current = PROJECT_ROOT / 'artifacts' / 'usersnet' / 'current'
+usersnet_versioned = PROJECT_ROOT / 'artifacts' / 'usersnet' / 'v1.0.0'
+usersnet_source = usersnet_current
+if not (usersnet_source / 'manifest.json').exists():
+    usersnet_source = usersnet_versioned
+
+fallback_source = PROJECT_ROOT / 'artifacts' / 'baselines' / 'lr-fusion' / 'v1.0.0'
+model_datas = []
+if (usersnet_source / 'manifest.json').exists():
+    model_datas.append((str(usersnet_source), 'artifacts/usersnet/current'))
+if (fallback_source / 'manifest.json').exists():
+    model_datas.append((str(fallback_source), 'artifacts/baselines/lr-fusion/v1.0.0'))
+if not model_datas:
+    raise SystemExit('No supported model artifacts found')
+
+xgboost_binaries = collect_dynamic_libs('xgboost')
+xgboost_datas = collect_data_files('xgboost')
 
 # Files to bundle (templates, static files, model artifacts)
 datas = [
     # Templates and static
     (str(PROJECT_ROOT / 'scripts' / 'deployment' / 'templates'), 'scripts/deployment/templates'),
     (str(PROJECT_ROOT / 'scripts' / 'deployment' / 'static'), 'scripts/deployment/static'),
+    (str(PROJECT_ROOT / 'scripts' / 'deployment' / 'manuals'), 'scripts/deployment/manuals'),
 
-    # Model artifacts (uSERS-Net / STK-V2)
-    (str(PROJECT_ROOT / 'artifacts' / 'usersnet' / 'current'), 'artifacts/usersnet/current'),
+    *model_datas,
+    *xgboost_datas,
 
-    # Fallback LR model
-    (str(PROJECT_ROOT / 'artifacts' / 'baselines' / 'lr-fusion' / 'v1.0.0'),
-     'artifacts/baselines/lr-fusion/v1.0.0'),
-
-    # Source code
-    (str(PROJECT_ROOT / 'src' / 'sers'), 'src/sers'),
-    (str(PROJECT_ROOT / 'scripts' / 'training' / 'train_usersnet.py'),
-     'scripts/training'),
 ]
 
 hiddenimports = [
@@ -69,11 +81,18 @@ hiddenimports = [
     # Project modules
     'scripts.deployment.sers_clinical_webapp',
     'scripts.deployment.sers_predict',
+    'scripts.deployment.clinical_access',
     'scripts.deployment.clinical_db',
+    'scripts.deployment.clinical_db_core',
+    'scripts.deployment.clinical_db_results',
+    'scripts.deployment.clinical_db_schema',
+    'scripts.deployment.clinical_db_sessions',
     'scripts.deployment.clinical_auth',
     'scripts.deployment.clinical_i18n',
     'scripts.deployment.clinical_audit',
     'scripts.deployment.clinical_report',
+    'scripts.deployment.clinical_result_data',
+    'scripts.deployment.clinical_validation',
     'src.sers.io',
     'src.sers.preprocessing',
 ]
@@ -82,8 +101,8 @@ block_cipher = None
 
 a = Analysis(
     [str(PROJECT_ROOT / 'scripts' / 'deployment' / 'launcher.py')],
-    pathex=[str(PROJECT_ROOT)],
-    binaries=[],
+    pathex=[str(PROJECT_ROOT), str(PROJECT_ROOT / 'src')],
+    binaries=xgboost_binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

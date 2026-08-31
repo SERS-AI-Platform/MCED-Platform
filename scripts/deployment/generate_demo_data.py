@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["numpy>=2.0"]
+# ///
+# ─── How to run ───
+# uv run scripts/deployment/generate_demo_data.py
 """Generate deterministic demo spectra for the clinical deployment UI."""
 
 from __future__ import annotations
 
 import csv
+import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.deployment.demo_data_catalog import QC_PATIENT, USABILITY_PATIENTS, UsabilityPatient
 
 OUT_DIR = Path(__file__).resolve().parent / "demo_data"
 NORMAL_DIR = OUT_DIR / "normal"
 BAD_DIR = OUT_DIR / "bad"
 SEED = 20260511
+RAW_DIR = PROJECT_ROOT / "data" / "raw_data"
 
 PATIENTS = [
     {"patient_id": "DUMMY-001", "age": 54, "sex": "F", "bmi": 22.8, "notes": "normal demo patient"},
@@ -44,7 +58,7 @@ def base_spectrum(x: np.ndarray, patient_index: int) -> np.ndarray:
 
 def write_spectrum(path: Path, x: np.ndarray, y: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
+    with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         for wn, intensity in zip(x, y):
             writer.writerow([f"{wn:.6f}", f"{intensity:.6f}"])
@@ -85,10 +99,91 @@ def generate_bad_files() -> None:
 
 def write_patient_ids() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    with (OUT_DIR / "patient_ids.csv").open("w", newline="") as f:
+    with (OUT_DIR / "patient_ids.csv").open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["patient_id", "age", "sex", "bmi", "notes"])
         writer.writeheader()
         writer.writerows(PATIENTS)
+
+
+def _copy_patient_set(patient: UsabilityPatient, destination: Path, raw_dir: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    source_dir = raw_dir / patient.source_folder
+    for replicate in range(1, 6):
+        source = source_dir / f"{patient.source_prefix} {patient.source_sample_id}_{replicate}.CSV"
+        shutil.copyfile(source, destination / f"{patient.patient_id}_{replicate}.csv")
+
+
+def _write_qc_fail_set(patient: UsabilityPatient, destination: Path, raw_dir: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    source_dir = raw_dir / patient.source_folder
+    for replicate in range(1, 6):
+        source = source_dir / f"{patient.source_prefix} {patient.source_sample_id}_{replicate}.CSV"
+        target = destination / f"{patient.patient_id}_{replicate}.csv"
+        if replicate <= 2:
+            shutil.copyfile(source, target)
+            continue
+        spectrum = np.loadtxt(source, delimiter=",")
+        intensities = spectrum[:, 1].copy()
+        plateau_start = max(0, min(len(intensities) - 5, int(np.argmax(intensities)) - 2))
+        intensities[plateau_start : plateau_start + 5] = float(np.max(intensities))
+        write_spectrum(target, spectrum[:, 0], intensities)
+
+
+def build_usability_data(output_dir: Path, raw_dir: Path) -> None:
+    usability_dir = output_dir / "usability"
+    rows: list[dict[str, str]] = []
+    for patient in USABILITY_PATIENTS:
+        relative_path = (
+            Path("usability") / "heldout_pass" / f"{patient.patient_id}_{patient.source_group}"
+        )
+        _copy_patient_set(patient, output_dir / relative_path, raw_dir)
+        rows.append(_mapping_row(patient, "heldout_pass", relative_path, "5"))
+
+    initial_relative = (
+        Path("usability") / "qc_remeasurement" / QC_PATIENT.patient_id / "initial_fail"
+    )
+    remeasure_relative = (
+        Path("usability") / "qc_remeasurement" / QC_PATIENT.patient_id / "remeasure_pass"
+    )
+    _write_qc_fail_set(QC_PATIENT, output_dir / initial_relative, raw_dir)
+    _copy_patient_set(QC_PATIENT, output_dir / remeasure_relative, raw_dir)
+    rows.append(_mapping_row(QC_PATIENT, "qc_initial_fail", initial_relative, "2"))
+    rows.append(_mapping_row(QC_PATIENT, "qc_remeasure_pass", remeasure_relative, "5"))
+
+    mapping_path = usability_dir / "patient_mapping.csv"
+    mapping_path.parent.mkdir(parents=True, exist_ok=True)
+    with mapping_path.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _mapping_row(
+    patient: UsabilityPatient,
+    scenario: str,
+    relative_path: Path,
+    expected_qc_passed: str,
+) -> dict[str, str]:
+    has_valid_result = int(expected_qc_passed) >= 3
+    return {
+        "patient_id": patient.patient_id,
+        "age": str(patient.age),
+        "sex": patient.sex,
+        "bmi": str(patient.bmi),
+        "scenario": scenario,
+        "relative_path": relative_path.as_posix(),
+        "source_split": "heldout_test_60_20_20_seed42",
+        "source_group": patient.source_group,
+        "source_sample_id": str(patient.source_sample_id),
+        "expected_qc_passed": expected_qc_passed,
+        "expected_ssi": f"{patient.expected_ssi:.2f}" if has_valid_result else "",
+        "expected_ssi_band": patient.expected_ssi_band if has_valid_result else "",
+        "expected_cancer_detected": (
+            str(bool(patient.expected_cancer_type)).lower() if has_valid_result else ""
+        ),
+        "expected_cancer_type": patient.expected_cancer_type if has_valid_result else "",
+        "verified_model": "usersnet/v1.0.0",
+    }
 
 
 def write_readme() -> None:
@@ -100,6 +195,12 @@ examples and must not be used for validation.
 - `patient_ids.csv`: five demo patient IDs with age, sex, and BMI values.
 - `normal/`: five replicate CSV spectra per demo patient.
 - `bad/`: intentionally poor-quality spectra for QC and warning checks.
+- `usability/heldout_pass/`: de-identified heldout-test sets covering all seven
+  cancer types plus low and medium SSI examples.
+- `usability/qc_remeasurement/`: one patient-level QC Fail set followed by a
+  five-file remeasurement Pass set.
+- `usability/patient_mapping.csv`: patient-entry values, expected QC/SSI/type,
+  source split, and relative upload directory for every usability scenario.
 
 Each spectrum CSV has no header and uses two numeric columns:
 
@@ -108,6 +209,14 @@ Each spectrum CSV has no header and uses two numeric columns:
 
 For QC testing, upload four normal files for one patient plus one file from
 `bad/`, especially `LOWINT-001_1.csv` or `NOISY-001_1.csv`.
+
+For the summative usability workflow, use only the patient-level directories
+under `usability/` and enter the matching age, sex, and BMI from
+`patient_mapping.csv`. The original hospital identifier and the remaining
+clinical table are intentionally excluded. These retrospective fixtures are
+for UI/QC demonstration only, not clinical validation. Cancer-vs-control
+outputs may be hospital-confounded and must not be presented as cross-hospital
+generalization evidence.
 """
     (OUT_DIR / "README.md").write_text(text, encoding="utf-8")
 
@@ -116,6 +225,7 @@ def main() -> None:
     generate_normal_files()
     generate_bad_files()
     write_patient_ids()
+    build_usability_data(OUT_DIR, RAW_DIR)
     write_readme()
     print(f"Generated demo data in {OUT_DIR}")
 
