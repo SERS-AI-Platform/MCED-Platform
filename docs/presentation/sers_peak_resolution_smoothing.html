@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="원본 SERS spectrum의 Voigt fitting, 모델 선택, 분해능 기반 peak 판정을 설명하는 장표">
+  <title>SERS 피크 분해와 평가 전략</title>
+  <style>
+    :root {
+      --slide-width: 1600px;
+      --slide-height: 900px;
+      --navy-950: #001f3c;
+      --navy-800: #0a306d;
+      --navy-700: #123b78;
+      --ink-900: #111827;
+      --ink-700: #333333;
+      --ink-500: #6b7280;
+      --line-300: #d6e0ef;
+      --surface-100: #f4f6fa;
+      --surface-200: #e0e4ed;
+      --purple-700: #391d8d;
+      --purple-100: #e0ddf0;
+      --warning-600: #b7791f;
+      --white: #ffffff;
+      --font-sans: "NanumSquare", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+      --font-numeric: "Pretendard", "Segoe UI", sans-serif;
+      --scale: 1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-width: 100%;
+      min-height: 100%;
+      background: var(--surface-200);
+      color: var(--ink-900);
+      font-family: var(--font-sans);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      overflow: auto;
+    }
+
+    .viewport {
+      position: relative;
+      width: calc(var(--slide-width) * var(--scale));
+      height: calc(var(--slide-height) * var(--scale));
+    }
+
+    .deck {
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: var(--slide-width);
+      height: var(--slide-height);
+      transform: scale(var(--scale));
+      transform-origin: top left;
+    }
+
+    .slide {
+      position: relative;
+      width: var(--slide-width);
+      height: var(--slide-height);
+      overflow: hidden;
+      background: var(--white);
+      page-break-after: always;
+    }
+
+    .chapter-header {
+      height: 152px;
+      display: grid;
+      grid-template-columns: 220px 1fr 220px;
+      align-items: center;
+      padding-right: 64px;
+      color: var(--white);
+      background: var(--navy-950);
+    }
+
+    .chapter-number {
+      position: relative;
+      display: grid;
+      place-items: center;
+      align-self: stretch;
+      overflow: hidden;
+      color: var(--navy-950);
+      font-family: var(--font-numeric);
+      font-size: 64px;
+      font-weight: 800;
+      line-height: 1;
+      background: var(--white);
+    }
+
+    .chapter-number::after {
+      position: absolute;
+      right: -44px;
+      width: 88px;
+      height: 220px;
+      content: "";
+      background: var(--navy-950);
+      transform: rotate(18deg);
+    }
+
+    .chapter-copy {
+      padding-left: 48px;
+    }
+
+    .chapter-copy h1 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .chapter-copy p {
+      margin: 12px 0 0;
+      color: var(--line-300);
+      font-family: var(--font-numeric);
+      font-size: 17px;
+      font-style: italic;
+      line-height: 1.35;
+    }
+
+    .brand-logo {
+      justify-self: end;
+      width: 176px;
+      height: 96px;
+      object-fit: contain;
+    }
+
+    .slide-body {
+      height: calc(var(--slide-height) - 152px);
+      padding: 24px 64px 40px;
+    }
+
+    .insight-headline {
+      margin: 0;
+      color: var(--navy-950);
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1.25;
+      letter-spacing: -0.025em;
+    }
+
+    .insight-headline strong {
+      color: var(--warning-600);
+      font-weight: 800;
+    }
+
+    .model-strip {
+      display: grid;
+      grid-template-columns: 196px 1fr 320px;
+      align-items: center;
+      min-height: 78px;
+      margin-top: 16px;
+      border: 1px solid var(--navy-800);
+      background: var(--surface-100);
+    }
+
+    .model-strip__label {
+      align-self: stretch;
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      font-size: 21px;
+      font-weight: 800;
+      background: var(--navy-800);
+    }
+
+    .model-strip__equation {
+      padding: 0 28px;
+      color: var(--navy-950);
+      font-family: var(--font-numeric);
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .model-strip__note {
+      padding: 0 24px;
+      border-left: 1px solid var(--line-300);
+      color: var(--ink-700);
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.35;
+      word-break: keep-all;
+    }
+
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 16px;
+    }
+
+    .example-card {
+      height: 360px;
+      overflow: hidden;
+      border: 1px solid var(--line-300);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .example-card__heading {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      align-items: center;
+      min-height: 64px;
+      border-bottom: 1px solid var(--line-300);
+      background: var(--surface-100);
+    }
+
+    .example-card__number {
+      align-self: stretch;
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      font-family: var(--font-numeric);
+      font-size: 17px;
+      font-weight: 800;
+      background: var(--navy-950);
+    }
+
+    .example-card__heading h3 {
+      margin: 0;
+      padding: 0 16px;
+      color: var(--navy-950);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .example-card__graphic {
+      display: block;
+      width: 100%;
+      height: 202px;
+    }
+
+    .example-card__graphic--comparison {
+      height: 170px;
+    }
+
+    .example-card__graphic--decision {
+      height: 136px;
+    }
+
+    .comparison-labels,
+    .comparison-status {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      text-align: center;
+    }
+
+    .comparison-labels {
+      height: 32px;
+      font-family: var(--font-numeric);
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .comparison-status {
+      height: 34px;
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .comparison-labels span:first-child,
+    .comparison-status span:first-child {
+      color: var(--navy-800);
+    }
+
+    .comparison-labels--model span:first-child {
+      color: var(--warning-600);
+    }
+
+    .comparison-labels span:last-child,
+    .comparison-status span:last-child {
+      color: var(--warning-600);
+    }
+
+    .comparison-labels--model span:last-child {
+      color: var(--navy-800);
+    }
+
+    .example-card__caption {
+      min-height: 92px;
+      margin: 0;
+      padding: 12px 18px 14px;
+      border-top: 1px solid var(--line-300);
+      color: var(--ink-700);
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.35;
+      word-break: keep-all;
+    }
+
+    .example-card__caption strong {
+      color: var(--navy-950);
+      font-weight: 800;
+    }
+
+    .source-note {
+      position: absolute;
+      right: 64px;
+      bottom: 16px;
+      left: 64px;
+      margin: 0;
+      color: var(--ink-500);
+      font-family: var(--font-numeric);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+
+    @page {
+      size: 13.333in 7.5in;
+      margin: 0;
+    }
+
+    @media print {
+      html,
+      body {
+        width: var(--slide-width);
+        height: var(--slide-height);
+        background: var(--white);
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+
+      body {
+        display: block;
+      }
+
+      .viewport,
+      .deck {
+        position: static;
+        width: var(--slide-width);
+        height: var(--slide-height);
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewport">
+    <main class="deck">
+      <section class="slide slide--content" aria-label="슬라이드 1: SERS 피크 분해와 평가 전략">
+        <header class="chapter-header">
+          <div class="chapter-number" aria-hidden="true">01</div>
+          <div class="chapter-copy">
+            <h1>SERS 피크 분해와 평가 전략</h1>
+            <p>Ch 01 Raw-spectrum Voigt Decomposition</p>
+          </div>
+          <img class="brand-logo" src="assets/solum-healthcare-white.png" width="176" height="96" alt="SOLUM Healthcare">
+        </header>
+
+        <div class="slide-body">
+          <h2 class="insight-headline">
+            원본 spectrum을 <strong>Voigt 모델로 직접 분해</strong>하고,<br>
+            모델 선택과 분해능 기준으로 최종 peak 수를 평가한다.
+          </h2>
+
+          <section class="model-strip" aria-label="Voigt fitting 모델 식">
+            <div class="model-strip__label">실제 fitting 모델</div>
+            <div class="model-strip__equation">ŷ(x) = b₀ + b₁(x − x̄) + Σ Aₖ · V(x − μₖ; σₖ, γₖ)</div>
+            <div class="model-strip__note">선형 baseline과 K개 Voigt 성분을<br>원본 intensity에 동시에 fitting</div>
+          </section>
+
+          <section class="example-grid" aria-label="분석 반영 원칙별 spectrum 예시">
+            <article class="example-card">
+              <div class="example-card__heading">
+                <span class="example-card__number">01</span>
+                <h3>원본 spectrum fitting</h3>
+              </div>
+              <svg class="example-card__graphic" viewBox="0 0 480 202" role="img" aria-label="원본 측정점에 baseline과 두 Voigt 성분을 fitting하는 예시">
+                <line x1="42" y1="172" x2="452" y2="172" stroke="var(--navy-950)" stroke-width="2"/>
+                <line x1="42" y1="28" x2="42" y2="172" stroke="var(--navy-950)" stroke-width="2"/>
+                <path d="M42 162 L452 146" fill="none" stroke="var(--ink-500)" stroke-width="2" stroke-dasharray="6 5"/>
+                <path d="M42 162 C120 159 154 150 188 124 C216 102 226 56 248 42 C272 26 286 116 304 132 C320 146 330 72 350 58 C374 42 388 126 414 142 C430 150 440 148 452 146" fill="none" stroke="var(--navy-800)" stroke-width="4"/>
+                <path d="M42 162 C132 160 184 152 214 120 C230 102 236 58 252 44 C272 30 284 130 304 150 C330 158 390 154 452 146" fill="none" stroke="var(--purple-700)" stroke-width="2.5" stroke-dasharray="8 6"/>
+                <path d="M42 162 C208 158 290 158 320 132 C336 116 340 74 354 58 C374 42 390 134 414 146 C426 150 440 148 452 146" fill="none" stroke="var(--purple-700)" stroke-width="2.5" stroke-dasharray="8 6" opacity="0.65"/>
+                <g fill="var(--white)" stroke="var(--navy-950)" stroke-width="2.5">
+                  <circle cx="66" cy="161" r="5"/><circle cx="108" cy="158" r="5"/><circle cx="150" cy="151" r="5"/>
+                  <circle cx="192" cy="123" r="5"/><circle cx="234" cy="64" r="5"/><circle cx="276" cy="104" r="5"/>
+                  <circle cx="318" cy="124" r="5"/><circle cx="360" cy="61" r="5"/><circle cx="402" cy="137" r="5"/><circle cx="444" cy="147" r="5"/>
+                </g>
+              </svg>
+              <p class="example-card__caption"><strong>측정점 전체</strong>에 baseline과 Voigt 1…K 성분 적용<br>모든 파라미터 동시 최적화</p>
+            </article>
+
+            <article class="example-card">
+              <div class="example-card__heading">
+                <span class="example-card__number">02</span>
+                <h3>성분 수 모델 선택</h3>
+              </div>
+              <div class="comparison-labels comparison-labels--model" aria-hidden="true">
+                <span>1성분 · 잔차 남음</span><span>2성분 · 잔차 감소</span>
+              </div>
+              <svg class="example-card__graphic example-card__graphic--comparison" viewBox="0 0 480 202" role="img" aria-label="한 성분과 두 성분 Voigt 모델의 적합도와 잔차를 비교하는 예시">
+                <line x1="28" y1="150" x2="220" y2="150" stroke="var(--navy-950)" stroke-width="2"/>
+                <line x1="260" y1="150" x2="452" y2="150" stroke="var(--navy-950)" stroke-width="2"/>
+                <path d="M28 146 C66 146 86 132 108 94 C128 60 148 54 168 86 C188 118 194 142 220 146" fill="none" stroke="var(--warning-600)" stroke-width="4"/>
+                <path d="M260 146 C294 146 310 134 326 90 C336 58 346 58 356 92 C364 118 370 126 378 104 C388 74 398 56 410 84 C424 118 428 140 452 146" fill="none" stroke="var(--navy-800)" stroke-width="4"/>
+                <g fill="var(--white)" stroke="var(--navy-950)" stroke-width="2.2">
+                  <circle cx="46" cy="145" r="4"/><circle cx="78" cy="137" r="4"/><circle cx="110" cy="72" r="4"/><circle cx="142" cy="124" r="4"/><circle cx="174" cy="76" r="4"/><circle cx="206" cy="143" r="4"/>
+                  <circle cx="278" cy="145" r="4"/><circle cx="310" cy="137" r="4"/><circle cx="342" cy="72" r="4"/><circle cx="374" cy="124" r="4"/><circle cx="406" cy="76" r="4"/><circle cx="438" cy="143" r="4"/>
+                </g>
+                <g stroke="var(--warning-600)" stroke-width="2">
+                  <line x1="110" y1="72" x2="110" y2="91"/><line x1="142" y1="124" x2="142" y2="58"/><line x1="174" y1="76" x2="174" y2="94"/>
+                </g>
+                <path d="M28 180 L46 181 L78 178 L110 166 L142 192 L174 168 L206 180 L220 180" fill="none" stroke="var(--warning-600)" stroke-width="2.5"/>
+                <path d="M260 180 L278 180 L310 179 L342 178 L374 182 L406 179 L438 180 L452 180" fill="none" stroke="var(--navy-800)" stroke-width="2.5"/>
+                <line x1="240" y1="34" x2="240" y2="170" stroke="var(--line-300)" stroke-width="2"/>
+              </svg>
+              <p class="example-card__caption"><strong>BIC·AICc</strong> 및 잔차/noise 평가<br>bootstrap 선택률로 K 결정</p>
+            </article>
+
+            <article class="example-card">
+              <div class="example-card__heading">
+                <span class="example-card__number">03</span>
+                <h3>분해 성분과 peak 구분</h3>
+              </div>
+              <div class="comparison-labels" aria-hidden="true">
+                <span>Δcenter &gt; 2 cm⁻¹</span><span>Δcenter ≤ 2 cm⁻¹</span>
+              </div>
+              <svg class="example-card__graphic example-card__graphic--decision" viewBox="0 0 480 202" role="img" aria-label="중심 간격이 장비 분해능보다 큰 경우와 작은 경우를 비교하는 예시">
+                <line x1="24" y1="160" x2="224" y2="160" stroke="var(--navy-950)" stroke-width="2"/>
+                <line x1="256" y1="160" x2="456" y2="160" stroke="var(--navy-950)" stroke-width="2"/>
+                <path d="M24 156 C74 156 84 138 100 78 C112 34 124 132 142 154" fill="none" stroke="var(--purple-700)" stroke-width="3" stroke-dasharray="8 6"/>
+                <path d="M24 156 C112 156 130 148 150 88 C164 44 178 138 198 154 C208 157 216 158 224 158" fill="none" stroke="var(--purple-700)" stroke-width="3" stroke-dasharray="8 6" opacity="0.65"/>
+                <path d="M24 156 C68 156 84 140 100 78 C112 34 124 130 142 144 C150 148 154 96 166 70 C178 44 190 140 208 154 C214 157 220 158 224 158" fill="none" stroke="var(--navy-800)" stroke-width="4"/>
+                <path d="M256 156 C302 156 318 132 334 76 C346 38 360 132 378 154" fill="none" stroke="var(--purple-700)" stroke-width="3" stroke-dasharray="8 6"/>
+                <path d="M256 156 C318 156 332 142 348 86 C360 46 374 138 394 154 C416 158 438 158 456 158" fill="none" stroke="var(--purple-700)" stroke-width="3" stroke-dasharray="8 6" opacity="0.65"/>
+                <path d="M256 156 C300 156 318 144 332 110 C346 76 356 54 368 58 C384 62 394 108 406 138 C416 154 438 158 456 158" fill="none" stroke="var(--navy-800)" stroke-width="4"/>
+                <line x1="104" y1="50" x2="166" y2="50" stroke="var(--navy-950)" stroke-width="2"/>
+                <line x1="104" y1="44" x2="104" y2="56" stroke="var(--navy-950)" stroke-width="2"/><line x1="166" y1="44" x2="166" y2="56" stroke="var(--navy-950)" stroke-width="2"/>
+                <line x1="344" y1="50" x2="378" y2="50" stroke="var(--warning-600)" stroke-width="2"/>
+                <line x1="344" y1="44" x2="344" y2="56" stroke="var(--warning-600)" stroke-width="2"/><line x1="378" y1="44" x2="378" y2="56" stroke="var(--warning-600)" stroke-width="2"/>
+                <line x1="240" y1="34" x2="240" y2="170" stroke="var(--line-300)" stroke-width="2"/>
+              </svg>
+              <div class="comparison-status" aria-hidden="true">
+                <span>장비상 분리</span><span>모델 분해 · 장비상 미분리</span>
+              </div>
+              <p class="example-card__caption"><strong>deconvolved components</strong> 수 기록<br>Δcenter 기준으로 장비상 분리 peak 판정</p>
+            </article>
+          </section>
+
+          <p class="source-note">
+            내부 관측: aecd_api_model_baseline target_grid median step 1.9313 cm⁻¹. 장비 분해능 2 cm⁻¹ FWHM은 현재 acquisition 설정 기준(사용자 확인). 모델 식은 notebook의 baseline + Voigt sum 구조를 반영했으며, spectrum 도식은 분석 원칙 설명용으로 실제 분해 결과가 아님.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    const updateScale = () => {
+      const scale = Math.min(window.innerWidth / 1600, window.innerHeight / 900, 1);
+      root.style.setProperty("--scale", String(scale));
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale, { passive: true });
+  </script>
+</body>
+</html>

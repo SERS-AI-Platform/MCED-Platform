@@ -1,0 +1,24 @@
+{
+  "layout": "elk",
+  "theme": "base",
+  "themeVariables": {
+    "background": "#ffffff",
+    "primaryColor": "#f8fafc",
+    "primaryTextColor": "#172033",
+    "primaryBorderColor": "#64748b",
+    "lineColor": "#64748b",
+    "textColor": "#172033",
+    "tertiaryColor": "#ffffff",
+    "fontFamily": "DejaVu Sans"
+  },
+  "er": {
+    "layoutDirection": "TB",
+    "minEntityWidth": 200,
+    "minEntityHeight": 60,
+    "entityPadding": 14,
+    "stroke": "#64748b",
+    "fill": "#f8fafc",
+    "fontSize": 14,
+    "diagramPadding": 32
+  }
+}
