@@ -79,12 +79,12 @@ mypy는 `pyproject.toml`에 명시한 CLI/config/scoring 표면부터 게이트�
 - **환자 식별정보(PII) 금지**: 코드/SQL/노트북에 주민번호·환자명·병원 식별자 등을 **절대 하드코딩하지 마세요.**
 - **비밀키/토큰 금지**: `.env`, `credentials/`, `secrets/`는 커밋 금지(이미 제외됨). 키가 필요하면 팀에 문의.
 - **데이터 사전**: 컬럼 정의는 `data/clinical_data/*_column_detail.xlsx` 참조. (코드(YAML)화 진행 예정)
-- **임상 프로토콜**: `docs/clinical_use/` 참조.
+- **임상 프로토콜**: `docs/clinical/` 참조.
 - CSV 저장 시 한글 깨짐 방지를 위해 `encoding="utf-8-sig"` 사용.
 
 ## 6. 도움말 / 참고 문서
 
-- 프로젝트 구조: `docs/PROJECT_STRUCTURE.md`
-- 개발 워크플로우: `docs/MODEL_WORKFLOW.md`
-- 용어 표준: `docs/TERMINOLOGY_STANDARD.md`
+- 프로젝트 구조: `docs/architecture/PROJECT_STRUCTURE.md`
+- 개발 워크플로우: `docs/architecture/MODEL_WORKFLOW.md`
+- 용어 표준: `docs/compliance/TERMINOLOGY_STANDARD.md`
 - 막히면 GitHub 이슈를 열거나 팀에 문의하세요.

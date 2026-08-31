@@ -29,9 +29,9 @@
 | `publications/aacr/` | 학회 figure 코드 |
 | `config/` | `config.yaml`, `environment.yml` |
 
-- 상세 구조: `docs/PROJECT_STRUCTURE.md`
-- 모델 워크플로우: `docs/MODEL_WORKFLOW.md`
-- 용어 표준: `docs/TERMINOLOGY_STANDARD.md`
+- 상세 구조: `docs/architecture/PROJECT_STRUCTURE.md`
+- 모델 워크플로우: `docs/architecture/MODEL_WORKFLOW.md`
+- 용어 표준: `docs/compliance/TERMINOLOGY_STANDARD.md`
 
 ## 3. 개발 환경 셋업 (요약)
 
@@ -97,8 +97,8 @@ sers preprocess              # 전처리 + QC 파이프라인
 
 ## 8. 역할별 시작점
 
-- **ML / SW 엔지니어**: `src/sers/` 구조 파악 → `docs/MODEL_WORKFLOW.md` → 테스트 실행 → 작은 `fix/` PR로 워크플로우 체험
-- **데이터 / 임상 담당**: `data/clinical_data/*_column_detail.xlsx`(데이터 사전) → `docs/clinical_use/` → 위 §5 도메인 규칙 숙지
+- **ML / SW 엔지니어**: `src/sers/` 구조 파악 → `docs/architecture/MODEL_WORKFLOW.md` → 테스트 실행 → 작은 `fix/` PR로 워크플로우 체험
+- **데이터 / 임상 담당**: `data/clinical_data/*_column_detail.xlsx`(데이터 사전) → `docs/clinical/` → 위 §5 도메인 규칙 숙지
 
 ## 9. 막히면 어디를 보나
 
