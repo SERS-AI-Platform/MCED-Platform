@@ -1,32 +1,59 @@
 """sers data — Data management commands."""
 
+from collections import Counter
+from pathlib import Path
+
 import click
 
 from ._run import run_script
+from .data_ingest import (
+    ingest_clinical_command,
+    ingest_clinical_registry_command,
+    ingest_spectra_command,
+    inventory_command,
+)
+from .data_legacy_crosswalk import ingest_legacy_crosswalk_command
+from .data_lineage import (
+    build_labels_command,
+    export_dataset_command,
+    match_command,
+    reconcile_command,
+)
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
 def data(ctx):
-    """Data management: standardize, validate, upload.
+    """Manage governed clinical, spectrum, and model-lineage data.
 
     \b
     Subcommands:
-        sers data standardize   Standardize clinical data
-        sers data validate      Validate spectrum files
-        sers data upload        Upload to database
+        sers data inventory         Inventory configured raw sources
+        sers data ingest-clinical   Ingest one immutable clinical source
+        sers data ingest-clinical-registry
+                                    Validate or ingest the built-in registry
+        sers data ingest-spectra    Ingest immutable spectrum sources
+        sers data match             Match clinical and spectrum identity
+        sers data build-labels      Derive versioned evidence-linked labels
+        sers data reconcile         Report aggregate matching states
+        sers data export-dataset    Export one frozen dataset manifest
     """
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
 
 @data.command()
-@click.option("--output-dir", "-o", default=None,
-              help="Output directory [data/clinical_data/standardized].")
+@click.option(
+    "--output-dir",
+    "-o",
+    default=None,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Output directory [data/clinical_data/standardized].",
+)
 @click.option("--dry-run", is_flag=True, default=False,
               help="List files without writing.")
-def standardize(output_dir, dry_run):
-    """Standardize clinical data into unified format.
+def standardize(output_dir: Path | None, dry_run: bool) -> None:
+    """Run the legacy ungoverned clinical standardization predecessor.
 
     \b
     Examples:
@@ -34,9 +61,14 @@ def standardize(output_dir, dry_run):
         sers data standardize --dry-run
         sers data standardize -o ./output
     """
-    args = []
+    click.echo(
+        "DEPRECATED: this legacy output is not eligible for governed lineage; "
+        "use 'sers data ingest-clinical-registry'.",
+        err=True,
+    )
+    args: list[str] = []
     if output_dir:
-        args += ["--output-dir", output_dir]
+        args += ["--output-dir", str(output_dir)]
     if dry_run:
         args.append("--dry-run")
     run_script("scripts/pipeline/standardize_clinical_data.py", args)
@@ -44,8 +76,9 @@ def standardize(output_dir, dry_run):
 
 @data.command()
 @click.option("--input", "-i", "input_dir", default=None,
+              type=click.Path(exists=True, file_okay=False, path_type=Path),
               help="Input data directory.")
-def validate(input_dir):
+def validate(input_dir: Path | None) -> None:
     """Validate spectrum data files.
 
     \b
@@ -53,30 +86,27 @@ def validate(input_dir):
         sers data validate
         sers data validate -i ./data/raw_data
     """
-    from ..config import DATA_DIR
+    from ..config import DATA_ROOT
     from ..io import find_spectra, parse_filename, read_spectrum
 
-    data_dir = input_dir or str(DATA_DIR)
+    data_dir = input_dir or DATA_ROOT
     files = find_spectra(data_dir)
     click.echo(f"Found {len(files)} spectrum files")
 
-    errors = []
+    errors: Counter[str] = Counter()
     for path in files:
         try:
             parse_filename(path)
             read_spectrum(path)
-        except Exception as e:
-            errors.append((path.name, str(e)))
+        except (OSError, ValueError) as error:
+            errors[type(error).__name__] += 1
 
     if errors:
-        click.echo(f"\n{len(errors)} files with issues:")
-        for name, err in errors[:10]:
-            click.echo(f"  {name}: {err}")
-        if len(errors) > 10:
-            click.echo(f"  ... and {len(errors) - 10} more")
-        raise SystemExit(1)
-    else:
-        click.echo("All files valid!")
+        click.echo(f"issues={sum(errors.values())}")
+        for reason, count in sorted(errors.items()):
+            click.echo(f"{reason}={count}")
+        raise click.ClickException("spectrum validation failed")
+    click.echo("All files valid!")
 
 
 @data.command()
@@ -117,3 +147,14 @@ def upload(target, host, port, dbname, user, password, drop):
         if drop:
             args.append("--drop")
         run_script("scripts/db/upload_to_postgres.py", args)
+
+
+data.add_command(inventory_command)
+data.add_command(ingest_clinical_command)
+data.add_command(ingest_clinical_registry_command)
+data.add_command(ingest_legacy_crosswalk_command)
+data.add_command(ingest_spectra_command)
+data.add_command(match_command)
+data.add_command(build_labels_command)
+data.add_command(reconcile_command)
+data.add_command(export_dataset_command)
