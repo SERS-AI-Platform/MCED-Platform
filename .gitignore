@@ -62,6 +62,18 @@ Thumbs.db
 publications/대한암학회/
 monthly_meeting_*.pptx
 
+# Notebook scratch/experiment outputs (source .py/.ipynb stay tracked)
+/notebooks/*_outputs/
+/notebooks/figures/
+/notebooks/stkv2_dataset/
+/notebooks/annotated_historical_figures/
+/notebooks/three_condition_figures_20260828/
+/notebooks/*.png
+/notebooks/*.log
+/notes/session-logs/
+# Patent drafts kept outside Git (master lives in Obsidian vault).
+/patent/
+
 # Temporary
 *.tmp
 *.log
