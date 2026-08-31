@@ -130,8 +130,9 @@ UNCATEGORIZED_BUCKET = ProcessBucket(
 UNMEASURED_PROCESS_NOTES: tuple[tuple[str, str, str], ...] = (
     (
         "deployment_software",
-        "scripts/deployment/**",
-        "Software product code exists in this repo, but is outside the current --cov=sers gate.",
+        "SERS-Clinical-App:app/**",
+        "Clinical webapp product code moved to the SERS-Clinical-App repo "
+        "(2026-08-31); tracked/covered there, not in this repo's --cov=sers gate.",
     ),
     (
         "dashboard_workspace",

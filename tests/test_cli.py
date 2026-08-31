@@ -18,7 +18,7 @@ def test_cli_help_lists_primary_workflows():
     assert "preprocess" in result.output
     assert "train" in result.output
     assert "data" in result.output
-    assert "predict" in result.output
+    assert "production" in result.output
 
 
 def test_cli_exposes_data_validate_help():

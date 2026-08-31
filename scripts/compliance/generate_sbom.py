@@ -459,8 +459,6 @@ Excluded from package license resolution:
 | Artifact path | Purpose | Supplier | License |
 | --- | --- | --- | --- |
 | `src/sers/` | Core SERS analysis library | SOLUM Healthcare | Proprietary |
-| `scripts/deployment/sers_predict.py` | CLI inference entry point | SOLUM Healthcare | Proprietary |
-| `scripts/deployment/sers_webapp.py` | Web/API inference entry point | SOLUM Healthcare | Proprietary |
 | `artifacts/usersnet/` | Production model artifacts copied into Docker images | SOLUM Healthcare | Proprietary |
 | `artifacts/baselines/` | Baseline artifacts copied into Docker images | SOLUM Healthcare | Proprietary |
 | `config/config.yaml` | Runtime pipeline configuration | SOLUM Healthcare | Proprietary |

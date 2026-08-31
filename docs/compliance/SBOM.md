@@ -8,7 +8,7 @@
 | Version | 0.1.0 |
 | Supplier | SOLUM Healthcare |
 | License | Proprietary |
-| Generated | 2026-06-08T22:57:54Z |
+| Generated | 2026-08-31T09:26:10Z |
 | SBOM standard | CycloneDX 1.5 JSON plus human-readable Markdown |
 | Machine-readable file | `docs/compliance/sbom.cdx.json` |
 
@@ -112,8 +112,6 @@ Excluded from package license resolution:
 | Artifact path | Purpose | Supplier | License |
 | --- | --- | --- | --- |
 | `src/sers/` | Core SERS analysis library | SOLUM Healthcare | Proprietary |
-| `scripts/deployment/sers_predict.py` | CLI inference entry point | SOLUM Healthcare | Proprietary |
-| `scripts/deployment/sers_webapp.py` | Non-clinical research Web/API inference entry point | SOLUM Healthcare | Proprietary |
 | `artifacts/usersnet/` | Production model artifacts copied into Docker images | SOLUM Healthcare | Proprietary |
 | `artifacts/baselines/` | Baseline artifacts copied into Docker images | SOLUM Healthcare | Proprietary |
 | `config/config.yaml` | Runtime pipeline configuration | SOLUM Healthcare | Proprietary |

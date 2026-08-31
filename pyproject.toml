@@ -106,13 +106,6 @@ files = [
     "src/sers/cli",
     "src/sers/master_data",
     "src/sers/mlflow_tracking.py",
-    "scripts/deployment/clinical_db.py",
-    "scripts/deployment/clinical_db_core.py",
-    "scripts/deployment/clinical_db_schema.py",
-    "scripts/deployment/clinical_db_sessions.py",
-    "scripts/deployment/clinical_db_results.py",
-    "scripts/deployment/clinical_db_records.py",
-    "scripts/deployment/clinical_db_result_types.py",
 ]
 mypy_path = "src"
 explicit_package_bases = true
