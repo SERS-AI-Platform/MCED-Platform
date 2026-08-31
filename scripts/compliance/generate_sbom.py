@@ -24,8 +24,8 @@ REQUIREMENTS_LOCK = ROOT / "requirements.lock"
 DOCKERFILES = (ROOT / "infra" / "Dockerfile", ROOT / "infra" / "Dockerfile.api")
 ENVIRONMENT = ROOT / "config" / "environment.yml"
 ENVIRONMENT_LOCK = ROOT / "config" / "environment.lock.yml"
-SBOM_MD = ROOT / "docs" / "SBOM.md"
-SBOM_CDX = ROOT / "docs" / "sbom.cdx.json"
+SBOM_MD = ROOT / "docs" / "compliance" / "SBOM.md"
+SBOM_CDX = ROOT / "docs" / "compliance" / "sbom.cdx.json"
 
 REQ_NAME_RE = re.compile(r"^\s*([A-Za-z0-9_.-]+)")
 LOCK_PACKAGE_RE = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s]+)$")
@@ -403,7 +403,7 @@ def make_markdown(
 | License | Proprietary |
 | Generated | {timestamp} |
 | SBOM standard | CycloneDX 1.5 JSON plus human-readable Markdown |
-| Machine-readable file | `docs/sbom.cdx.json` |
+| Machine-readable file | `docs/compliance/sbom.cdx.json` |
 
 ## Scope
 
@@ -491,7 +491,7 @@ Run:
 python scripts/compliance/generate_sbom.py
 ```
 
-The command rewrites `docs/SBOM.md` and `docs/sbom.cdx.json`.
+The command rewrites `docs/compliance/SBOM.md` and `docs/compliance/sbom.cdx.json`.
 """
 
 
