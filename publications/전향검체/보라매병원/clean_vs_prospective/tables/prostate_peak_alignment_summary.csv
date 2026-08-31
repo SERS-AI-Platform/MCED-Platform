@@ -1,3 +1,0 @@
-﻿stage,clean_peaks,prospective_peaks,matched_peaks,matched_within_5cm-1,clean_unmatched,prospective_unmatched,median_signed_shift_cm-1,median_absolute_shift_cm-1,max_absolute_shift_cm-1
-Common grid only,10,11,7,7,3,4,-1.9229122055673997,1.9229122055673997,3.845824411135254
-Urea aligned,10,11,7,7,3,4,-1.9229122055673997,1.9229122055673997,1.922912205567627
