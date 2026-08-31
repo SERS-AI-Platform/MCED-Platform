@@ -43,6 +43,7 @@ env/
 # Environment
 .env
 .env.local
+.env.aecd-api
 secrets/
 credentials/
 
@@ -52,6 +53,8 @@ Thumbs.db
 *:Zone.Identifier
 
 # Non-code presentation/research deliverables
+# Publication work products are kept outside Git.
+/publications/
 # NOTE: anchored to repo root with leading slash. core.ignorecase=true on this
 # filesystem, so an unanchored "AACR/" also matches publications/aacr/ (a tracked
 # code+figure dir) and silently ignores new files there. Keep these anchored.
@@ -110,3 +113,7 @@ monthly_meeting_*.pptx
 # Allow analysis figures and SVGs
 # *.png — allowed for reports
 # *.svg — allowed for reports
+
+# SQLite WAL/SHM journal artifacts
+*.db-shm
+*.db-wal
