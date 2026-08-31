@@ -172,7 +172,7 @@ def fixed_clinical_sources(root: Path) -> tuple[ClinicalSource, ...]:
                 root,
                 "보라매 병원 임상정보.xlsx",
                 "BORAMAE",
-                "BORAMAE_CURRENT",
+                "SMCXD07",
                 "BPRO/BNOR",
                 sheet_contracts=(
                     ClinicalSheetContract("Sheet1", 1, ("patient_code",), "other"),
@@ -183,7 +183,7 @@ def fixed_clinical_sources(root: Path) -> tuple[ClinicalSource, ...]:
                 root,
                 "보라매 병원 임상정보 (pre-2026-07-14).xlsx",
                 "BORAMAE",
-                "BORAMAE_CURRENT",
+                "SMCXD07",
                 "BPRO/BNOR",
                 sheet_contracts=(
                     ClinicalSheetContract("Sheet1", 1, ("patient_code",), "other"),

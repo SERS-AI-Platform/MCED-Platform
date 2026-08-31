@@ -187,11 +187,11 @@ def test_inventory_full_protocol_matrix_uses_canonical_study_codes(
         ("10. 췌장암/CPAN/SMCMD06_췌장암.xlsx", "CPAN"): "SMCMD06",
         ("10. 췌장암/YPAN/SMCXD04_CRF_data.xlsx", "YPAN"): "SMCXD04",
         ("11. 방광암/SMCXD06_방광암.xlsm", "BLA"): "SMCXD06",
-        ("보라매 병원 임상정보.xlsx", "BPRO/BNOR"): "BORAMAE_CURRENT",
+        ("보라매 병원 임상정보.xlsx", "BPRO/BNOR"): "SMCXD07",
         (
             "보라매 병원 임상정보 (pre-2026-07-14).xlsx",
             "BPRO/BNOR",
-        ): "BORAMAE_CURRENT",
+        ): "SMCXD07",
     }
     prospective_files = {
         "SPAN": (

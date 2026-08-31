@@ -54,7 +54,7 @@ Every rule is tagged with **how** it is enforced:
 - **Composite aliases (policy)**: **`PAN = CPAN + YPAN`**. **`SPAN` (Samsung, post-op) is excluded from screening** and must never be merged into PAN. **`NOR` includes `YNOR`**.
 - **SSOT for codes, hospitals, aliases, and sample-count metadata**: `config/config.yaml` (`folder_to_group`, `group_metadata`, `group_aliases`) + [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md). **Do not hardcode counts in this doc — they drift.**
 - **Only authoritative source-file → protocol mapping**: `src/sers/master_data/clinical_inventory.py`. `config/config.yaml: group_metadata.protocol` is a cohort-level discovery default, not authority for a physical file. SQL and documentation must mirror the registry and must not create a second mapping.
-- **Protocol migration**: records traced to `SMCMD06_췌장암.xlsx` use `CPAN` / `SMCMD06`; all 19 SPAN CSV sources use `SMCXD02`; all 20 YPAN CSV sources plus YPAN/YNOR use `SMCXD04`; Boramae `BPRO` and `BNOR` use `BORAMAE_CURRENT`. Migrate legacy `SPAN_CRF` / `YPAN_CRF` protocol values only after exact source-file matching; do not rewrite identity from cohort aliases or row order.
+- **Protocol migration**: records traced to `SMCMD06_췌장암.xlsx` use `CPAN` / `SMCMD06`; all 19 SPAN CSV sources use `SMCXD02`; all 20 YPAN CSV sources plus YPAN/YNOR use `SMCXD04`; Boramae `BPRO` and `BNOR` use `SMCXD07`. Migrate legacy `SPAN_CRF` / `YPAN_CRF` protocol values only after exact source-file matching; do not rewrite identity from cohort aliases or row order.
 
 ## A5. Model name
 

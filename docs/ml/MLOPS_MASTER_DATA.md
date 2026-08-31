@@ -143,11 +143,11 @@ connection에서 그 작업을 commit하거나 rollback한 뒤 깨끗한 connect
 | 대장 `SMCXD06_대장암.xlsx` | `CBNUH` | 두 cohort sheet, header 1, non-overlapping `제공자:제공자bCODE` |
 | 충북 췌장 `SMCMD06_췌장암.xlsx` / 방광 | `CBNUH` | `CPAN`은 `SMCMD06`, 췌장 provider code / 방광 `분양명단`, physical header 2 |
 | SPAN CSV / YPAN CSV / `SMCXD04_CRF_data.xlsx` | `SAMSUNG` / `YONSEI` | SPAN CSV 19개는 `SMCXD02`; YPAN CSV 20개와 YPAN/YNOR workbook은 `SMCXD04`; CSV `SUBJID`, CRF key `스크리닝번호` |
-| 보라매 current/history | `BORAMAE` | `BPRO`/`BNOR` protocol alias `BORAMAE_CURRENT`; `Sheet1`, header 1, `patient_code` |
+| 보라매 current/history | `BORAMAE` | `BPRO`/`BNOR` protocol alias `SMCXD07`; `Sheet1`, header 1, `patient_code` |
 
 `SMC`와 `CBNU`는 canonical site가 아니다. 기존 DB에서 이 코드로 적재된 행은 전체를 한 기관으로 일괄 변경하면 안 된다. `source_assets.uri`의 정확한 원본 파일명을 위 표와 `scripts/db/clinical_unified/01_schema.sql`의 source-hospital map에 대조해 `CBNUH`, `IJBPH`, `SNUH`, `SSMH`, `YPNUH`로 migration한다. SPAN, YPAN, 보라매는 각각 `SAMSUNG`, `YONSEI`, `BORAMAE`를 유지한다.
 
-protocol migration도 exact source URI를 기준으로 수행한다. `SMCMD06_췌장암.xlsx`에 잘못 기록된 `SMCXD06`만 `SMCMD06`으로 교정하고, 기존 `SPAN_CRF` 19개 source protocol은 `SMCXD02`로, `YPAN_CRF` 20개 source protocol은 `SMCXD04`로 교정한다. YPAN/YNOR는 `SMCXD04`, Boramae BPRO/BNOR current와 history는 `BORAMAE_CURRENT`로 기록한다. cohort alias나 파일·Excel 행 순서만으로 protocol 또는 identity를 일괄 변경하지 않는다.
+protocol migration도 exact source URI를 기준으로 수행한다. `SMCMD06_췌장암.xlsx`에 잘못 기록된 `SMCXD06`만 `SMCMD06`으로 교정하고, 기존 `SPAN_CRF` 19개 source protocol은 `SMCXD02`로, `YPAN_CRF` 20개 source protocol은 `SMCXD04`로 교정한다. YPAN/YNOR는 `SMCXD04`, Boramae BPRO/BNOR current와 history는 `SMCXD07`로 기록한다. cohort alias나 파일·Excel 행 순서만으로 protocol 또는 identity를 일괄 변경하지 않는다.
 
 질환 표기의 migration metadata는 identity rewrite가 아니다.
 
