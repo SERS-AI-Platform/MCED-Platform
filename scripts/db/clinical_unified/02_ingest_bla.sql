@@ -1,10 +1,13 @@
 -- =====================================================================
+-- LEGACY / NON-GOVERNED historical reproduction only
 -- 02_ingest_bla.sql  —  방광암 임상정보 (BLC, SMCXD06, n=300)
 -- 입력: raw.raw_bla
 -- 주의:
 --   - 원본 임상 disease_group은 BLA지만 std disease_group은 config 기준 BLC로 통일한다.
 --   - SERS 스펙트럼 그룹명도 BLC이므로 solum_label은 BLC 1..300으로 만든다.
 --   - 기존 clinical_unified를 drop하지 않고 누락 row만 추가한다.
+--   - BLA → BLC rewrite output is forbidden as governed identity/lineage input.
+--     Governed ingestion preserves BLA and records BLC only as alias-review metadata.
 -- =====================================================================
 
 INSERT INTO std.clinical_unified (

@@ -1,5 +1,7 @@
-"""
-std.clinical_unified 테이블을 CSV + xlsx로 export.
+"""LEGACY NON-GOVERNED clinical_unified export for historical reproduction.
+
+Exported rows are forbidden as governed identity, matching, label-evidence, or
+dataset-manifest input.
 
 실행:
     python /home/user/SERS-AI/scripts/db/clinical_unified/export_clinical_unified.py
@@ -9,26 +11,18 @@ std.clinical_unified 테이블을 CSV + xlsx로 export.
     /mnt/c/Users/user/Downloads/clinical_unified.xlsx
 """
 import os
+from importlib import import_module
 from pathlib import Path
 
-import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import URL, create_engine
+from sqlalchemy.engine import make_url
+
+pd = import_module("pandas")
 
 # ---------------------------------------------------------------------
 # DB 연결 (환경변수 또는 기본값)
 #   환경변수 PGHOST / PGPORT / PGDATABASE / PGUSER / PGPASSWORD 사용 가능
 # ---------------------------------------------------------------------
-DB_URL = os.environ.get(
-    "CLINICAL_DB_URL",
-    "postgresql+psycopg2://{user}:{pw}@{host}:{port}/{db}".format(
-        user=os.environ.get("PGUSER",     "postgres"),
-        pw  =os.environ.get("PGPASSWORD", "postgres"),
-        host=os.environ.get("PGHOST",     "localhost"),
-        port=os.environ.get("PGPORT",     "5432"),
-        db  =os.environ.get("PGDATABASE", "postgres"),
-    ),
-)
-
 OUT_DIR = Path("/mnt/c/Users/user/Downloads")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -39,8 +33,28 @@ QUERY = """
 """
 
 
+def resolve_db_url() -> URL:
+    configured_url = os.environ.get("CLINICAL_DB_URL")
+    if configured_url:
+        return make_url(configured_url)
+
+    password = os.environ.get("PGPASSWORD")
+    if not password:
+        raise SystemExit(
+            "PostgreSQL password required: set PGPASSWORD or CLINICAL_DB_URL."
+        )
+    return URL.create(
+        "postgresql+psycopg2",
+        username=os.environ.get("PGUSER", "postgres"),
+        password=password,
+        host=os.environ.get("PGHOST", "localhost"),
+        port=int(os.environ.get("PGPORT", "5432")),
+        database=os.environ.get("PGDATABASE", "postgres"),
+    )
+
+
 def main() -> None:
-    engine = create_engine(DB_URL)
+    engine = create_engine(resolve_db_url())
     df = pd.read_sql(QUERY, engine)
 
     csv_path  = OUT_DIR / "clinical_unified.csv"

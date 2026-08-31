@@ -9,14 +9,16 @@ Requires:
     - Python packages: psycopg2, pandas, numpy, openpyxl
 """
 
-import os
-import sys
-import re
+import argparse
 import json
 import logging
+import os
+import re
+import sys
 import time
-from pathlib import Path
+from collections.abc import Sequence
 from io import StringIO
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -30,21 +32,23 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from sers.config import (
-    RAW_DATA_DIR, SERS_EQUIPMENT_TEST_DATA_DIR, CLINICAL_DATA_DIR, load_config,
+    CLINICAL_DATA_DIR,
+    RAW_DATA_DIR,
+    SERS_EQUIPMENT_TEST_DATA_DIR,
+    load_config,
 )
-from sers.io import read_spectrum, parse_filename, find_spectra
+from sers.io import find_spectra, parse_filename, read_spectrum
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 # Database credentials — override via environment variables for non-local environments.
 # Env vars: PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD
-DB_CONFIG = dict(
+DB_CONFIG: dict[str, str | int] = dict(
     host=os.environ.get("PGHOST", "localhost"),
     port=int(os.environ.get("PGPORT", "5432")),
     database=os.environ.get("PGDATABASE", "postgres"),
     user=os.environ.get("PGUSER", "postgres"),
-    password=os.environ.get("PGPASSWORD", "solumhc1"),
 )
 
 FLUSH_INTERVAL = 200  # flush spectral_data to DB every N files
@@ -172,9 +176,19 @@ CREATE INDEX idx_clinical_info_patient_id ON clinical_info(patient_id);
 # Helpers
 # ---------------------------------------------------------------------------
 
-def get_connection():
+def resolve_password(cli_password: str | None) -> str:
+    password = cli_password or os.environ.get("PGPASSWORD")
+    if not password:
+        raise SystemExit(
+            "PostgreSQL password required: pass --password or set PGPASSWORD."
+        )
+    return password
+
+
+def get_connection(password: str | None = None) -> psycopg2.extensions.connection:
+    connection_config = {**DB_CONFIG, "password": resolve_password(password)}
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**connection_config)
     except UnicodeDecodeError:
         # Korean Windows: PostgreSQL error messages in cp949 can't be decoded as UTF-8
         log.error(
@@ -716,7 +730,7 @@ def load_clinical_data(conn, disease_ids):
             continue
 
         if df.empty:
-            log.info(f"    Empty file, skipping")
+            log.info("    Empty file, skipping")
             continue
 
         disease_cat_id = disease_ids.get(disease_code) if disease_code else None
@@ -815,11 +829,17 @@ def verify(conn):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Create and populate the SERS PostgreSQL database"
+    )
+    parser.add_argument("--password", default=None)
+    args = parser.parse_args(argv)
+
     t_start = time.time()
     log.info("Starting SERS database creation...")
 
-    conn = get_connection()
+    conn = get_connection(args.password)
     try:
         create_schema(conn)
         disease_ids, equipment_ids = seed_lookup_tables(conn)

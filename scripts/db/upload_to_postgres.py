@@ -8,7 +8,7 @@ Schema:
     wavenumber_grid — shared 901-point wavenumber axis
 
 Usage:
-    python upload_to_postgres.py                     # default: localhost/sers_clinical
+    PGPASSWORD='...' python upload_to_postgres.py
     python upload_to_postgres.py --password mypass    # specify password
     python upload_to_postgres.py --drop               # drop & recreate tables
 
@@ -25,8 +25,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import psycopg2
+from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from sqlalchemy import create_engine, text
+from sqlalchemy import URL, create_engine, text
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -43,7 +44,15 @@ DB_HOST = os.environ.get("PGHOST", "localhost")
 DB_PORT = int(os.environ.get("PGPORT", "5432"))
 DB_NAME = os.environ.get("PGDATABASE", "sers_clinical")
 DB_USER = os.environ.get("PGUSER", "postgres")
-DB_PASSWORD = os.environ.get("PGPASSWORD", "solumhc1")
+
+
+def resolve_password(cli_password: str | None) -> str:
+    password = cli_password or os.environ.get("PGPASSWORD")
+    if not password:
+        raise SystemExit(
+            "PostgreSQL password required: pass --password or set PGPASSWORD."
+        )
+    return password
 
 
 def connect_pg(**kwargs):
@@ -81,7 +90,7 @@ def ensure_database(host, port, user, password, dbname):
 
     cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
     if cur.fetchone() is None:
-        cur.execute(f'CREATE DATABASE "{dbname}"')
+        cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(dbname)))
         log.info(f"Database '{dbname}' created")
     else:
         log.info(f"Database '{dbname}' already exists")
@@ -237,7 +246,6 @@ def insert_wavenumber_grid(engine):
 def insert_samples_and_spectra(engine, df):
     """Insert sample metadata and spectral data."""
     wn_cols = [c for c in df.columns if c.startswith("wn_")]
-    meta_cols = [c for c in df.columns if not c.startswith("wn_")]
 
     # ── Prepare samples table ──
     clinical_columns = [
@@ -356,13 +364,13 @@ def create_views(engine):
 # ==========================================================================
 # Main
 # ==========================================================================
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Upload SERS data to PostgreSQL")
     parser.add_argument("--host", default=DB_HOST)
     parser.add_argument("--port", type=int, default=DB_PORT)
     parser.add_argument("--dbname", default=DB_NAME)
     parser.add_argument("--user", default=DB_USER)
-    parser.add_argument("--password", default=DB_PASSWORD)
+    parser.add_argument("--password", default=None)
     parser.add_argument("--drop", action="store_true", help="Drop and recreate tables")
     args = parser.parse_args()
 
@@ -370,11 +378,20 @@ def main():
     log.info(f"Uploading SERS data to PostgreSQL: {args.host}:{args.port}/{args.dbname}")
     log.info("=" * 60)
 
+    password = resolve_password(args.password)
+
     # Step 0: Ensure DB exists
-    ensure_database(args.host, args.port, args.user, args.password, args.dbname)
+    ensure_database(args.host, args.port, args.user, password, args.dbname)
 
     # Create SQLAlchemy engine
-    db_url = f"postgresql://{args.user}:{args.password}@{args.host}:{args.port}/{args.dbname}"
+    db_url = URL.create(
+        "postgresql",
+        username=args.user,
+        password=password,
+        host=args.host,
+        port=args.port,
+        database=args.dbname,
+    )
     engine = create_engine(db_url)
 
     # Step 1: Schema
@@ -399,8 +416,14 @@ def main():
     # Verify
     log.info("\n=== Verification ===")
     with engine.connect() as conn:
-        for table in ["disease_groups", "samples", "spectra", "wavenumber_grid"]:
-            count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+        table_queries = [
+            ("disease_groups", "SELECT COUNT(*) FROM disease_groups"),
+            ("samples", "SELECT COUNT(*) FROM samples"),
+            ("spectra", "SELECT COUNT(*) FROM spectra"),
+            ("wavenumber_grid", "SELECT COUNT(*) FROM wavenumber_grid"),
+        ]
+        for table, query in table_queries:
+            count = conn.execute(text(query)).scalar()
             log.info(f"  {table}: {count} rows")
 
         log.info("\n  Group summary:")

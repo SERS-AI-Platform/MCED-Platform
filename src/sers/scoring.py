@@ -4,23 +4,27 @@ SERS Screening Index (SSI) and Cancer Type Index (CTI) scoring module.
 Transforms raw model probabilities into clinically interpretable 0-10 indices,
 analogous to OVA1 (ovarian cancer) multivariate index assay.
 
-SSI uses a piecewise linear transformation anchored at the operating mode
-threshold, which always maps to SSI = 4.0 (the positive/negative cutoff).
+SSI uses a piecewise linear transformation anchored at the model probability
+threshold, which always maps to SSI = 4.0. The patient-level mean SSI selects
+one of three clinical actions after QC validity is established.
 """
+
+from typing import Final, Literal
 
 SSI_CUTOFF = 4.0
 SSI_MAX = 10.0
+MEAN_SSI_DECISION_POLICY: Final = "mean_ssi_three_band_v1"
+DecisionLevel = Literal["negative", "moderate", "positive"]
 
 # 3-tier risk stratification, validated against STK-V2 nested 5-fold OOF CV
 # (n=1628; scripts/analysis/validate_ssi_risk_bands.py). Boundaries:
 #   - 1.0: data-driven split (CART, min_leaf=30) separating the near-zero-risk
 #     tail from an elevated-risk population, both still below the decision cutoff.
-#   - 4.0: SSI_CUTOFF, i.e. the fixed "balanced" decision threshold — HIGH is
-#     exactly the population flagged cancer_detected=True.
+#   - 4.0: SSI_CUTOFF, the upper inclusive bound of the moderate action.
 # Observed cancer rate: LOW 1.8% (n=388), MODERATE 46.0% (n=50, 95% CI
 # 32.7-59.7%), HIGH 98.2% (n=1190). MODERATE sits below the binary decision
-# cutoff but at materially elevated risk — flag this band's smaller N when
-# displaying it.
+# cutoff but at materially elevated observed risk — flag this band's smaller N
+# when displaying it.
 RISK_LEVELS = {
     "LOW":      (0.0, 1.0, "#059669", "#f0fdf4"),
     "MODERATE": (1.0, 4.0, "#d97706", "#fffbeb"),
@@ -73,10 +77,23 @@ def compute_cti_scores(type_probs: dict[str, float]) -> dict[str, float]:
 
 def ssi_risk_level(ssi: float) -> tuple[str, str, str]:
     """Return (level_name, text_color_hex, bg_color_hex) for an SSI value."""
-    for name, (lo, hi, color, bg) in RISK_LEVELS.items():
-        if ssi < hi or name == "HIGH":
-            return name, color, bg
-    return "HIGH", "#dc2626", "#fef2f2"
+    decision = ssi_decision_level(ssi)
+    name = {
+        "negative": "LOW",
+        "moderate": "MODERATE",
+        "positive": "HIGH",
+    }[decision]
+    _, _, color, bg = RISK_LEVELS[name]
+    return name, color, bg
+
+
+def ssi_decision_level(ssi: float) -> DecisionLevel:
+    """Select the clinical action from the displayed patient mean SSI."""
+    if ssi < 1.0:
+        return "negative"
+    if ssi <= SSI_CUTOFF:
+        return "moderate"
+    return "positive"
 
 
 def format_ssi(ssi: float) -> str:
