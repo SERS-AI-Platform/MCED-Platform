@@ -331,3 +331,20 @@
 1. [ ] BRE 샘플 추가 수집 후 재학습 — 근거: BRE n=30으로 통계적 파워 부족
 2. [ ] 보라매병원 전향적 데이터 검증 — 근거: retrospective bias 해소
 -->
+
+## Phase PL — Preprocessing Lab (논문 기반 전처리 벤치마크)
+
+- [x] PL-1: Whitaker-Hayes despike on/off ablation ✅ (2026-09-02)
+  - **결론: 개선 근거 없음.** 환자 단위 AUC (5시드, LR, StratifiedGroupKFold-by-subject)
+    - despike off: 0.7941 ± 0.0112
+    - despike on : 0.7582 ± 0.0323  → Δ = **-0.0359 ± 0.0428**, 3/5 시드 악화
+  - despike on 쪽 분산이 3배 크다 (안정성도 나빠짐)
+  - ⚠️ 표본 한계: 환자 112명. 실행 중 다른 세션이 control 1명을 'Drop'으로 재라벨했는데,
+    그 **환자 1명 차이로 Δ 부호가 +0.0086 → -0.0359로 뒤집혔다.** 이 코호트 크기로는
+    0.03 수준 효과를 판별할 수 없다.
+  - 구현 감사 완료: 저자 참조구현(Mendeley sxjgbgg95y) 대조, 불일치 2건 정정
+    (threshold 7.0→6.0, force_endpoints 추가) → `docs/reviews/2026-09-02-paper-code-audit-whitaker-hayes.md`
+  - 후속 가설: Stage-1 QC가 이미 cosmic ray 스펙트럼을 폐기하므로 despike가 복구할
+    대상이 거의 없다 (QC 통과 수 11331 vs 11334, 3건 차이). QC 게이트를 끄고 비교하는
+    설계가 효과 검출에 더 적합할 수 있다.
+  - → aecd_platform `experiment.runs` #58(off), #59(on) / 데이터: 13,552 measurements FK 연결

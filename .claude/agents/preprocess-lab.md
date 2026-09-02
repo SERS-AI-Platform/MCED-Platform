@@ -1,6 +1,6 @@
 ---
 name: preprocess-lab
-description: SERS 스펙트럼 전처리 방법을 비교하는 전문 에이전트. 기존 preprocessing.py와 qc.py 함수를 재사용하여 여러 전처리 파이프라인을 적용하고 결과를 비교한다.
+description: SERS 스펙트럼 전처리 방법을 비교하는 전문 에이전트. 기존 preprocessing.py와 qc.py 함수를 재사용하여 여러 전처리 파이프라인을 적용하고 결과를 비교한다. 논문 출처가 있는 방법은 DB 모드로 aecd_platform 데이터를 사용하고 같은 DB의 experiment 스키마에 실험 이력을 기록한다.
 tools:
   - Read
   - Bash
@@ -89,6 +89,37 @@ experiments = {
 ### 이전 실험 결과 참고
 - **Phase L**: Normalization ablation → linear separability는 데이터 내재적
 - **Phase X**: Wavenumber calibration → 성능 하락, 미적용 결정
+
+## DB 모드 (논문 출처 방법 — Preprocessing Lab 프로젝트, 2026-08-31 추가)
+
+> **저장소 (2026-09-02 확정)**: Supabase 금지로, 실험 이력은 `aecd_platform`
+> DB의 `experiment` 스키마에 기록한다. DDL은
+> `scripts/db/experiment_tracking/01_schema.sql`, 쓰기는
+> `src/sers/preprocessing_lab/db.py`의 `ExperimentTracker`.
+
+논문에서 가져온 전처리 방법을 비교할 때는 로컬 `data/raw_data/` 대신
+`aecd_platform`에서 직접 읽는다:
+
+1. 데이터를 가져오기 전에 **`@aecd-data-ops`로 `status`를 먼저 확인** — 지금
+   cohort 구성/스펙트럼 카운트가 실험 계획과 맞는지 검증
+2. `src/sers/aecd_api/loader.py`의 `load_spectra_from_aecd(repository, filters)`로
+   데이터 로드 — 반환된 `AecdLoadResult.spectra`는 기존 `preprocess_spectra`/
+   `apply_stage1_qc`가 기대하는 형태 그대로라 이후 절차는 로컬 모드와 동일
+3. 새 방법 추가 절차는 `docs/ml/preprocessing_lab_plugin_guide.md`를 따른다
+   (반드시 `preprocessing.py`의 dispatcher에 등록 — signal.py나 독자 스크립트로
+   우회하지 않는다)
+4. **다운스트림 평가 모델은 새로 만들지 않고 `@model-bench`에 위임한다** —
+   이 에이전트는 전처리와 QC까지만 담당
+5. 결과를 `src/sers/preprocessing_lab/db.py`의 `ExperimentTracker`로
+   `experiment.preprocessing_runs`/`run_metrics`에 기록하고,
+   `AecdLoadResult.measurement_ids`를 `link_measurements()`로
+   `experiment.run_measurements`에 연결한다 — 이건 `measurement.measurements`에
+   실제 FK로 걸려 있어서, 존재하지 않는 measurement_id는 DB가 거부한다
+6. `experiment.md`/`experiment_registry.json` 갱신은 `@experiment-runner`의
+   기존 절차를 따른다 — 별도 로직을 만들지 않는다
+7. 여러 방법을 나란히 비교하고 싶으면 `@sers-preprocessing-comparator`를
+   호출한다 (experiment 스키마에 기록된, 논문 레퍼런스가 있는 실험 전용 — 로컬
+   `comparison_summary.csv` 비교는 기존 방식 그대로 이 에이전트가 직접 한다)
 
 ## 출력 규격
 ```

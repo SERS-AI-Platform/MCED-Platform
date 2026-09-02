@@ -129,3 +129,6 @@ monthly_meeting_*.pptx
 # SQLite WAL/SHM journal artifacts
 *.db-shm
 *.db-wal
+
+# 논문 PDF (저작권 자료 — 추적하지 않음, 추출된 스펙만 docs/ml에 커밋)
+docs/ml/papers/

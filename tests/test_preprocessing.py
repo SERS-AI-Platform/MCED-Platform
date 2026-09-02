@@ -13,6 +13,7 @@ from sers.preprocessing import (
     asymmetric_least_squares_baseline,
     baseline_correction,
     calculate_replicate_variance,
+    despike_spectrum,
     emsc_normalize,
     estimate_baseline,
     gaussian_smooth,
@@ -42,6 +43,7 @@ from sers.preprocessing import (
     trim_to_grid,
     vector_normalize,
     wavelet_denoise,
+    whitaker_hayes_despike,
 )
 
 
@@ -159,6 +161,83 @@ class TestSmooth:
     def test_unknown_smoothing_method_raises(self):
         with pytest.raises(ValueError, match="Unknown smoothing method"):
             smooth_spectrum(np.ones(20), method="invalid")
+
+
+# =============================================================================
+# Despiking (Whitaker-Hayes) — 설계 가이드 ②단계
+# =============================================================================
+class TestDespike:
+    @staticmethod
+    def _spiked():
+        y = 50 + 10 * np.sin(np.linspace(0, 4 * np.pi, 200))
+        y[80] += 500
+        return y
+
+    def test_replaces_spike_with_local_mean(self):
+        y = self._spiked()
+        result = whitaker_hayes_despike(y)
+        assert result[80] < 100
+        assert abs(result[80] - np.mean([y[78], y[79], y[81], y[82]])) < 5
+
+    def test_clean_spectrum_interior_untouched(self):
+        """저자 구현은 끝점을 무조건 교체하므로 내부만 불변이어야 한다."""
+        y = 50 + 10 * np.sin(np.linspace(0, 4 * np.pi, 200))
+        assert np.allclose(whitaker_hayes_despike(y)[1:-1], y[1:-1])
+
+    def test_force_endpoints_matches_reference_implementation(self):
+        """deposit의 z[1] = z[n] = 1 — 양 끝점은 항상 교체된다."""
+        y = 50 + 10 * np.sin(np.linspace(0, 4 * np.pi, 200))
+        forced = whitaker_hayes_despike(y, force_endpoints=True)
+        assert forced[0] != y[0]
+        assert forced[-1] != y[-1]
+
+    def test_force_endpoints_disabled_leaves_clean_spectrum_untouched(self):
+        y = 50 + 10 * np.sin(np.linspace(0, 4 * np.pi, 200))
+        assert np.allclose(whitaker_hayes_despike(y, force_endpoints=False), y)
+
+    def test_default_threshold_matches_authors_deposit(self):
+        """Mendeley deposit sxjgbgg95y의 threshold = 6."""
+        import inspect
+
+        assert inspect.signature(whitaker_hayes_despike).parameters["z_threshold"].default == 6.0
+
+    def test_preserves_length_and_finiteness(self):
+        result = whitaker_hayes_despike(self._spiked())
+        assert len(result) == 200
+        assert np.isfinite(result).all()
+
+    def test_does_not_mutate_input(self):
+        y = self._spiked()
+        original = y.copy()
+        whitaker_hayes_despike(y)
+        assert np.array_equal(y, original)
+
+    def test_higher_threshold_keeps_spike(self):
+        y = self._spiked()
+        assert whitaker_hayes_despike(y, z_threshold=1e6)[80] == pytest.approx(y[80])
+
+    def test_constant_spectrum_returns_copy(self):
+        """MAD가 0이면 점수를 낼 수 없으므로 끝점 강제 이전에 그대로 반환한다."""
+        y = np.ones(50)
+        assert np.allclose(whitaker_hayes_despike(y), y)
+
+    def test_short_spectrum_returns_copy(self):
+        y = np.array([1.0, 2.0])
+        assert np.allclose(whitaker_hayes_despike(y), y)
+
+    @pytest.mark.parametrize("method", ["whitaker_hayes", "wh", "whitaker", "none"])
+    def test_dispatch_methods(self, method):
+        result = despike_spectrum(self._spiked(), method=method)
+        assert len(result) == 200
+        assert np.isfinite(result).all()
+
+    def test_none_is_passthrough(self):
+        y = self._spiked()
+        assert np.allclose(despike_spectrum(y, method="none"), y)
+
+    def test_unknown_despike_method_raises(self):
+        with pytest.raises(ValueError, match="Unknown despiking method"):
+            despike_spectrum(np.ones(20), method="invalid")
 
 
 # =============================================================================
