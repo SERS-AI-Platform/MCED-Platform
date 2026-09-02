@@ -291,6 +291,16 @@
 - [x] Phase AS-9: AS-1~AS-4 통합 비교표 (RUN_EXPERIMENTS=False, 재취합만) ✅ (2026-08-27)
   - AS-4(legacy STK-V2 raw subject-mean)가 binary/3-class 모두 최고 macro AUC — 5개 조건 통틀어 최고 성능 방식으로 확인
   - → notebooks/aecd_model_pipeline_results_outputs/
+- [x] Phase AS-10: 검출된 공통 peak별 암/비암/정상 fold change ✅ (2026-09-02)
+  - 입력: Phase AS-6 계열 산출물 재사용 (aecd_api_model_mean_spectrum_outputs, 보라매 113명 = 정상 21 / 비암 49 / 암 43, DB 스냅샷 2026-08-28)
+  - 방법: subject별 평균 스펙트럼에 61-point rolling-median baseline 제거(clip 없음) → subject별 400–2200 cm⁻¹ 총 면적 정규화 → 대표 파수 ±1 grid point 평균 → 그룹 median 비. Mann-Whitney U + BH-FDR(비교당 9검정), median ratio percentile bootstrap 10,000회
+  - **결과: 피크 9개 × 비교 3종 27건 중 BH-FDR q<0.05 통과 0건** (비교당 9검정 기준도, 전체 27검정 기준도 동일)
+  - 명목상 CI가 1을 제외한 유일한 항목: 1364.6/1366.6 cm⁻¹(분해능상 동일 피처, resolution_group R04) 암 vs 비암 FC 1.66 [1.00–2.31], p=0.048 → q=0.222
+  - Kruskal-Wallis 3군 최소 p: 1001.9 cm⁻¹ p=0.045. 이 피크는 암·비암이 모두 정상 대비 ~1.25배 높고(비암 vs 정상 p=0.016, 암 vs 정상 p=0.042) 암/비암 간에는 차이 없음(FC 0.996, p=0.633) — 단일기관·배치 대조 없음이라 암 신호와 검체 수집/취급 차이를 구분할 수 없음
+  - 정규화 기준(총 면적)과 1001.9 cm⁻¹를 PS 잔류 아님으로 취급한 것은 2026-09-02 사용자 확인 사항
+  - 해석 한계: fold change는 subject 수준 기술통계이며 판별력 아님. 같은 입력의 screening OOF AUC 0.6698. 정상군 n=21이 통계적 제약
+  - 구현: scripts/analysis/aecd_peak_group_fold_change.py → notebooks/aecd_api_model_mean_spectrum_outputs/peak_fold_change/
+  - ⚠️ 후속: 2026-09-02 clinical v7 적재로 보라매 control 1명(BNOR_110)이 `Drop`으로 재분류됨(21→20). 위 수치는 그 이전 스냅샷 기준이며, Drop 제외 재실행 여부는 미결정
 
 ---
 
