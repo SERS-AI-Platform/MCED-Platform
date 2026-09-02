@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Iterator
 
@@ -25,6 +25,7 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 # 로컬 전처리 유틸은 그대로 재사용 (API는 '원본에 가까운' 스펙트럼을 주는 것으로 가정)
+from sers.io import read_spectrum  # noqa: E402
 from sers.preprocessing import calibrate_spectrum  # noqa: E402
 from sers.signal import baseline_correction, snv  # noqa: E402
 
@@ -217,6 +218,21 @@ def preprocess_arrays(
         "Baseline corrected": (x_trim, y_base),
         "SNV + model grid": (grid, y_grid),
     }, y_grid
+
+
+def preprocess_file(
+    path: Path, grid: np.ndarray
+) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], np.ndarray]:
+    """Local-file compat wrapper kept for `powder_comparison/data.py`.
+
+    Restored 2026-09-02: the AECD-API migration (b6fcf97) dropped this
+    while keeping `preprocess_arrays` — `powder_comparison` still reads
+    raw replicate CSV files directly (not from the API), so it needs a
+    path-based entry point. Behavior is identical to the pre-migration
+    version: `read_spectrum` still lives in `sers.io`, untouched by the
+    API migration.
+    """
+    return preprocess_arrays(*read_spectrum(path), grid)
 
 
 def _preprocess_record(record: dict[str, Any], grid: np.ndarray) -> np.ndarray:
