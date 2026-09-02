@@ -6,7 +6,7 @@ dataset-manifest input.
 실행:
     python /home/user/SERS-AI/scripts/db/clinical_unified/export_clinical_unified.py
 
-출력:
+출력 (기본값, 환경변수 CLINICAL_UNIFIED_OUT_DIR로 변경 가능):
     /mnt/c/Users/user/Downloads/clinical_unified.csv   (utf-8-sig, 엑셀 한글 안 깨짐)
     /mnt/c/Users/user/Downloads/clinical_unified.xlsx
 """
@@ -23,8 +23,7 @@ pd = import_module("pandas")
 # DB 연결 (환경변수 또는 기본값)
 #   환경변수 PGHOST / PGPORT / PGDATABASE / PGUSER / PGPASSWORD 사용 가능
 # ---------------------------------------------------------------------
-OUT_DIR = Path("/mnt/c/Users/user/Downloads")
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+DEFAULT_OUT_DIR = Path("/mnt/c/Users/user/Downloads")
 
 QUERY = """
     SELECT *
@@ -53,12 +52,19 @@ def resolve_db_url() -> URL:
     )
 
 
+def resolve_out_dir() -> Path:
+    configured_dir = os.environ.get("CLINICAL_UNIFIED_OUT_DIR")
+    return Path(configured_dir) if configured_dir else DEFAULT_OUT_DIR
+
+
 def main() -> None:
     engine = create_engine(resolve_db_url())
     df = pd.read_sql(QUERY, engine)
 
-    csv_path  = OUT_DIR / "clinical_unified.csv"
-    xlsx_path = OUT_DIR / "clinical_unified.xlsx"
+    out_dir = resolve_out_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path  = out_dir / "clinical_unified.csv"
+    xlsx_path = out_dir / "clinical_unified.xlsx"
 
     # CSV: utf-8-sig (엑셀에서 한글 안 깨짐)
     df.to_csv(csv_path, index=False, encoding="utf-8-sig")
