@@ -63,6 +63,11 @@ API_KEY = os.environ.get("AECD_API_KEY")
 TARGET_COLUMN = "cohort_group"
 POSITIVE_LABEL = "prostate"
 NEGATIVE_LABELS = {"control", "prostate disease control"}
+# clinical workbook v7에서 데이터 오너가 Drop으로 지정한 대상. subject/sample은
+# 이미 스펙트럼이 붙어 있어 DB에 남고 clinical.diagnoses.cohort_group 만 Drop으로
+# 표시되므로, 임상 분석에서는 여기서 제외한다.
+# 근거: scripts/db/aecd_clinical_v7/README.md (2026-09-02, 오너 확인)
+EXCLUDED_COHORT_GROUPS = frozenset({"Drop"})
 RANDOM_STATE = 20260825
 SPECTRAL_RANGE_CM1 = (400.0, 2200.0)
 CALIBRATION_STANDARD_MATERIAL = "Polystyrene (PS)"
@@ -295,9 +300,28 @@ def load_api_spectra() -> tuple[list[dict], pd.DataFrame, dict]:
     if not items:
         raise RuntimeError("The AECD API returned no spectra.")
 
-    return items, cohorts, {
+    retained = [
+        item
+        for item in items
+        if item.get("cohort_group") not in EXCLUDED_COHORT_GROUPS
+    ]
+    excluded_subjects = {
+        item["subject_key"]
+        for item in items
+        if item.get("cohort_group") in EXCLUDED_COHORT_GROUPS
+    }
+    if not retained:
+        raise RuntimeError("Every returned spectrum was excluded by cohort group.")
+
+    return retained, cohorts[
+        ~cohorts["cohort_group"].isin(EXCLUDED_COHORT_GROUPS)
+    ].reset_index(drop=True), {
         "health": health_response.json(),
         "spectrum_total_reported": int(page["total"]),
+        "excluded_cohort_groups": sorted(EXCLUDED_COHORT_GROUPS),
+        "spectra_excluded_by_cohort_group": len(items) - len(retained),
+        "subjects_excluded_by_cohort_group": len(excluded_subjects),
+        "spectra_retained": len(retained),
     }
 
 
@@ -2018,6 +2042,14 @@ def main() -> None:
             "base_url": API_BASE_URL,
             "api_health": api_metadata["health"],
             "spectrum_total_reported": api_metadata["spectrum_total_reported"],
+            "excluded_cohort_groups": api_metadata["excluded_cohort_groups"],
+            "spectra_excluded_by_cohort_group": api_metadata[
+                "spectra_excluded_by_cohort_group"
+            ],
+            "subjects_excluded_by_cohort_group": api_metadata[
+                "subjects_excluded_by_cohort_group"
+            ],
+            "spectra_retained": api_metadata["spectra_retained"],
             "calibration_source": "measurement.calibrations",
             "database": standard_calibration_metadata["database"],
             "standard_material": CALIBRATION_STANDARD_MATERIAL,
