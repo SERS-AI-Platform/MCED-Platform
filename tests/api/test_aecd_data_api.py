@@ -225,8 +225,8 @@ def test_spectra_rejects_oversized_batch() -> None:
     # Given
     client = TestClient(create_app(FakeRepository()))
 
-    # When
-    response = client.get("/v1/spectra", params={"limit": 501})
+    # When: the request exceeds SpectrumFilters.limit's upper bound (le=5000).
+    response = client.get("/v1/spectra", params={"limit": 5001})
 
     # Then
     assert response.status_code == 422
