@@ -30,7 +30,14 @@ SBOM_CDX = ROOT / "docs" / "compliance" / "sbom.cdx.json"
 REQ_NAME_RE = re.compile(r"^\s*([A-Za-z0-9_.-]+)")
 LOCK_PACKAGE_RE = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s]+)$")
 FROM_RE = re.compile(r"^\s*FROM\s+([^\s]+)")
-PIP_INSTALL_RE = re.compile(r"pip install .*?((?:[A-Za-z0-9_.-]+(?:\[[^\]]+\])?\s*)+)$")
+# CodeQL py/polynomial-redos (2026-09-02): the previous pattern nested a
+# quantified char-class inside another repeated group -
+# (?:[A-Za-z0-9_.-]+...\s*)+ - which lets the engine partition a run of
+# '-' characters between the inner and outer '+' in exponentially many
+# ways. The caller already .split()s group(1) on whitespace and filters
+# each token, so the regex only needs to grab everything after "pip
+# install " - no need to also tokenize inside the pattern.
+PIP_INSTALL_RE = re.compile(r"pip install\s+(.+)$")
 
 
 def normalize_name(name: str) -> str:
