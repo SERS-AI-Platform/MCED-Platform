@@ -50,6 +50,11 @@ DEFAULT_SOURCE_MAPPING = "clinical_v7_20260902"
 
 LABEL_PATTERN = re.compile(r"^([A-Za-z.\s]+?)\s*_\s*(\d+)$")
 
+# The workbook writes some ranges as "PRO_ 60" and others as "PRO_101" for the
+# same cohort. Collapse the space so one sample has one spelling; the space in
+# the "H. D._1" prefix is part of the group name and is left alone.
+LABEL_SPACE_AFTER_UNDERSCORE = re.compile(r"_\s+")
+
 DATE_COLUMNS = (
     "birth_date",
     "collection_date",
@@ -133,6 +138,8 @@ def build(workbook: Path, sheet: str, output_dir: Path, source_mapping: str) -> 
 
     for position, record in enumerate(frame.to_dict("records"), start=2):
         label = to_text(record.get("solum_label"))
+        if label is not None:
+            label = LABEL_SPACE_AFTER_UNDERSCORE.sub("_", label)
         group = to_text(record.get("group"))
 
         if label is None:
@@ -169,7 +176,7 @@ def build(workbook: Path, sheet: str, output_dir: Path, source_mapping: str) -> 
         for column in STAGING_COLUMNS:
             if column in ("source_mapping", "site_code"):
                 continue
-            value = record.get(column)
+            value = label if column == "solum_label" else record.get(column)
             if column in DATE_COLUMNS:
                 text, parsed = to_date_text(value)
                 if not parsed:

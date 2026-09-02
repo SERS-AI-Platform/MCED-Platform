@@ -25,6 +25,7 @@ python scripts/db/aecd_clinical_v7/build_staging_csv.py     # 워크북 → 적�
 | `03_preflight.sql` | 쓰기 전 제약조건 위반 사전 점검 |
 | `04_load_master_clinical.sql` | 실제 변환 적재 (단일 트랜잭션) |
 | `05_verify.sql` | 적재 후 상태 및 무결성 확인 |
+| `06_fixups.sql` | 2026-09-02 적재 이후 사후 보정 2건. 위 스크립트들에 이미 반영되어 있어 처음부터 다시 돌리면 no-op |
 
 ## 결정 사항 (2026-09-02, 데이터 오너 확인)
 
@@ -53,6 +54,15 @@ site가 프로토콜 단위가 되면 같은 병원의 같은 환자가 프로�
 diagnosis 2행이 된다. 과거력은 `(subject_id, sequence_number)` 유일 제약 때문에 첫 행 것만 남는다
 (중복 5셀).
 
+**solum_label 표기 통일.** 워크북이 같은 코호트를 두 가지로 적어놨다 — `PRO_ 60`(1~100)과
+`PRO_101`(101~400). DIA_/HBP_/OVA_/PRO_1~100 총 370건의 언더바 뒤 공백을 제거해 통일했다.
+그대로 두면 나중에 스펙트럼을 `solum_label`로 join할 때 370건이 조용히 누락된다.
+`H. D._1`의 공백은 그룹명 자체의 일부라 건드리지 않는다(정규식이 언더바 *뒤* 공백만 잡는다).
+
+**age는 observations로.** `master.subjects`에는 birth_date만 있는데 워크북의 birth_date는
+2,850행 중 1,400행뿐이고 age는 2,845행에 있다. age를 staging에만 두면 약 1,400명은
+어디에서도 나이를 복원할 수 없다. `panel='demographics', code='age'`로 적재(2,733건).
+
 **정규화하지 않은 것.**
 - `metastasis_status`(boolean)는 NULL. 워크북의 `metastasis`는 무/유, N/Y, 자유서술이 섞여 있어
   boolean 판정은 임상 판단이다. 원문은 `metastasis_raw`에 보존.
@@ -65,4 +75,13 @@ diagnosis 2행이 된다. 과거력은 `(subject_id, sequence_number)` 유일 �
 
 `01`은 멱등, `02`는 자기 배치(`source_mapping='clinical_v7_20260902'`)만 지우고 다시 넣으므로 멱등,
 `03`은 읽기 전용. `04`는 **멱등이 아니다** — 이미 적재된 subject는 건너뛰지만, 한 번 성공한 뒤
-다시 돌리면 `v7_new_subjects`가 비어 아무것도 하지 않는다. 처음부터 다시 하려면 백업에서 복원할 것.
+다시 돌리면 `v7_new_subjects`가 비어 아무것도 하지 않는다. 처음부터 다시 하려면 이번 적재분을 지워야 하는데, `master.subjects.subject_id > 113`이 정확히
+이번에 만든 2,736 subject다(identity가 순차 발급). `measurement.measurements`가
+`master.samples`를 FK로 참조하므로 `pg_dump` 파일을 그대로 replay하는 방식의 복원은 안 된다 —
+`clinical.*` → `master.samples` → `master.subjects` 순서로 `subject_id > 113` 범위를 지우고
+staging 배치를 지우는 것이 실질적인 되돌리기 경로다.
+
+## 남은 정리 대상
+
+- `cohort_group`이 NULL인 diagnosis 2건 (BNOR_152, BNOR_153 — v7에서 `group`이 비어 있음).
+  코호트 필터에 걸리지 않으므로 그룹을 확정하면 채워야 한다.

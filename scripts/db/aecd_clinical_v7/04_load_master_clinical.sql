@@ -252,6 +252,9 @@ SELECT count(*) AS inserted_treatments FROM inserted;
 -- ---------------------------------------------------------------------------
 -- clinical.observations -- every non-empty lab / marker / body-measure cell,
 -- one row each, linked to both the subject and the sample it was measured with.
+-- age is here rather than on master.subjects because birth_date is present on
+-- only half the cohort, so for ~1400 patients the workbook's age is the only
+-- record of how old they were -- it must not stay in staging alone.
 -- raw_value keeps the workbook text verbatim; numeric_value / unit are left for
 -- a later normalization pass, which is what normalization_status='raw_only' means.
 -- ---------------------------------------------------------------------------
@@ -275,6 +278,7 @@ WITH inserted AS (
     JOIN v7_new_samples AS smp ON smp.solum_label = btrim(r.solum_label)
     CROSS JOIN LATERAL (
         VALUES
+            ('demographics',     'age',                    r.age),
             ('anthropometry',    'weight_kg',              r.weight_kg),
             ('anthropometry',    'height_cm',              r.height_cm),
             ('anthropometry',    'bmi',                    r.bmi),
