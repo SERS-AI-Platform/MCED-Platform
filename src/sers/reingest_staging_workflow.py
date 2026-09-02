@@ -66,10 +66,13 @@ log("=" * 70)
 
 pan = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/PAN_clinical_standardized.csv')
 pan_stages = []
-for _, row in pan.iterrows():
+for row_index, row in pan.iterrows():
     stage, reason = map_pan_ajcc(row['t_stage'], row['n_stage'], row['m_stage'])
     pan_stages.append({'patient_id': row['patient_id'], 'stage': stage, 'reason': reason})
-    log(f"  {row['patient_id']}: {row['t_stage']} {row['n_stage']} {row['m_stage']} → {stage} ({reason})")
+    # Row position, not the study code, goes to the audit log (CodeQL
+    # py/clear-text-logging-sensitive-data) — patient_id stays in
+    # pan_stages/the output CSV, unchanged, for anyone re-joining by row.
+    log(f"  row {row_index}: {row['t_stage']} {row['n_stage']} {row['m_stage']} → {stage} ({reason})")
 
 pan_stage_df = pd.DataFrame(pan_stages)
 stage_dist = pan_stage_df['stage'].value_counts().sort_index()
@@ -116,7 +119,9 @@ for i in range(len(pro_std)):
         'gleason_raw': str(gleason_val) if pd.notna(gleason_val) else None,
         'gleason_score': gs
     })
-    log(f"  {pid}: TNM={tnm_val} → T={t} N={n} M={m} | Gleason={gleason_val} → {gs}")
+    # Row position, not the study code, goes to the audit log (same
+    # rationale as the PAN loop above) — pid still lands in pro_staging.
+    log(f"  row {i}: TNM={tnm_val} → T={t} N={n} M={m} | Gleason={gleason_val} → {gs}")
 
 pro_stage_df = pd.DataFrame(pro_staging)
 

@@ -99,7 +99,12 @@ markers = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+# No hardcoded python_version: CI runs mypy once per matrix leg (3.10/3.11/3.12).
+# A fixed "3.10" here made mypy analyze all three under 3.10 semantics, which
+# broke on newer numpy stub syntax (PEP 695 `type` statements) that mypy
+# refuses to parse below 3.12. Letting mypy default to the running
+# interpreter's own version keeps each matrix leg checked against its own
+# Python version instead.
 files = [
     "src/sers/config.py",
     "src/sers/scoring.py",
