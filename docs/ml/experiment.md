@@ -295,12 +295,13 @@
   - 코호트: 보라매(BORAMAE) 112명 = 정상 20 / 비암 49 / 암 43. clinical v7에서 오너가 Drop으로 지정한 BNOR_110(121 spectra)을 로더에서 제외 — `EXCLUDED_COHORT_GROUPS`, 근거 scripts/db/aecd_clinical_v7/README.md
   - 방법: subject별 평균 스펙트럼에 61-point rolling-median baseline 제거(clip 없음) → subject별 400–2200 cm⁻¹ 총 면적 정규화(총 면적 CV 22.5%) → 대표 파수 ±1 grid point 평균 → 그룹 median 비. Mann-Whitney U + BH-FDR(주 지표: 비교당 11검정 / 보수적: 전체 33검정), median ratio percentile bootstrap 10,000회
   - **결과: 피크 11개 × 비교 3종 33건 중 BH-FDR q<0.05 통과 0건** (두 검정군 정의 모두 동일)
-  - 명목상 CI가 1을 제외한 항목 4건 (모두 FDR 탈락):
+  - ⚠️ **효과추정치도 불안정**: 정상군 1명 제거로 1001.9 cm⁻¹ 비암 vs 정상 CI가 [0.969–1.804](1 포함) → [1.023–1.835](1 제외)로, R05 비암 vs 정상도 1 포함 → 1 제외로 바뀌었다. 아래 "CI가 1을 제외"는 더 강한 증거가 아니라 n=20에서 subject 1명에 뒤집히는 값이다
+  - 명목상 CI가 1을 제외한 항목 4건 (모두 FDR 탈락, 위 불안정성 전제하에 읽을 것):
     - 1001.9 cm⁻¹ 비암 vs 정상 FC 1.298 [1.023–1.835], p=0.013 → q=0.139
     - 1364.6/1366.6 cm⁻¹(분해능상 동일 피처 R05) 암 vs 비암 FC 1.66 [1.01–2.31], p=0.048/0.051 → q=0.271
     - 같은 R05 비암 vs 정상 FC 0.58–0.61 [0.41–0.98], p=0.084/0.123 → q=0.362 (비암군이 정상·암 양쪽보다 낮음)
   - Kruskal-Wallis 3군 최소 p: 1001.9 cm⁻¹ p=0.037. 이 피크는 암·비암이 모두 정상 대비 ~1.29배 높고(비암 vs 정상 p=0.013, 암 vs 정상 p=0.034) 암/비암 간 차이 없음(FC 0.996, p=0.633) — 단일기관·배치 대조 없음이라 암 신호와 검체 수집/취급 차이를 구분할 수 없음
-  - ⚠️ **peak 검출 불안정성**: 정상군에서 subject 1명만 빠져도(21→20) resolution-aware peak registry가 9개 → 11개로 바뀌었다. 신규 2개(893.9, 1449.5)는 정상군에서만 검출되고, 1457.2는 control|prostate → prostate로 바뀜. 그룹 median 기반 peak 검출이 n=20 규모에서 개별 subject에 민감하다는 뜻
+  - ⚠️ **peak 검출 불안정성**: 정상군에서 subject 1명만 빠져도(21→20) resolution-aware peak registry가 9개 → 11개로 바뀌었다. 신규 2개(893.9, 1449.5)는 정상군에서만 검출되고, 1457.2는 control|prostate → prostate로 바뀜. 즉 검출 비대칭을 읽으라고 넣은 `detected_in_labels` 컬럼 자체가 4개 피크에서 뒤집혔다 — 검출 비대칭을 생물학적 차이로 해석하면 안 되는 근거. 그룹 median 기반 peak 검출이 n=20 규모에서 개별 subject에 민감하다
   - 참고 지표: 같은 입력 screening OOF AUC 0.6721 (Drop 포함 113명일 때 0.6698), balanced accuracy 0.5964, QC pass 12826/13552 (94.64%)
   - 정규화 기준(총 면적)과 1001.9 cm⁻¹를 PS 잔류 아님으로 취급한 것은 2026-09-02 사용자 확인 사항
   - 해석 한계: fold change는 subject 수준 기술통계이며 판별력 아님. 정상군 n=20이 통계적 제약
