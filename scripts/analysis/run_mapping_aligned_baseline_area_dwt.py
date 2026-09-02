@@ -5,7 +5,9 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Literal, TypeAlias, assert_never
+from typing import Literal, TypeAlias
+
+from typing_extensions import assert_never
 
 import numpy as np
 import pywt
