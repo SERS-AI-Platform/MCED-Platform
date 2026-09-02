@@ -9,9 +9,9 @@ from fastapi.security import APIKeyHeader
 from sers.aecd_api.models import (
     CohortSummary,
     HealthResponse,
+    ReferencePeaksPage,
     SpectrumFilters,
     SpectrumPage,
-    ReferencePeaksPage
 )
 from sers.aecd_api.repository import (
     AecdRepository,
@@ -62,7 +62,7 @@ def create_app(
     @application.get("/v1/spectra", dependencies=[Depends(authorize)])
     def spectra(filters: Annotated[SpectrumFilters, Query()]) -> SpectrumPage:
         return data_repository.spectra(filters)
-    
+
     @application.get("/v1/reference_peaks", dependencies=[Depends(authorize)])
     def reference_peaks(
         standard_material: Annotated[str, Query()] = "Polystyrene (PS)",

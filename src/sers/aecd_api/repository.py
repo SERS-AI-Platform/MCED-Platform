@@ -11,7 +11,15 @@ from psycopg2.extensions import connection as PgConnection
 from pydantic import TypeAdapter
 from typing_extensions import override
 
-from sers.aecd_api.models import (CohortSummary, ReferencePeaks, ReferencePeaksPage, Spectrum, SpectrumFilters, SpectrumPage)
+from sers.aecd_api.models import (
+    CohortSummary,
+    ReferencePeaks,
+    ReferencePeaksPage,
+    Spectrum,
+    SpectrumFilters,
+    SpectrumPage,
+)
+
 REFERENCE_PEAK_ROWS: Final = TypeAdapter(list[tuple[str, str, float, list[float], datetime]])
 
 
@@ -140,7 +148,7 @@ class PostgresAecdRepository:
             )
             for row in rows
         ]
-    
+
     def reference_peaks(self, standard_material: str) -> ReferencePeaksPage:
         query = (
             "SELECT standard_material, calibration_type, tolerance_cm1, "
