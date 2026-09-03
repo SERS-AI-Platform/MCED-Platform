@@ -75,12 +75,11 @@ ORDER BY count(*) DESC;
 SELECT site_code, cancer_group,
        count(*) AS "검체",
        count(*) FILTER (WHERE indicator_pattern = 'not_tested') AS "미검사",
-       count(*) FILTER (WHERE indicator_pattern IN
-              ('nitrite+LE','nitrite only','LE only'))          AS "지표양성",
-       round(100.0 * count(*) FILTER (WHERE indicator_pattern IN
-              ('nitrite+LE','nitrite only','LE only'))
+       count(*) FILTER (WHERE indicator_pattern = 'nitrite_positive') AS "nitrite 양성",
+       round(100.0 * count(*) FILTER (WHERE indicator_pattern = 'nitrite_positive')
              / nullif(count(*) FILTER (WHERE indicator_pattern <> 'not_tested'), 0), 1)
-           AS "검사분모 양성률(%)"
+           AS "검사분모 양성률(%)",
+       count(*) FILTER (WHERE leukocyte_esterase = 'Positive') AS "(참고) LE 양성"
 FROM clinical.uti_indicators
 GROUP BY site_code, cancer_group
 ORDER BY site_code, cancer_group;

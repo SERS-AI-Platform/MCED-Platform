@@ -1,17 +1,24 @@
 -- Purpose:
 --   요로감염 관련 요검사 지표를 검체 1행으로 펼쳐 보는 조회용 뷰.
 --
--- 이 뷰는 "요로감염이다"라고 판정하지 않는다. 원문 값과 그 조합 패턴만 노출하고,
--- 어떤 검체를 제외할지는 쓰는 쪽에서 정한다. 이유:
---   - 세균뇨(Microscopy_Bacteria)는 2,851건 중 62건, 요침사 백혈구는 238건에만 있어
---     농뇨+세균뇨 확진 조합을 갖춘 검체가 거의 없다.
---   - leukocyte esterase 양성률이 코호트마다 크게 다르다 (방광암 45.8% vs
---     충북대 대조군 0.0%). 방광암은 종양 관련 염증·혈뇨로도 LE가 양성이 되므로
---     감염과 구분되지 않는다. 단일 기준으로 걸러내면 암군에서만 검체가 빠져
---     병원·코호트 confound가 커진다.
+-- 왜 indicator_pattern이 nitrite 하나만 보는가
+--   nitrite는 세균이 질산염을 아질산염으로 환원한 결과라 특이도가 높다(~95%).
+--   나머지는 감염의 증거가 아니다:
+--     - leukocyte esterase / 요침사 백혈구(농뇨)는 백혈구가 있다는 뜻이지 세균이
+--       있다는 뜻이 아니다. 종양 염증·기구조작·오염으로도 양성이 된다.
+--     - 혈뇨는 요로감염과 무관하게 종양·결석으로 나온다.
+--     - 요침사 세균은 배뇨 검체 오염이 흔해 단독으로는 진단 근거가 못 된다.
+--   실제로 LE 단독 양성 260건 중 요침사로 확인 가능한 건 6건, 세균 보고는 0건인
+--   반면 119건이 혈뇨를 동반한다. 방광암만 보면 LE 단독 126건 중 114건(90%)이
+--   혈뇨 동반이라, 감염이 아니라 종양 출혈·염증으로 보는 편이 자연스럽다.
+--   LE를 기준에 넣으면 방광암 코호트가 통째로 걸려 병원·코호트 confound가 커진다.
+--
+-- 확진 기준인 요배양(>=10^5 CFU/mL)은 이 데이터셋에 아예 없다. 그래서 이 뷰는
+-- "요로감염이다"라고 판정하지 않는다 -- nitrite로 의심 검체를 좁혀 보여줄 뿐이고,
+-- LE / 농뇨 / 세균 / 혈뇨는 판정에 쓰지 않고 컬럼으로만 남겨 직접 조건을 걸 수 있게 했다.
 --
 -- 사용 예:
---   SELECT * FROM clinical.uti_indicators WHERE indicator_pattern = 'nitrite+LE';
+--   SELECT * FROM clinical.uti_indicators WHERE indicator_pattern = 'nitrite_positive';
 --   SELECT cancer_group, indicator_pattern, count(*) FROM clinical.uti_indicators
 --   GROUP BY 1,2 ORDER BY 1,2;
 --
@@ -60,11 +67,10 @@ SELECT
     p.ua_blood_heme,
     p.ua_protein,
     p.ua_ph,
+    -- 패턴은 nitrite 하나로만 가른다. 아래 '왜 nitrite만인가' 참고.
     CASE
-        WHEN p.nitrite IS NULL AND p.leukocyte_esterase IS NULL THEN 'not_tested'
-        WHEN p.nitrite = 'Positive' AND p.leukocyte_esterase = 'Positive' THEN 'nitrite+LE'
-        WHEN p.nitrite = 'Positive' THEN 'nitrite only'
-        WHEN p.leukocyte_esterase = 'Positive' THEN 'LE only'
+        WHEN p.nitrite IS NULL     THEN 'not_tested'
+        WHEN p.nitrite = 'Positive' THEN 'nitrite_positive'
         ELSE 'negative'
     END AS indicator_pattern
 FROM master.samples AS smp
@@ -102,6 +108,8 @@ LEFT JOIN LATERAL (
 ) AS dx ON true;
 
 COMMENT ON VIEW clinical.uti_indicators IS
-    '검체별 요로감염 관련 요검사 지표(원문 + 조합 패턴). 판정용이 아니라 조회용 - '
-    '세균뇨는 62건, 요침사 백혈구는 238건에만 있고 LE 양성률이 코호트마다 크게 달라 '
-    '단일 기준 필터는 코호트 confound를 키운다.';
+    '검체별 요로감염 관련 요검사 지표. indicator_pattern은 특이도가 높은 ua_nitrite '
+    '하나로만 가른다. leukocyte esterase / 농뇨 / 세균 / 혈뇨는 감염의 증거가 아니라 '
+    '컬럼으로만 제공한다 - LE 단독 양성은 방광암에서 90%가 혈뇨를 동반해 종양 염증과 '
+    '구분되지 않으며, 기준에 넣으면 코호트 confound가 커진다. 확진 기준인 요배양은 '
+    '이 데이터셋에 없다.';
