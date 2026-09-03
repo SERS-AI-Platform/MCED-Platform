@@ -264,20 +264,27 @@
 
 ### Phase AS: AECD API 모델 계열 — prostate 3-class/screening 전처리 비교 (2026-08-25~27, notebooks/)
 > 모든 하위 실험 공통: prostate 3-class(control/prostate disease control/prostate) 또는 cancer-vs-non-cancer screening, subject-level nested GroupKFold(5×5), 113 subjects. **메인 7-cancer 소변 패널과 별개 서브스터디** (Phase AC~AR와 동일 mapping/AECD 코호트 계열).
-- [x] Phase AS-1: Baseline 노트북 (screening/3-class/legacy STK-V2 비교 + repeat-count sweep) ✅ (2026-08-25)
+- [x] Phase AS-1: Baseline 노트북 (screening/3-class/legacy STK-V2 비교 + repeat-count sweep) ✅ (2026-08-25, 2026-09-03 코호트 갱신)
   - Screening AUC 0.586, 3-class macro AUC 0.575; legacy STK-V2 screening AUC 0.7405(BAcc 0.6621)로 baseline 대비 높음
+  - **2026-09-03 재실행 (Drop 제외, 113→112명)**: screening AUC 0.629 [CI 0.527–0.728], 3-class macro AUC 0.570, legacy STK-V2 screening AUC 0.7506(BAcc 0.7096) / 3-class macro OvR AUC 0.6343. legacy가 baseline보다 높다는 결론 불변
+  - 노트북의 하드코딩된 코호트 크기를 `EXPECTED_SUBJECTS`/`EXPECTED_CLASS_COUNTS` 상수로 분리 — 다음 코호트 변경 시 한 곳만 고치면 됨
   - → notebooks/aecd_api_model_baseline_outputs/
-- [x] Phase AS-2: 3-class 5조건 비교 (direct/DWT비교/특허DWT/all-QC spectra/legacy) ✅ (2026-08-25)
+- [x] Phase AS-2: 3-class 5조건 비교 (direct/DWT비교/특허DWT/all-QC spectra/legacy) ✅ (2026-08-25, 2026-09-03 코호트 갱신)
   - macro OvR AUC: DWT비교(raw subject mean) 0.6595(최고) > legacy STK-V2 0.6053 > all-QC 0.5547 > direct 0.5459 > 특허DWT 0.4523(최저)
+  - **2026-09-03 재실행 (Drop 제외, 113→112명, QC spectra 12,826)**: legacy STK-V2 0.6343(최고) > DWT비교 0.5943 > direct 0.5593 > all-QC 0.5423 > 특허DWT 0.4861(최저)
+  - ⚠️ **순위가 바뀌었다.** 최고 조건이 DWT비교 → legacy STK-V2로, direct와 all-QC의 순서도 뒤집혔다. DWT비교는 0.6595 → 0.5943 (−0.065). 정상군 subject 1명 차이로 macro AUC가 이 폭으로 움직인다 — n=20 코호트에서 조건 간 순위를 확정적으로 읽으면 안 된다 (AS-10의 peak 불안정성과 같은 현상)
+  - legacy STK-V2 3-class는 baseline 노트북(AS-1)에서 재생성됨. `notebooks/aecd_api_model_3class_outputs/legacy_stkv2_3class_*.csv`(2026-08-25)는 갱신되지 않은 별도 산출물
   - → notebooks/aecd_api_model_3class_outputs/
 - [x] Phase AS-3: All QC-passed spectra(12,926개) 직접 입력 screening 모델 ✅ (2026-08-25)
   - subject OOF AUC 0.5957, spectrum OOF AUC 0.5763
+  - ⚠️ **2026-09-03 기준 재실행 불가 / 산출물 stale.** `notebooks/aecd_api_model_all_qc_spectra_clinical_performance.py` L337이 `pipeline.group_and_align_subjects(items, common_grid)`로 2인자 호출하는데, 해당 함수는 최초 커밋(880864a)부터 `calibrations`를 포함한 3인자다. 즉 이 스크립트는 오늘 이전부터 돌지 않았고 위 수치는 그 이전 버전의 결과다. 고치려면 "이 분석에도 PS 축 보정을 적용할 것인가"를 먼저 정해야 한다 (미결정)
   - → notebooks/aecd_api_model_all_qc_spectra_outputs/
 - [x] Phase AS-4: 특허 "반복측정 평균스펙트럼생성" 검증 — direct mean-spectrum vs legacy STK-V2 ✅ (2026-08-28)
   - Direct raw mean-spectrum OOF AUC 0.6698 vs STK-V2 0.7316 (legacy가 더 높음); 3-class도 STK-V2가 소폭 우위(0.6210 vs 0.5616)
   - → notebooks/aecd_api_model_mean_spectrum_outputs/
-- [x] Phase AS-5: 특허 "DWT 노이즈제거" 검증 — DWT 전처리 vs raw subject-mean ✅ (2026-08-25)
+- [x] Phase AS-5: 특허 "DWT 노이즈제거" 검증 — DWT 전처리 vs raw subject-mean ✅ (2026-08-25, 2026-09-03 코호트 갱신)
   - Raw subject-mean OOF AUC 0.7163 vs 특허 DWT 0.5233 — "이 데이터/설계에서는 DWT가 raw보다 높은 AUC를 만들지 않음"(원본 결론 그대로 인용)
+  - **2026-09-03 재실행 (Drop 제외, 113→112명)**: raw 0.7145 vs 특허 DWT 0.5201. 결론 불변
   - → notebooks/aecd_api_model_patent_dwt_outputs/
 - [x] Phase AS-6: Subject mean spectrum peak 검출/반복성 (SNR 2/3/5) — descriptive, 분류 성능 지표 아님 ✅ (2026-08-25)
   - SNR=3(primary) 기준 subject당 평균 31.04개 peak, 80% 반복 검출 401개
@@ -290,6 +297,7 @@
   - → notebooks/aecd_clinical_misclassification_outputs/
 - [x] Phase AS-9: AS-1~AS-4 통합 비교표 (RUN_EXPERIMENTS=False, 재취합만) ✅ (2026-08-27)
   - AS-4(legacy STK-V2 raw subject-mean)가 binary/3-class 모두 최고 macro AUC — 5개 조건 통틀어 최고 성능 방식으로 확인
+  - ⚠️ **2026-09-03 재취합 보류.** 입력 4개(`aecd_direct_mean`/`aecd_dwt_and_raw`/`aecd_three_class`/`aecd_all_qc`) 중 앞의 3개는 112명으로 갱신됐으나 `aecd_all_qc`는 AS-3 파손으로 113명 산출물 그대로다. `model_pipeline_comparison.csv`에 코호트 크기 컬럼이 없어 지금 취합하면 112명·113명 결과가 구분 표시 없이 섞인다. AS-3 해결 후 재취합할 것
   - → notebooks/aecd_model_pipeline_results_outputs/
 - [x] Phase AS-10: 검출된 공통 peak별 암/비암/정상 fold change ✅ (2026-09-02)
   - 코호트: 보라매(BORAMAE) 112명 = 정상 20 / 비암 49 / 암 43. clinical v7에서 오너가 Drop으로 지정한 BNOR_110(121 spectra)을 로더에서 제외 — `EXCLUDED_COHORT_GROUPS`, 근거 scripts/db/aecd_clinical_v7/README.md

@@ -57,6 +57,12 @@ PATENT_SOURCE = REPO_ROOT / "patent/특허_명세서_초안_SERS_반복측정_DW
 API_BASE_URL = os.environ.get("AECD_API_BASE_URL", "http://127.0.0.1:8000")
 API_KEY = os.environ.get("AECD_API_KEY")
 TARGET_COLUMN = "cohort_group"
+# clinical workbook v7에서 데이터 오너가 Drop으로 지정한 대상. subject/sample은
+# 이미 스펙트럼이 붙어 있어 DB에 남고 clinical.diagnoses.cohort_group 만 Drop으로
+# 표시되므로 여기서 제외한다. 이 스크립트는 y = (labels == "prostate") 로 라벨을
+# 만들기 때문에, 거르지 않으면 제외 대상이 조용히 비암(0)으로 편입된다.
+# 근거: scripts/db/aecd_clinical_v7/README.md (2026-09-02, 오너 확인)
+EXCLUDED_COHORT_GROUPS = frozenset({"Drop"})
 RANDOM_STATE = 20260819
 SPECTRAL_RANGE_CM1 = (400.0, 2200.0)
 CALIBRATION_TARGET_WN = DEFAULT_REFERENCE_PEAK_WN
@@ -109,11 +115,30 @@ def load_api_spectra() -> tuple[list[dict], pd.DataFrame, dict]:
     if not items:
         raise RuntimeError("The AECD API returned no spectra.")
 
-    return items, cohorts, {
+    retained = [
+        item
+        for item in items
+        if item.get(TARGET_COLUMN) not in EXCLUDED_COHORT_GROUPS
+    ]
+    excluded_subjects = {
+        item["subject_key"]
+        for item in items
+        if item.get(TARGET_COLUMN) in EXCLUDED_COHORT_GROUPS
+    }
+    if not retained:
+        raise RuntimeError("Every returned spectrum was excluded by cohort group.")
+
+    return retained, cohorts[
+        ~cohorts[TARGET_COLUMN].isin(EXCLUDED_COHORT_GROUPS)
+    ].reset_index(drop=True), {
         "health": health.json(),
         "reference_peak_catalog_items": int(
             len(reference_payload.get("items", []))
         ),
+        "excluded_cohort_groups": sorted(EXCLUDED_COHORT_GROUPS),
+        "spectra_excluded_by_cohort_group": len(items) - len(retained),
+        "subjects_excluded_by_cohort_group": len(excluded_subjects),
+        "spectra_retained": len(retained),
     }
 
 
@@ -762,6 +787,14 @@ def main() -> None:
         "patent_source": str(PATENT_SOURCE),
         "api_base_url": API_BASE_URL,
         "api_health": api_context["health"],
+        "excluded_cohort_groups": api_context["excluded_cohort_groups"],
+        "spectra_excluded_by_cohort_group": api_context[
+            "spectra_excluded_by_cohort_group"
+        ],
+        "subjects_excluded_by_cohort_group": api_context[
+            "subjects_excluded_by_cohort_group"
+        ],
+        "spectra_retained": api_context["spectra_retained"],
         "observed_spectra": int(len(items)),
         "observed_subjects": int(len(subject_keys)),
         "cohort_labels": {
