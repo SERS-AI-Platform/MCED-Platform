@@ -12,8 +12,12 @@
 --
 -- 사용 예:
 --   SELECT * FROM clinical.uti_indicators WHERE indicator_pattern = 'nitrite+LE';
---   SELECT cohort_group, indicator_pattern, count(*) FROM clinical.uti_indicators
+--   SELECT cancer_group, indicator_pattern, count(*) FROM clinical.uti_indicators
 --   GROUP BY 1,2 ORDER BY 1,2;
+--
+-- cancer_group은 검체 자기 자신의 진단이다. clinical.diagnoses가 subject에만 붙어
+-- 있어서 중복암 환자 2명(19022041: BLC_247/PRO_60, 19276017: CRC_186/PAN_78)은
+-- 진단이 2개 달리는데, 라벨 접두사와 cancer_type을 맞춰 검체별로 하나를 고른다.
 
 CREATE OR REPLACE VIEW clinical.uti_indicators AS
 WITH pivoted AS (
@@ -40,10 +44,8 @@ SELECT
     sub.subject_id,
     sub.patient_code,
     site.site_code,
-    -- 두 코호트에 걸친 환자는 'bladder+prostate' 형태로 합쳐 한 행을 유지한다.
-    (SELECT string_agg(DISTINCT d.cohort_group, '+')
-       FROM clinical.diagnoses AS d
-      WHERE d.subject_id = sub.subject_id) AS cohort_group,
+    lbl.label_prefix,
+    dx.cancer_group,
     p.nitrite,
     p.leukocyte_esterase,
     p.microscopy_wbc_raw,
@@ -68,7 +70,36 @@ SELECT
 FROM master.samples AS smp
 JOIN master.subjects AS sub ON sub.subject_id = smp.subject_id
 JOIN master.sites AS site   ON site.site_id = sub.site_id
-LEFT JOIN pivoted AS p      ON p.sample_id = smp.sample_id;
+LEFT JOIN pivoted AS p      ON p.sample_id = smp.sample_id
+CROSS JOIN LATERAL (
+    SELECT
+        substring(smp.solum_label FROM '^[A-Za-z. ]+?(?=_)') AS label_prefix
+) AS lbl
+CROSS JOIN LATERAL (
+    SELECT CASE lbl.label_prefix
+        WHEN 'BLC'  THEN 'bladder'
+        WHEN 'BRE'  THEN 'breast'
+        WHEN 'CRC'  THEN 'colorectal'
+        WHEN 'LUN'  THEN 'lung'
+        WHEN 'OVA'  THEN 'OVA'
+        WHEN 'PAN'  THEN 'pancreatic'
+        WHEN 'SPAN' THEN 'pancreatic'
+        WHEN 'YPAN' THEN 'pancreatic'
+        WHEN 'PRO'  THEN 'prostate'
+        WHEN 'BPRO' THEN 'prostate'
+    END AS expected_cancer_type
+) AS exp
+LEFT JOIN LATERAL (
+    SELECT d.cohort_group AS cancer_group
+    FROM clinical.diagnoses AS d
+    WHERE d.subject_id = sub.subject_id
+    -- 중복암 환자는 진단이 2개 달려 있다 (clinical.diagnoses가 subject에 붙어 있고
+    -- sample에는 붙어 있지 않기 때문). 검체 라벨 접두사와 cancer_type이 맞는 진단을
+    -- 먼저 고르므로, BLC_247은 bladder, PRO_60은 prostate가 된다.
+    -- 진단이 하나뿐인 나머지 2,846명은 그 하나가 그대로 선택된다.
+    ORDER BY (d.cancer_type IS DISTINCT FROM exp.expected_cancer_type), d.diagnosis_id
+    LIMIT 1
+) AS dx ON true;
 
 COMMENT ON VIEW clinical.uti_indicators IS
     '검체별 요로감염 관련 요검사 지표(원문 + 조합 패턴). 판정용이 아니라 조회용 - '

@@ -16,6 +16,8 @@ SELECT
 -- 주의: clinical.diagnoses는 subject에 붙어 있고 sample에는 붙어 있지 않다.
 -- 그래서 samples를 join해서 세면 두 코호트에 걸친 환자 2명(질의 10) 때문에
 -- 숫자가 부풀려진다. 워크북의 group 분포와 맞춰볼 때는 이 형태로 센다.
+-- 검체 단위로 세고 싶으면 clinical.uti_indicators.cancer_group을 쓴다 -- 그쪽은
+-- 라벨 접두사로 중복암 환자의 진단을 검체별로 갈라놓았다.
 SELECT
     site.site_code,
     d.cohort_group,
