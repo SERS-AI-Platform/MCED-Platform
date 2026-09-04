@@ -356,3 +356,43 @@
     대상이 거의 없다 (QC 통과 수 11331 vs 11334, 3건 차이). QC 게이트를 끄고 비교하는
     설계가 효과 검출에 더 적합할 수 있다.
   - → aecd_platform `experiment.runs` #58(off), #59(on) / 데이터: 13,552 measurements FK 연결
+
+## Phase OV — 측정자(operator) 변동성 분석 (2026-09-04)
+
+- [x] OV-1: 측정자에 따른 스펙트럼 변동성 통계 분석
+  - **결론: 측정자 효과는 주효과로 추정 불가능하다.** aecd_platform 6개 run에서 측정자는
+    날짜가 바뀔 때만 바뀐다 (엄찬호 8/10·8/11·8/12, 고은혜 8/13·8/13·8/14). 두 측정자가
+    같은 날 측정한 적도, 같은 검체를 재측정한 적도 없다 (samples_in_multiple_runs = 0).
+    측정자 = 날짜 = strip unit = 그날의 보정 상태가 완전히 aliasing.
+  - 데이터: 13,673 스펙트럼 (113 검체 × 121 point), `measurement.raw_spectra`
+  - 측정자 비교는 **BNOR 70검체로만** 수행 (BPRO 43건은 고은혜 단독 측정이라 질환 효과와 혼입).
+    엄찬호 50 / 고은혜 20.
+  - **run(=날짜) 수준 분산 비율** — 원본 지표에서 유의, SNV 후 소멸:
+
+    | 지표 | run 분산 비율 | F(3,66) | p(ANOVA) | p(Kruskal) |
+    |---|---|---|---|---|
+    | noise_sd | **39.5%** | 11.77 | 3e-6 | 4e-5 |
+    | median_intensity | 11.1% | 3.05 | 0.034 | 0.029 |
+    | baseline_level | 10.2% | 2.88 | 0.043 | 0.031 |
+    | AUC | 10.1% | 2.86 | 0.043 | 0.033 |
+    | mean_point_corr | 4.4% | 1.77 | 0.162 | 0.117 |
+    | SNR | 0% | 0.97 | 0.410 | 0.186 |
+    | corr_to_global_mean (SNV 후 형태) | **0%** | 0.47 | 0.702 | 0.575 |
+
+  - **고은혜 run(8/13)은 엄찬호 3일치 변동 폭 안에 있다.** 엄찬호 날짜 간 SD 기준 표준화 편차:
+    AUC +0.22, median_intensity +0.32, baseline +0.37, noise_sd -0.19, SNR +0.87,
+    corr_to_global_mean -0.08, mean_point_corr +0.17 — 전부 |1 SD| 미만.
+    한쪽 측정자의 날짜가 1개뿐이라 p-value는 계산하지 않았다.
+  - PCA (검체 평균 SNV 스펙트럼, PC1 29.3% / PC2 19.2%): run·측정자별 군집 없음.
+  - 환경 변수는 배제됨: 24.3~24.8°C, 55~61% RH, laser 1 mW / 0.05 s 전 run 동일, reagent lot 동일.
+  - 보정 데이터에 날짜 효과의 독립 증거: `replicate_shift_std_cm1`이 8/10~8/12 0.0024~0.0060에서
+    8/13·8/14 0.0227로 약 5배 상승. 측정자 교대 시점과 일치하지만 이는 장비/일자 상태이지
+    사람이 아니다.
+  - **실무적 함의**: 원본 강도·노이즈에는 날짜 간 차이가 있으나 표준 전처리
+    (SG smoothing → rolling-min baseline → SNV) 후 형태 지표의 run 분산이 0이 된다.
+    현재 파이프라인이 이 변동을 흡수하고 있다.
+  - **설계 권고**: 측정자 효과를 실제로 재려면 같은 날 두 측정자가 동일 검체를 교차 측정하는
+    설계가 필요하다 (예: QC 표준물질을 매일 두 사람이 각각 측정).
+  - 스크립트: `scripts/analysis/operator_variability_analysis.py`
+  - 산출물: `results/operator_variability/` (spectrum_metrics.csv, sample_metrics.csv,
+    variance_components.csv, operator_contrast.csv, pca_by_run_and_operator.png)
