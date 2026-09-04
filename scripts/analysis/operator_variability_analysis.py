@@ -45,6 +45,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from sers.config import load_config  # noqa: E402
 from sers.signal import baseline_correction, resample, smooth, snv  # noqa: E402
+from sers.visualization import use_korean_font  # noqa: E402
 
 DEFAULT_CACHE = Path("/tmp/claude-1000/-home-user-SERS-AI/spectra_cache.npz")
 DEFAULT_OUT = ROOT / "results" / "operator_variability"
@@ -267,17 +268,22 @@ def pca_figure(metrics, snv_matrix, out_path):
     scores = PCA(n_components=2).fit(means)
     projected = scores.transform(means)
 
-    # matplotlib에 한글 폰트가 없어 그림 안 문자열은 전부 영문으로 둔다.
-    # 측정자 A = runs 1-3, B = runs 4-6 (대응은 operator_legend에 출력).
+    # 한글 폰트가 있으면 한글 라벨, 없으면 Operator A/B 영문 라벨로 내려간다.
+    korean = use_korean_font()
     operators = sorted(meta["operator_name"].unique(),
                        key=lambda name: meta.loc[meta.operator_name == name, "run_id"].min())
-    alias = {name: f"Operator {chr(65 + i)}" for i, name in enumerate(operators)}
+    alias = {name: (name if korean else f"Operator {chr(65 + i)}")
+             for i, name in enumerate(operators)}
     meta = meta.assign(operator_alias=meta["operator_name"].map(alias))
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+    labels = (("run(날짜)별", "측정자별", "검체 평균 SNV 스펙트럼 PCA", "n=113 검체 × 121 point; SG 평활 → rolling-min baseline → SNV")
+              if korean else
+              ("by run (day)", "by operator", "PCA of per-sample mean SNV spectra",
+               "n=113 samples, 121 points each; SNV after SG smoothing + rolling-min baseline"))
     for ax, key, title in (
-        (axes[0], "run_id", "by run (day)"),
-        (axes[1], "operator_alias", "by operator"),
+        (axes[0], "run_id", labels[0]),
+        (axes[1], "operator_alias", labels[1]),
     ):
         for value, group in meta.groupby(key, sort=True):
             rows = meta.index.get_indexer(group.index)
@@ -289,11 +295,10 @@ def pca_figure(metrics, snv_matrix, out_path):
                            label=f"{value} ({prefix})", s=28, alpha=0.75, marker=marker)
         ax.set_xlabel(f"PC1 ({scores.explained_variance_ratio_[0]:.1%})")
         ax.set_ylabel(f"PC2 ({scores.explained_variance_ratio_[1]:.1%})")
-        ax.set_title(f"PCA of per-sample mean SNV spectra -- {title}")
+        ax.set_title(f"{labels[2]} — {title}")
         ax.legend(fontsize=7, ncol=2)
         ax.grid(alpha=0.25)
-    fig.suptitle("n=113 samples, 121 points each; SNV after SG smoothing + rolling-min baseline",
-                 fontsize=9, y=-0.02)
+    fig.suptitle(labels[3], fontsize=9, y=-0.02)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return scores.explained_variance_ratio_[:2], alias

@@ -5,6 +5,7 @@ Submodules:
     spectra      — Raw/preprocessed/mean spectrum plots
     distribution — Sample/spectra distribution and QC variance
     analysis     — Peak-difference, confusion-pair analysis
+    fonts        — Korean font setup for matplotlib
     shap         — SHAP-based model explanations
 """
 
@@ -19,6 +20,9 @@ from .analysis import (
     summarize_confusion_pairs,
     summarize_spectrum_peaks,
 )
+
+# --- fonts ---
+from .fonts import available_korean_font, use_korean_font
 
 # --- distribution ---
 from .distribution import (
@@ -62,6 +66,9 @@ __all__ = [
     "plot_sample_distribution_pie",
     "plot_spectra_count_bar",
     "plot_variance_heatmap",
+    # fonts
+    "available_korean_font",
+    "use_korean_font",
     # analysis
     "plot_cancer_peak_difference",
     "plot_confusion_summary_bar",
