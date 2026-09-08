@@ -18,6 +18,15 @@ SG(config: 창 5, 차수 3), 개별 spectrum 학습, 환자 mean OOF:
                   : 기준점에서 baseline만 교체, λ 로그 그리드 (airPLS 감사 권고)
     norm_l2 / norm_minmax
                   : 기준점에서 정규화만 교체 (baseline은 rolling_min 유지)
+    trim_600_1800 : 기준점에서 ③ 절단만 가이드 예시(600–1800)로 교체
+    sm_none / sm_sg11 / sm_sg21 / sm_median5 / sm_gauss1 / sm_wavelet
+                  : 기준점에서 ④ smoothing만 교체 (기준점은 SG 창 5)
+    order_baseline_first
+                  : 기준점에서 ④↔⑤ 순서만 교체 (baseline → smooth)
+
+과제(task) 두 개를 같은 조건·같은 전처리 결과로 낸다:
+    cancer_screening     — 전립선암 vs 비암(질환대조+control), 이진 LR
+    prostate_three_class — control / 질환대조 / 전립선암, multinomial LR, macro OvR AUC
 
 ⚠️ 게이트 면제: preprocessing-lab SKILL은 audit_status='pending'인 방법을 실행
 단계로 넘기지 말라고 하지만, 사용자가 2026-09-08 탐색 실험으로 전부 실행하도록
@@ -68,9 +77,16 @@ from sklearn.preprocessing import StandardScaler
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "scripts" / "patent"))
 
-from sers.config import load_config  # noqa: E402
+from joblib import Parallel, delayed  # noqa: E402
+
+from sers.config import PreprocessingConfig, load_config  # noqa: E402
 from sers.evaluation.bootstrap import bootstrap_difference_ci, bootstrap_metric_ci  # noqa: E402
-from sers.evaluation.metrics import BINARY_METRICS, roc_auc  # noqa: E402
+from sers.evaluation.metrics import (  # noqa: E402
+    BINARY_METRICS,
+    MULTICLASS_METRICS,
+    macro_roc_auc,
+    roc_auc,
+)
 from sers.evaluation.schema import (  # noqa: E402
     CohortSpec,
     Evaluation,
@@ -138,8 +154,53 @@ for _norm in ("l2", "minmax"):
         label=f"기준점에서 normalization={_norm} (rolling_min)",
     )
 
+CONDITIONS["trim_600_1800"] = dict(
+    overrides={**_BASE, "trim_region": (600.0, 1800.0)},
+    calibrate=True, method_key="truncation_fingerprint",
+    label="기준점에서 truncation=600–1800 (가이드 ③ 예시)",
+)
+for _key, _ov, _lab in (
+    ("sm_none", {"do_smooth": False}, "smoothing 없음"),
+    ("sm_sg11", {"smooth_window": 11}, "SG 창 11 (PL-1 당시 값)"),
+    ("sm_sg21", {"smooth_window": 21}, "SG 창 21"),
+    ("sm_median5", {"smoothing_method": "median", "median_window": 5}, "median 창 5"),
+    ("sm_gauss1", {"smoothing_method": "gaussian", "gaussian_sigma": 1.0}, "gaussian σ=1"),
+    ("sm_wavelet", {"smoothing_method": "wavelet_haar"}, "Haar wavelet threshold"),
+):
+    CONDITIONS[_key] = dict(
+        overrides={**_BASE, **_ov},
+        calibrate=True, method_key="savgol" if _key.startswith("sm_sg") else None,
+        label=f"기준점에서 smoothing={_lab}",
+    )
+CONDITIONS["order_baseline_first"] = dict(
+    overrides={**_BASE, "baseline_before_smooth": True},
+    calibrate=True, method_key=None,
+    label="기준점에서 순서만 baseline → smooth (가이드 §2 '두 순서 다')",
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class PreprocessingConfigExt(PreprocessingConfig):
+    """`baseline_before_smooth`를 config.py를 건드리지 않고 추가한다.
+
+    preprocess_spectra는 getattr로 읽으므로 기본 PreprocessingConfig와 호환된다.
+    """
+
+    baseline_before_smooth: bool = False
+
+
+def _prep_config(cfg, overrides: dict) -> PreprocessingConfigExt:
+    base = dataclasses.asdict(cfg.preprocessing)
+    return PreprocessingConfigExt(**{**base, **overrides})
+
+
 #: 짝지은 Δ를 낼 기준. production = 현재 배포 파이프라인, cal_despike = 요인 교체의 기준점
 DELTA_REFERENCES = ("production", "cal_despike")
+
+#: 3-class 라벨 (aecd cohort_group → 클래스 인덱스). 매핑 run의 GROUP_ORDER와 같은 순서.
+THREE_CLASS = {"control": 0, "prostate disease control": 1, "prostate": 2,
+               "Control": 0, "Prostate disease control": 1, "Prostate cancer": 2}
+N_JOBS = 5
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +276,7 @@ def run_condition(cohort: Cohort, cfg, spec: dict):
             window=cfg.preprocessing.calibration_window,
         )
     passed, _ = apply_stage1_qc(raw)
-    prep_cfg = dataclasses.replace(cfg.preprocessing, **spec["overrides"])
+    prep_cfg = _prep_config(cfg, spec["overrides"])
     cfg2 = dataclasses.replace(cfg, preprocessing=prep_cfg)
     processed, _, _ = preprocess_spectra(raw, GRID, cfg2, qc_passed_keys=passed)
     final, _ = apply_per_spectrum_corr_qc(processed)
@@ -229,15 +290,17 @@ def run_condition(cohort: Cohort, cfg, spec: dict):
         keys = [k for k, f in zip(keys, finite) if f]
         X = X[finite]
     y = np.array([1 if k[0] == cohort.cancer_group else 0 for k in keys])
+    y3 = np.array([THREE_CLASS[k[0]] for k in keys])
     groups = np.array([f"{k[0]}|{k[1]}" for k in keys])
     qc = {"input": len(raw), "stage1_passed": len(passed), "final": len(keys),
           "dropped": len(raw) - len(keys), "n_patients": int(len(np.unique(groups)))}
-    return X, y, groups, qc, shift_df, prep_cfg
+    return X, y, y3, groups, qc, shift_df, prep_cfg
 
 
 def evaluate(X, y, groups, seed: int) -> np.ndarray:
-    """spectrum OOF 확률 (seed 고정)."""
-    oof = np.zeros(len(y), dtype=float)
+    """spectrum OOF 확률 (seed 고정). y가 3클래스면 (n, 3) multinomial 확률."""
+    n_class = int(len(np.unique(y)))
+    oof = np.zeros((len(y), n_class), dtype=float)
     cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
     for tr, te in cv.split(X, y, groups):
         model = Pipeline([
@@ -246,15 +309,42 @@ def evaluate(X, y, groups, seed: int) -> np.ndarray:
                                       solver="lbfgs", random_state=seed)),
         ])
         model.fit(X[tr], y[tr])
-        oof[te] = model.predict_proba(X[te])[:, 1]
-    return oof
+        oof[te] = model.predict_proba(X[te])
+    return oof[:, 1] if n_class == 2 else oof
 
 
 def patient_table(oof: np.ndarray, y: np.ndarray, groups: np.ndarray) -> pd.DataFrame:
-    frame = pd.DataFrame({"subject": groups, "true_label": y, "prob": oof})
-    out = frame.groupby("subject").agg(true_label=("true_label", "first"),
-                                       prob=("prob", "mean"), n_spectra=("prob", "size"))
+    """환자 mean 집계. 이진이면 prob, 3클래스면 prob_class_0..2."""
+    if oof.ndim == 1:
+        frame = pd.DataFrame({"subject": groups, "true_label": y, "prob": oof})
+        cols = {"prob": ("prob", "mean")}
+    else:
+        frame = pd.DataFrame({"subject": groups, "true_label": y})
+        cols = {}
+        for k in range(oof.shape[1]):
+            frame[f"prob_class_{k}"] = oof[:, k]
+            cols[f"prob_class_{k}"] = (f"prob_class_{k}", "mean")
+    out = frame.groupby("subject").agg(true_label=("true_label", "first"), **cols,
+                                       n_spectra=("true_label", "size"))
     return out.reset_index()
+
+
+def _seed_job(X, y, groups, seed):
+    oof = evaluate(X, y, groups, seed)
+    pt = patient_table(oof, y, groups)
+    pt.insert(0, "seed", seed)
+    if oof.ndim == 1:
+        auc = float(roc_auc_score(pt["true_label"], pt["prob"]))
+        s_auc = float(roc_auc_score(y, oof))
+    else:
+        cols = [c for c in pt.columns if c.startswith("prob_class_")]
+        auc = macro_roc_auc(pt["true_label"].to_numpy(), pt[cols].to_numpy())
+        s_auc = macro_roc_auc(y, oof)
+    return seed, pt, auc, s_auc, oof
+
+
+TASK_FILES = {"screening": "patient_oof_predictions.csv",
+              "three_class": "patient_oof_three_class.csv"}
 
 
 # ---------------------------------------------------------------------------
@@ -265,42 +355,63 @@ def run_name(cohort: str, cond: str) -> str:
     return f"guide_{cohort}_{cond}_{DATE_TAG}"
 
 
-def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, dry_run: bool):
+def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, dry_run: bool,
+            tasks: tuple[str, ...] = ("screening", "three_class"), force: bool = False):
     for cond in conditions:
         spec = CONDITIONS[cond]
         out_dir = OUT_ROOT / cohort.name / cond
+        todo = [t for t in tasks if force or dry_run or not (out_dir / TASK_FILES[t]).exists()]
+        if not todo:
+            print(f"\n[{cohort.name}/{cond}] 이미 있음 — 건너뜀 (--force로 재계산)")
+            continue
         t0 = time.time()
         started_at = datetime.now(timezone.utc).isoformat()
-        print(f"\n[{cohort.name}/{cond}] {spec['label']}")
-        X, y, groups, qc, shift_df, prep_cfg = run_condition(cohort, cfg, spec)
-        print(f"  QC: {qc}   전처리 {time.time() - t0:.0f}s")
+        print(f"\n[{cohort.name}/{cond}] {spec['label']}  tasks={todo}")
+        X, y, y3, groups, qc, shift_df, prep_cfg = run_condition(cohort, cfg, spec)
+        print(f"  QC: {qc}   전처리 {time.time() - t0:.0f}s  features={X.shape[1]}")
 
-        tables, seed_auc = [], {}
-        spectrum_primary = None
-        for seed in seeds:
+        task_meta = {}
+        for task in todo:
+            target = y if task == "screening" else y3
             t1 = time.time()
-            oof = evaluate(X, y, groups, seed)
-            pt = patient_table(oof, y, groups)
-            pt.insert(0, "seed", seed)
-            tables.append(pt)
-            seed_auc[seed] = float(roc_auc_score(pt["true_label"], pt["prob"]))
-            if seed == PRIMARY_SEED:
-                spectrum_primary = pd.DataFrame({"key": [f"{k}" for k in groups],
-                                                 "true_label": y, "prob": oof})
-            print(f"  seed {seed:>5}: patient AUC={seed_auc[seed]:.4f}  "
-                  f"spectrum AUC={roc_auc_score(y, oof):.4f}  ({time.time() - t1:.0f}s)")
+            results = Parallel(n_jobs=min(N_JOBS, len(seeds)))(
+                delayed(_seed_job)(X, target, groups, seed) for seed in seeds)
+            tables, seed_auc, primary = [], {}, None
+            for seed, pt, auc, s_auc, oof in results:
+                tables.append(pt)
+                seed_auc[seed] = auc
+                if seed == PRIMARY_SEED:
+                    primary = pd.DataFrame({"key": [f"{k}" for k in groups], "true_label": target})
+                    if oof.ndim == 1:
+                        primary["prob"] = oof
+                    else:
+                        for k in range(oof.shape[1]):
+                            primary[f"prob_class_{k}"] = oof[:, k]
+                print(f"  [{task}] seed {seed:>5}: patient AUC={auc:.4f}  spectrum AUC={s_auc:.4f}")
+            print(f"  [{task}] {len(seeds)}시드 {time.time() - t1:.0f}s")
+            task_meta[task] = {"tables": tables, "seed_auc": seed_auc, "primary": primary}
         if dry_run:
             continue
 
         out_dir.mkdir(parents=True, exist_ok=True)
-        pd.concat(tables).to_csv(out_dir / "patient_oof_predictions.csv",
+        meta_path = out_dir / "run_metadata.json"
+        meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+        for task, tm in task_meta.items():
+            pd.concat(tm["tables"]).to_csv(out_dir / TASK_FILES[task], index=False, encoding="utf-8-sig")
+            suffix = "" if task == "screening" else "_three_class"
+            tm["primary"].to_csv(out_dir / f"spectrum_oof_seed{PRIMARY_SEED}{suffix}.csv",
                                  index=False, encoding="utf-8-sig")
-        if spectrum_primary is not None:
-            spectrum_primary.to_csv(out_dir / f"spectrum_oof_seed{PRIMARY_SEED}.csv",
-                                    index=False, encoding="utf-8-sig")
+            vals = list(tm["seed_auc"].values())
+            meta[f"{task}_seed_patient_auc"] = tm["seed_auc"]
+            meta[f"{task}_patient_auc_mean5"] = float(np.mean(vals))
+            meta[f"{task}_patient_auc_sd5"] = float(np.std(vals, ddof=1)) if len(vals) > 1 else None
+        if "screening" in task_meta:      # 호환: 기존 키 유지
+            meta["seed_patient_auc"] = meta["screening_seed_patient_auc"]
+            meta["patient_auc_mean5"] = meta["screening_patient_auc_mean5"]
+            meta["patient_auc_sd5"] = meta["screening_patient_auc_sd5"]
         if shift_df is not None:
             shift_df.to_csv(out_dir / "calibration_shifts.csv", index=False, encoding="utf-8-sig")
-        meta = {
+        meta.update({
             "run_name": run_name(cohort.name, cond),
             "cohort": cohort.name, "site": cohort.site, "condition": cond,
             "label": spec["label"], "method_key": spec["method_key"],
@@ -308,8 +419,9 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
             "preprocessing": {k: (list(v) if isinstance(v, tuple) else v)
                               for k, v in dataclasses.asdict(prep_cfg).items()
                               if isinstance(v, (int, float, str, bool, tuple, list)) or v is None},
-            "grid": "402-2198/935",
-            "model": "LogisticRegression(C=1.0, balanced, lbfgs) + StandardScaler",
+            "grid": "402-2198/935 (trim 후 부분집합)", "n_features": int(X.shape[1]),
+            "model": "LogisticRegression(C=1.0, balanced, lbfgs) + StandardScaler; "
+                     "3-class는 multinomial",
             "cv": "StratifiedGroupKFold(5) by subject, spectrum-level train, patient mean OOF",
             "seeds": list(seeds), "primary_seed": PRIMARY_SEED,
             "qc": qc,
@@ -317,15 +429,12 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
                 "mean": float(shift_df.shift_cm1.mean()), "sd": float(shift_df.shift_cm1.std()),
                 "abs_max": float(shift_df.shift_cm1.abs().max()),
                 "n_zero": int((shift_df.shift_cm1 == 0).sum())}),
-            "seed_patient_auc": seed_auc,
-            "patient_auc_mean5": float(np.mean(list(seed_auc.values()))),
-            "patient_auc_sd5": float(np.std(list(seed_auc.values()), ddof=1)) if len(seeds) > 1 else None,
             "data_query_filters": cohort.data_query_filters,
             "measurement_ids_n": None if cohort.measurement_ids is None else len(cohort.measurement_ids),
-            "started_at": started_at,
+            "started_at": meta.get("started_at", started_at),
             "finished_at": datetime.now(timezone.utc).isoformat(),
-        }
-        (out_dir / "run_metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+        })
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2))
         if cohort.measurement_ids is not None:
             np.save(out_dir / "measurement_ids.npy", np.asarray(cohort.measurement_ids, dtype=np.int64))
         print(f"  → {out_dir}")
@@ -335,7 +444,7 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
 # CI 표 + DB 적재 (저장된 예측에서만 계산 — 재학습 없음)
 # ---------------------------------------------------------------------------
 
-def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str) -> CohortSpec:
+def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str, task: Task) -> CohortSpec:
     if cohort_key == "aecd":
         cancer, control = (AECD_CANCER,), tuple(c for c in AECD_COHORTS if c != AECD_CANCER)
         cohort_id, site = f"aecd_prostate3_{DATE_TAG}", "aecd_platform"
@@ -345,12 +454,37 @@ def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str) -> CohortSpec:
         cancer, control = (MAPPING_CANCER,), ("Control", "Prostate disease control")
         cohort_id, site = "boramae_mapping_2026", "보라매"
         note = "보라매 매핑 코호트(121점/검체). 양성=전립선암. 기존 매핑 run과 달리 Stage1/corr QC 적용."
+    if task is Task.CANCER_SCREENING:
+        n_pos, n_neg = int((pt.true_label == 1).sum()), int((pt.true_label == 0).sum())
+    else:   # 3-class: 매핑 run 규약과 같이 전 군을 cancer_groups에, n_negative=0
+        cancer, control = cancer + control, ()
+        n_pos, n_neg = len(pt), 0
+        counts = pt.true_label.value_counts().sort_index().to_dict()
+        note += f" 3-class counts(0=control,1=질환대조,2=암)={counts}."
     return CohortSpec(
         cohort_id=cohort_id, site=site, cancer_groups=cancer, control_groups=control,
-        n_patients=len(pt), n_positive=int((pt.true_label == 1).sum()),
-        n_negative=int((pt.true_label == 0).sum()), n_spectra=int(pt.n_spectra.sum()),
+        n_patients=len(pt), n_positive=n_pos, n_negative=n_neg, n_spectra=int(pt.n_spectra.sum()),
         notes=note + f" 조건={meta['condition']}: {meta['label']}. LR C=1.0 고정(PL-1 규약).",
     )
+
+
+MODEL_NAME = "LR C=1.0 (spectrum→patient mean)"
+
+
+def _task_rows(pt: pd.DataFrame, task: Task, rname: str, cohort: CohortSpec) -> list[MetricRow]:
+    y = pt.true_label.to_numpy()
+    if task is Task.CANCER_SCREENING:
+        score, metrics = pt.prob.to_numpy(), BINARY_METRICS
+    else:
+        cols = sorted(c for c in pt.columns if c.startswith("prob_class_"))
+        score, metrics = pt[cols].to_numpy(dtype=float), MULTICLASS_METRICS
+    rows = []
+    for name, fn in metrics.items():
+        ci = bootstrap_metric_ci(y, score, pt.subject.to_numpy(), fn, name=name, n_boot=N_BOOT)
+        rows.append(MetricRow.from_ci(ci, run_id=rname, model_name=MODEL_NAME, task=task,
+                                      evaluation=Evaluation.OOF, aggregation="patient",
+                                      cohort=cohort))
+    return rows
 
 
 def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFrame:
@@ -361,58 +495,83 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
         from sers.preprocessing_lab.db import ExperimentTracker
         tracker = ExperimentTracker()
 
-    summary, primary = [], {}
+    summary, primary, primary3 = [], {}, {}
     for cond in conditions:
         out_dir = OUT_ROOT / cohort_key / cond
         if not (out_dir / "run_metadata.json").exists():
             print(f"  (skip) {out_dir} 결과 없음")
             continue
         meta = json.loads((out_dir / "run_metadata.json").read_text())
-        allp = pd.read_csv(out_dir / "patient_oof_predictions.csv", encoding="utf-8-sig")
-        pt = allp[allp.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
-        cohort = _cohort_spec(meta, pt, cohort_key)
         rname = meta["run_name"]
-        rows = []
-        for name, fn in BINARY_METRICS.items():
-            ci = bootstrap_metric_ci(pt.true_label.to_numpy(), pt.prob.to_numpy(),
-                                     pt.subject.to_numpy(), fn, name=name, n_boot=N_BOOT)
-            rows.append(MetricRow.from_ci(
-                ci, run_id=rname, model_name="LR C=1.0 (spectrum→patient mean)",
-                task=Task.CANCER_SCREENING, evaluation=Evaluation.OOF,
-                aggregation="patient", cohort=cohort))
-        write_metrics_csv(rows, out_dir / "metrics_ci_standard.csv")
+        allp = pd.read_csv(out_dir / TASK_FILES["screening"], encoding="utf-8-sig")
+        pt = allp[allp.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
+        cohort = _cohort_spec(meta, pt, cohort_key, Task.CANCER_SCREENING)
+        rows = _task_rows(pt, Task.CANCER_SCREENING, rname, cohort)
         primary[cond] = pt
         auc = rows[0]
-        summary.append({
+        rec = {
             "cohort": cohort_key, "condition": cond, "label": meta["label"], "run_name": rname,
             "n_patients": cohort.n_patients, "n_positive": cohort.n_positive,
-            "n_spectra": cohort.n_spectra,
+            "n_spectra": cohort.n_spectra, "n_features": meta.get("n_features"),
             "auc_seed42": auc.value, "auc_ci_low": auc.ci_low, "auc_ci_high": auc.ci_high,
             "auc_mean5": meta["patient_auc_mean5"], "auc_sd5": meta["patient_auc_sd5"],
             "calibration_abs_max_shift": (meta["calibration_shift_cm1"] or {}).get("abs_max"),
-        })
-        print(f"  {cohort_key}/{cond:<14} AUC={auc.value:.3f} [{auc.ci_low:.3f},{auc.ci_high:.3f}]"
-              f"  5시드 {meta['patient_auc_mean5']:.3f}±{(meta['patient_auc_sd5'] or 0):.3f}")
+        }
+        line = (f"  {cohort_key}/{cond:<20} AUC={auc.value:.3f} [{auc.ci_low:.3f},{auc.ci_high:.3f}]"
+                f" 5시드 {meta['patient_auc_mean5']:.3f}±{(meta['patient_auc_sd5'] or 0):.3f}")
+
+        three = out_dir / TASK_FILES["three_class"]
+        if three.exists():
+            all3 = pd.read_csv(three, encoding="utf-8-sig")
+            pt3 = all3[all3.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
+            cohort3 = _cohort_spec(meta, pt3, cohort_key, Task.PROSTATE_THREE_CLASS)
+            rows3 = _task_rows(pt3, Task.PROSTATE_THREE_CLASS, rname, cohort3)
+            rows += rows3
+            primary3[cond] = pt3
+            m = {r.metric: r for r in rows3}
+            rec.update({
+                "macro_auc_seed42": m["macro_auc"].value, "macro_auc_ci_low": m["macro_auc"].ci_low,
+                "macro_auc_ci_high": m["macro_auc"].ci_high,
+                "macro_auc_mean5": meta.get("three_class_patient_auc_mean5"),
+                "macro_auc_sd5": meta.get("three_class_patient_auc_sd5"),
+                "macro_f1_seed42": m["macro_f1"].value, "accuracy_seed42": m["accuracy"].value,
+            })
+            line += (f" | 3-class macroAUC={m['macro_auc'].value:.3f} "
+                     f"[{m['macro_auc'].ci_low:.3f},{m['macro_auc'].ci_high:.3f}]")
+        write_metrics_csv(rows, out_dir / "metrics_ci_standard.csv")
+        summary.append(rec)
+        print(line)
 
         if tracker is not None:
             _load_run(tracker, meta, rows, out_dir, commit)
 
     # 조건 간 짝지은 차이 — 같은 환자를 함께 재추출. 기준 2개(production, cal_despike)
     for ref in DELTA_REFERENCES:
-        if ref not in primary:
-            continue
-        base = primary[ref]
-        for s in summary:
-            cond = s["condition"]
-            if cond == ref:
-                s.update({f"d_{ref}": 0.0, f"d_{ref}_lo": 0.0, f"d_{ref}_hi": 0.0})
+        for tag, store, fn, scol in (("", primary, roc_auc, None),
+                                     ("3_", primary3, macro_roc_auc, "prob_class_")):
+            if ref not in store:
                 continue
-            merged = base.merge(primary[cond], on="subject", suffixes=("_b", "_c"))
-            d = bootstrap_difference_ci(
-                merged.true_label_b.to_numpy(), merged.prob_c.to_numpy(), merged.prob_b.to_numpy(),
-                merged.subject.to_numpy(), roc_auc, name=f"auc_delta_vs_{ref}", n_boot=N_BOOT)
-            s.update({f"d_{ref}": d.value, f"d_{ref}_lo": d.ci_low, f"d_{ref}_hi": d.ci_high,
-                      f"d_{ref}_n": len(merged)})
+            base = store[ref]
+            for rec in summary:
+                cond = rec["condition"]
+                key = f"d{tag}_{ref}"
+                if cond == ref:
+                    rec.update({key: 0.0, f"{key}_lo": 0.0, f"{key}_hi": 0.0})
+                    continue
+                if cond not in store:
+                    continue
+                merged = base.merge(store[cond], on="subject", suffixes=("_b", "_c"))
+                if scol is None:
+                    a, b = merged.prob_c.to_numpy(), merged.prob_b.to_numpy()
+                else:
+                    cb = sorted(c for c in merged.columns if c.startswith(scol) and c.endswith("_b"))
+                    cc = sorted(c for c in merged.columns if c.startswith(scol) and c.endswith("_c"))
+                    a, b = merged[cc].to_numpy(dtype=float), merged[cb].to_numpy(dtype=float)
+                d = bootstrap_difference_ci(
+                    merged.true_label_b.to_numpy(), a, b, merged.subject.to_numpy(), fn,
+                    name=f"{key}", n_boot=N_BOOT)
+                rec.update({key: d.value, f"{key}_lo": d.ci_low, f"{key}_hi": d.ci_high,
+                            f"{key}_n": len(merged)})
     return pd.DataFrame(summary)
 
 
@@ -457,15 +616,23 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
     else:
         run_id = hit[0]
     tracker.load_metric_rows(rows, git_commit=commit)
-    seed_rows = [{"metric_name": f"screening_auc_patient_seed{s}", "metric_value": v,
-                  "split": "oof", "model_name": "logistic_regression"}
-                 for s, v in meta["seed_patient_auc"].items()]
-    seed_rows += [
-        {"metric_name": "screening_auc_patient_mean5seeds", "metric_value": meta["patient_auc_mean5"],
-         "split": "oof", "model_name": "logistic_regression"},
-        {"metric_name": "screening_auc_patient_sd5seeds", "metric_value": meta["patient_auc_sd5"],
-         "split": "oof", "model_name": "logistic_regression"},
-    ]
+    seed_rows = []
+    for task, prefix in (("screening", "screening_auc_patient"),
+                         ("three_class", "three_class_macro_auc_patient")):
+        seeds = meta.get(f"{task}_seed_patient_auc") or (meta.get("seed_patient_auc")
+                                                         if task == "screening" else None)
+        if not seeds:
+            continue
+        seed_rows += [{"metric_name": f"{prefix}_seed{s}", "metric_value": v,
+                       "split": "oof", "model_name": "logistic_regression"} for s, v in seeds.items()]
+        vals = list(seeds.values())
+        seed_rows += [
+            {"metric_name": f"{prefix}_mean5seeds", "metric_value": float(np.mean(vals)),
+             "split": "oof", "model_name": "logistic_regression"},
+            {"metric_name": f"{prefix}_sd5seeds",
+             "metric_value": float(np.std(vals, ddof=1)) if len(vals) > 1 else None,
+             "split": "oof", "model_name": "logistic_regression"},
+        ]
     tracker.record_metrics(run_id, [r for r in seed_rows if r["metric_value"] is not None])
     print(f"    → experiment.runs #{run_id} ({rname})")
 
@@ -481,6 +648,8 @@ def main() -> None:
                     help="저장된 예측에서 CI 표를 만들고 aecd_platform experiment 스키마에 적재")
     ap.add_argument("--ci-only", action="store_true",
                     help="학습 없이 저장된 예측에서 CI 표·summary만 다시 만듦 (DB 미적재)")
+    ap.add_argument("--tasks", default="screening,three_class")
+    ap.add_argument("--force", action="store_true", help="이미 있는 task 결과도 재계산")
     args = ap.parse_args()
 
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
@@ -497,7 +666,8 @@ def main() -> None:
         for key in cohorts:
             print(f"\n=== 데이터 로드: {key} ===")
             cohort = load_aecd() if key == "aecd" else load_mapping()
-            compute(cohort, conditions, seeds, cfg, args.dry_run)
+            compute(cohort, conditions, seeds, cfg, args.dry_run,
+                    tasks=tuple(t.strip() for t in args.tasks.split(",")), force=args.force)
         if args.dry_run:
             print("\n(dry-run) 저장·적재 없음")
             return

@@ -733,3 +733,20 @@ class TestEdgeCases:
         y = np.array([5.0])
         result = snv(y)
         np.testing.assert_allclose(result, 0.0, atol=1e-10)
+
+
+def test_baseline_before_smooth_changes_order_only():
+    """Order switch must leave the default path untouched and give a close but
+    different result when enabled (design guide §2: both orders should be tried)."""
+    x = np.linspace(400, 2200, 1801)
+    rng = np.random.default_rng(0)
+    y = 5 + 0.001 * (x - 400) + 3 * np.exp(-((x - 1000) / 8) ** 2) + rng.normal(0, 0.05, len(x))
+    grid = np.linspace(402, 2198, 935)
+    default = preprocess_single_spectrum(x, y, grid, smooth_window=5, smooth_poly=3)
+    explicit = preprocess_single_spectrum(x, y, grid, smooth_window=5, smooth_poly=3,
+                                          baseline_before_smooth=False)
+    swapped = preprocess_single_spectrum(x, y, grid, smooth_window=5, smooth_poly=3,
+                                         baseline_before_smooth=True)
+    np.testing.assert_allclose(default, explicit)
+    assert not np.allclose(default, swapped)
+    assert np.corrcoef(default, swapped)[0, 1] > 0.98

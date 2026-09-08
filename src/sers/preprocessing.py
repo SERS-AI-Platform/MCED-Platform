@@ -1471,6 +1471,7 @@ def preprocess_single_spectrum(
     normalization_peak_wn: Optional[float] = None,
     normalization_peak_window: float = 10.0,
     normalization_emsc_order: int = 2,
+    baseline_before_smooth: bool = False,
 ) -> np.ndarray:
     """
     Apply full preprocessing pipeline to a single spectrum.
@@ -1512,6 +1513,10 @@ def preprocess_single_spectrum(
     normalization : str
         Normalization method: snv, robust_snv, minmax, l2, area, max, peak,
         mean_center, pareto, pqn, msc, emsc, none
+    baseline_before_smooth : bool
+        If True, run baseline correction before smoothing (design guide §2
+        says the smoothing/baseline order is contested and both should be
+        tried). Default False keeps the production order smooth → baseline.
 
     Returns
     -------
@@ -1534,10 +1539,10 @@ def preprocess_single_spectrum(
     if do_trim:
         x, y_proc = trim_spectrum(x, y_proc, region=trim_region)
 
-    # ② Smooth
-    if do_smooth:
-        y_proc = smooth_spectrum(
-            y_proc,
+    # ② Smooth / ③ Baseline — order switchable (design guide §2, order is contested)
+    def _smooth(v: np.ndarray) -> np.ndarray:
+        return smooth_spectrum(
+            v,
             method=smoothing_method,
             window_length=smooth_window,
             polyorder=smooth_poly,
@@ -1548,10 +1553,9 @@ def preprocess_single_spectrum(
             wavelet_level=wavelet_level,
         )
 
-    # ③ Baseline correction
-    if do_baseline:
-        y_proc = baseline_correction(
-            y_proc,
+    def _baseline(v: np.ndarray) -> np.ndarray:
+        return baseline_correction(
+            v,
             window=baseline_window,
             method=baseline_method,
             x=x,
@@ -1569,6 +1573,12 @@ def preprocess_single_spectrum(
             moving_quantile=baseline_moving_quantile,
             clip_negative=baseline_clip_negative,
         )
+
+    stages = [("baseline", _baseline), ("smooth", _smooth)] if baseline_before_smooth \
+        else [("smooth", _smooth), ("baseline", _baseline)]
+    for name, fn in stages:
+        if (name == "smooth" and do_smooth) or (name == "baseline" and do_baseline):
+            y_proc = fn(y_proc)
 
     # ④ Normalize
     y_proc = normalize_spectrum(
@@ -1732,6 +1742,7 @@ def preprocess_spectra(
                 trim_region=trim_region,
                 do_smooth=prep.do_smooth,
                 smoothing_method=smoothing_method,
+                baseline_before_smooth=getattr(prep, "baseline_before_smooth", False),
                 smooth_window=prep.smooth_window,
                 smooth_poly=prep.smooth_poly,
                 median_window=median_window,
