@@ -172,6 +172,12 @@ for _key, _ov, _lab in (
         calibrate=True, method_key="savgol" if _key.startswith("sm_sg") else None,
         label=f"기준점에서 smoothing={_lab}",
     )
+CONDITIONS["no_cal_sg11"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv",
+                   smooth_window=11),
+    calibrate=False, method_key=None,
+    label="PL-1 despike_off 정확 재현: cal✗ despike✗ SG 11 rolling_min SNV",
+)
 CONDITIONS["order_baseline_first"] = dict(
     overrides={**_BASE, "baseline_before_smooth": True},
     calibrate=True, method_key=None,
