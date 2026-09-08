@@ -21,9 +21,6 @@ from .analysis import (
     summarize_spectrum_peaks,
 )
 
-# --- fonts ---
-from .fonts import available_korean_font, use_korean_font
-
 # --- distribution ---
 from .distribution import (
     plot_replicate_variance_by_group,
@@ -31,6 +28,9 @@ from .distribution import (
     plot_spectra_count_bar,
     plot_variance_heatmap,
 )
+
+# --- fonts ---
+from .fonts import available_korean_font, use_korean_font
 
 # --- shap ---
 from .shap import (
