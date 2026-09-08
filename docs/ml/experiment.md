@@ -405,7 +405,7 @@
        것으로 보이나 이 비교는 사후적(같은 실행 안의 조건이 아님)이라 **PL-2 smoothing sweep을 임상 AUC로 재확인해야 한다.**
     4. λ가 작을수록 Stage-2 corr QC 탈락이 급증(arpls 1e3: 환자 84명, spectra 3,595만 남음). 낮은 λ의 나쁜 AUC는 baseline 효과와
        QC 탈락(환자·spectra 집합 변화)이 섞여 있다. 짝지은 Δ는 공통 환자만 쓰지만(`d_*_n`), 학습 데이터 자체가 달라진 점은 보정되지 않는다.
-    5. 세 baseline 모두 λ가 커질수록 좋아지다가 1e7에서 다시 떨어지며, 최적 λ 근처(airpls 1e6, arpls 1e7, als 1e6)에서 rolling_min과 구분되지 않는다.
+    5. airPLS·ALS는 λ=1e6이 정점이고 1e7에서 떨어지며, arPLS는 1e7(그리드 상한)까지 계속 오른다. 각 방법의 최적 λ(airpls 1e6, arpls 1e7, als 1e6)에서는 rolling_min과 구분되지 않는다.
   - **한계**: 환자 112명이라 0.03 수준 차이 판별 불가(PL-1과 동일). LR C 고정. smoothing/baseline 선후 순서는 한 가지만. 가이드 ③의 600–1800 절단은 미실행(400–2200 유지).
   - 스크립트(보존): `scripts/analysis/preprocessing_lab/run_guide_pipeline.py` (`--cohort aecd`, `--load-db`)
   - 산출물: `results/preprocessing_lab/guide_pipeline_20260907/summary.csv`, `aecd/{condition}/{patient_oof_predictions.csv, spectrum_oof_seed42.csv,
