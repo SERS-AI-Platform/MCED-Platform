@@ -357,6 +357,62 @@
     설계가 효과 검출에 더 적합할 수 있다.
   - → aecd_platform `experiment.runs` #58(off), #59(on) / 데이터: 13,552 measurements FK 연결
 
+- [ ] PL-2: SG smoothing 창 sweep (표준물질 PS/Si 결합 평가, 2026-09-03) — **기록 누락**
+  - `config/config.yaml` smooth_window 11→5 변경 근거로 인용됨(`scripts/analysis/preprocessing_lab/run_smoothing_sweep.py --combined`)
+    이나 이 문서·registry에 결과가 없다. 해당 세션에서 append 필요. 번호 PL-2는 이 실험에 예약.
+
+- [x] PL-3: 설계가이드 요인별 비교 — calibration / despike / baseline(λ 그리드) / normalization ✅ (2026-09-07~08)
+  - **목적**: `docs/ml/preprocessing_design_guide.md` §2 순서(cal→despike→trim→SG→baseline→norm)의 각 단계를
+    실제 run으로 실행해 CI 표(`experiment.run_metrics`)에 넣는다. 한 번에 한 요인만 바꾼다.
+  - **데이터**: aecd_platform 전립선 3군 112명 / 13,552 spectra (= PL-1과 동일 로드: prostate 5203 / PDC 5929 / control 2420).
+    `data/mapping` 파일은 같은 보라매 113검체×121점의 사본이며 xlsx 라벨이 DB에서 철회된 'Drop' 1명을 포함하므로 쓰지 않음.
+  - **모델·평가**: PL-1 규약 그대로 — 개별 spectrum LR(C=1.0, balanced, StandardScaler), StratifiedGroupKFold(5) by subject,
+    환자 mean OOF, 5시드(42/7/123/2024/31337). CI는 seed 42 환자 점수의 환자 단위 BCa bootstrap 2000회.
+    Δ는 같은 환자를 함께 재추출하는 짝지은 bootstrap (production 기준, cal_despike 기준 둘 다).
+  - ⚠️ **audit gate 면제**: SKILL은 `audit_status='pending'` 방법의 실행을 금하지만 사용자 결정(2026-09-08)으로 탐색 실험으로 전부 실행.
+    감사 완료는 whitaker_hayes·airpls 2건뿐. **채택 근거가 아닌 탐색 기록.** audit_status는 변경하지 않음.
+  - **조건** (모두 trim 400–2200, SG 창 5 차수 3 = 현재 config): 기준점 = cal_despike (cal✓ WH despike z=6, rolling_min 101, SNV)
+
+    | 조건 | 환자 | spectra(QC 후) | AUC seed42 [95% CI] | 5시드 mean±sd | Δ vs production [CI] |
+    |---|---|---|---|---|---|
+    | no_cal (PL-1 재현, 단 SG 5) | 112 | 10,823 | 0.735 [0.637, 0.821] | 0.730±0.015 | **−0.082 [−0.158, −0.023]** |
+    | production (cal✓ despike✗) | 112 | 10,413 | 0.817 [0.728, 0.885] | 0.796±0.028 | 0 |
+    | cal_despike (기준점) | 112 | 10,414 | 0.792 [0.696, 0.868] | 0.798±0.021 | −0.025 [−0.079, 0.026] |
+    | bl_airpls λ=1e3 | **91** | 4,771 | 0.696 [0.580, 0.790] | 0.674±0.068 | −0.098 [−0.200, 0.003] |
+    | bl_airpls λ=1e4 | 111 | 7,565 | 0.677 [0.568, 0.770] | 0.720±0.062 | **−0.139 [−0.230, −0.060]** |
+    | bl_airpls λ=1e5 (config 기본) | 112 | 9,967 | 0.796 [0.706, 0.871] | 0.769±0.048 | −0.022 [−0.083, 0.038] |
+    | bl_airpls λ=1e6 | 112 | 10,454 | 0.804 [0.711, 0.876] | 0.815±0.011 | −0.014 [−0.086, 0.056] |
+    | bl_airpls λ=1e7 | 112 | 11,930 | 0.775 [0.676, 0.854] | 0.792±0.030 | −0.042 [−0.119, 0.020] |
+    | bl_arpls λ=1e3 | **84** | 3,595 | 0.628 [0.497, 0.748] | 0.634±0.067 | **−0.154 [−0.256, −0.048]** |
+    | bl_arpls λ=1e4 | 110 | 6,786 | 0.712 [0.612, 0.798] | 0.682±0.022 | **−0.106 [−0.201, −0.021]** |
+    | bl_arpls λ=1e5 (config 기본) | 111 | 6,825 | 0.739 [0.635, 0.822] | 0.721±0.030 | **−0.076 [−0.157, −0.004]** |
+    | bl_arpls λ=1e6 | 112 | 8,680 | 0.758 [0.660, 0.841] | 0.780±0.026 | −0.059 [−0.137, 0.006] |
+    | bl_arpls λ=1e7 | 112 | 9,972 | 0.785 [0.693, 0.863] | 0.806±0.025 | −0.032 [−0.100, 0.028] |
+    | bl_als λ=1e3 | 102 | 5,569 | 0.708 [0.594, 0.806] | 0.667±0.024 | **−0.095 [−0.188, −0.019]** |
+    | bl_als λ=1e4 | 112 | 7,930 | 0.675 [0.569, 0.771] | 0.687±0.027 | **−0.142 [−0.227, −0.067]** |
+    | bl_als λ=1e5 | 112 | 9,645 | 0.792 [0.699, 0.868] | 0.787±0.028 | −0.026 [−0.095, 0.038] |
+    | bl_als λ=1e6 (config 기본) | 112 | 10,712 | 0.839 [0.755, 0.900] | 0.820±0.019 | +0.022 [−0.038, 0.093] |
+    | bl_als λ=1e7 | 112 | 11,748 | 0.759 [0.662, 0.836] | 0.789±0.035 | −0.059 [−0.140, 0.010] |
+    | norm_l2 (rolling_min) | 112 | 10,409 | 0.818 [0.730, 0.887] | 0.795±0.019 | +0.001 [−0.054, 0.052] |
+    | norm_minmax (rolling_min) | 112 | 10,413 | 0.845 [0.760, 0.905] | 0.802±0.030 | +0.028 [−0.024, 0.084] |
+
+    (굵게 = Δ의 95% CI가 0을 제외. Δ vs cal_despike는 `summary.csv`의 `d_cal_despike*` 컬럼.)
+  - **관찰 (해석·채택은 사용자 몫)**:
+    1. production보다 좋은 조건은 없다 — 양의 Δ(als 1e6, minmax, l2)는 모두 CI가 0을 포함.
+    2. calibration 제거(no_cal)만 CI가 0을 벗어나며 나쁘다. shift 분포: sd 2.2 cm⁻¹, |max| 6.9, fail-safe(shift=0) 629/13,552(4.6%) → calibration은 명목이 아니라 실제로 작동.
+    3. **no_cal은 PL-1 despike_off와 데이터·코드가 같고 SG 창만 다르다(11→5, config.yaml 2026-09-03 변경, 미커밋).**
+       PL-1 off 0.794±0.011 / QC 통과 11,331 → PL-3 no_cal 0.730±0.015 / QC 통과 10,823. SG 창 축소가 임상 AUC를 −0.06 낮춘
+       것으로 보이나 이 비교는 사후적(같은 실행 안의 조건이 아님)이라 **PL-2 smoothing sweep을 임상 AUC로 재확인해야 한다.**
+    4. λ가 작을수록 Stage-2 corr QC 탈락이 급증(arpls 1e3: 환자 84명, spectra 3,595만 남음). 낮은 λ의 나쁜 AUC는 baseline 효과와
+       QC 탈락(환자·spectra 집합 변화)이 섞여 있다. 짝지은 Δ는 공통 환자만 쓰지만(`d_*_n`), 학습 데이터 자체가 달라진 점은 보정되지 않는다.
+    5. 세 baseline 모두 λ가 커질수록 좋아지다가 1e7에서 다시 떨어지며, 최적 λ 근처(airpls 1e6, arpls 1e7, als 1e6)에서 rolling_min과 구분되지 않는다.
+  - **한계**: 환자 112명이라 0.03 수준 차이 판별 불가(PL-1과 동일). LR C 고정. smoothing/baseline 선후 순서는 한 가지만. 가이드 ③의 600–1800 절단은 미실행(400–2200 유지).
+  - 스크립트(보존): `scripts/analysis/preprocessing_lab/run_guide_pipeline.py` (`--cohort aecd`, `--load-db`)
+  - 산출물: `results/preprocessing_lab/guide_pipeline_20260907/summary.csv`, `aecd/{condition}/{patient_oof_predictions.csv, spectrum_oof_seed42.csv,
+    metrics_ci_standard.csv, run_metadata.json, calibration_shifts.csv, measurement_ids.npy}`
+  - DB: `experiment.runs` #126~#164 (run_name `guide_aecd_{condition}_20260907`, method_id·config_snapshot·measurement FK 연결), `run_metrics` CI 행(metric `auc` 등 8종) + 시드 행(PL-1 이름)
+  - 코드: 평가 스키마 `2be7be3`, 스크립트 `8459643`
+
 ## Phase OV — 측정자(operator) 변동성 분석 (2026-09-04)
 
 - [x] OV-1: 측정자에 따른 스펙트럼 변동성 통계 분석
