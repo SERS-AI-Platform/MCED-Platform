@@ -563,3 +563,21 @@
   - 스크립트: `scripts/analysis/mapping_point_count_convergence.py`
   - 산출물: `results/operator_variability/point_count_convergence.csv`,
     `point_count_convergence_per_sample.csv`, `point_count_convergence.png`
+
+## Phase LC — Subject 수 학습곡선 / 암종별 최소 검체 수 (2026-09-09)
+
+> 질문: "암종별 최소 검체 수는?", "전립선 450명 달성 시 예상 AUC는?"에 데이터로 답하기 위한 사후 분석.
+> 재학습이 아닌 서브샘플링 분석. 스크립트 `scripts/analysis/learning_curve_sample_size.py`,
+> 산출물 `results/learning_curve_20260909_v1/` (learning_curve_raw.csv / _summary.csv / _fits.json / learning_curve.png / run_metadata.json).
+
+- [x] LC-1: 후향 7암종 코호트 학습곡선 (KAO 2026-06-10, 1,630명, 각 암종 vs 대조군 430명) ✅
+  - 설계: subject당 replicate 평균 1행, StandardScaler+LR(C=0.1). 반복 30회: 30% stratified hold-out 고정 → 학습쪽에서 암 n명 + 대조군 n명(1:1) 서브샘플 → hold-out AUC.
+  - AUC ≥ 0.95 최초 도달 n(암 subject): BLC 10 / CRC 15 / BRE 15 / LUN 20 / PAN 30 / PRO 50 / OVA 미도달(n=40에서 0.946, 가용 70명이라 50 이상 측정 불가)
+  - Inverse power law `AUC(n)=a−b·n^−c` 적합 후 plateau−0.01 도달 n: PAN 50 / CRC 100 / BLC 100 / LUN 160 (PRO·OVA·BRE는 가용 n 안에서 미도달)
+  - 곡선(mean AUC): PRO 10:0.829 → 20:0.914 → 30:0.935 → 50:0.954 → 70:0.970; PAN 10:0.853 → 30:0.955 → 70:0.973; OVA 10:0.852 → 40:0.946; BRE 10:0.911 → 20:0.975; LUN 20:0.950 → 100:0.985 → 210:0.993; CRC 15:0.955 → 100:0.994; BLC 10:0.968 → 100:0.993
+  - ⚠️ 해석 한계: 암종별 단일 병원(hospital confound) 그대로인 in-distribution 곡선. cancer-vs-control screening 과제만이며 cancer-type ID(F1)는 별도 — STK-V2 held-out에서 BRE(n=30) F1 0.71, PAN(100) 0.65로 type ID는 더 많은 검체 필요.
+- [x] LC-2: 전립선 450명 외삽 ✅
+  - 후향 CBNUH PRO(100명) 곡선 외삽 → n=450 예측 AUC **0.99** (repeat별 적합 90% 구간 0.95–0.997). 이미 n=70에서 0.970이라 추가 검체의 한계효용 작음.
+  - 전향 보라매 PRO 43 / 비암 69 (control 20 + PDC 49, Drop 제외 112명, `mean_representative_spectra.csv`) 곡선: n=8→30에서 0.611→0.627로 **거의 평탄**. 외삽 n=450 예측 AUC **0.65** (90% 구간 0.55–0.81). 적합된 c≈0.03이라 AUC 0.80 도달 필요 n은 1만 명 초과(=검체 수로 해결 불가).
+  - 결론: 전립선 450명의 예상 AUC는 데이터 조건에 따라 0.65(현재 보라매 전향 측정 조건) ~ 0.99(후향 동일 분포)로 갈린다. 보라매 곡선의 평탄성은 병목이 표본 수가 아니라 신호 대 노이즈·라벨 정의(PDC vs 암)·측정 조건임을 뜻한다 (Phase AS-1 baseline 0.629, legacy STK-V2 feature 0.75와 정합).
+  - 참고: aecd_platform DB에 cohort_group=prostate는 이미 453명(CBNUH 400 + BORAMAE 53)이나 스펙트럼 보유는 143명(CBNUH Thermo 100 + BORAMAE 43)뿐 — "450명 목표"는 측정 목표로 읽어야 함.
