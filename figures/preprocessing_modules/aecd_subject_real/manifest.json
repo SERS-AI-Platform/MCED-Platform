@@ -1,0 +1,17 @@
+{
+  "source": "AECD API / aecd_platform",
+  "observed_at": "2026-08-28T00:29:42.734104+09:00",
+  "real_clinical_spectra": true,
+  "deidentified_subject": true,
+  "subject_selection": "complete subject with QC exclusions nearest the candidate median",
+  "api_total_observed": 13673,
+  "repeats_total": 45,
+  "repeats_qc_passed": 43,
+  "repeats_excluded": 2,
+  "common_grid_points": 934,
+  "common_grid_range_cm1": [
+    400.0,
+    2200.0
+  ],
+  "qc_rule": "standardized RMS distance from within-subject median; median + 3.5 \u00d7 1.4826 \u00d7 MAD"
+}

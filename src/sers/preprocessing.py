@@ -435,6 +435,111 @@ def wavelet_denoise(
     return _haar_denoise_padded(y, threshold_scale=threshold_scale, level=level)
 
 
+def whitaker_hayes_despike(
+    y: np.ndarray,
+    z_threshold: float = 6.0,
+    window: int = 5,
+    force_endpoints: bool = True,
+) -> np.ndarray:
+    """Remove cosmic-ray spikes via the modified Z-score of the first difference.
+
+    Whitaker DA, Hayes K. A simple algorithm for despiking Raman spectra.
+    Chemom Intell Lab Syst. 2018;179:82-4.
+
+    Audited 2026-09-02 against the authors' own deposited R implementation
+    (Mendeley Data ``sxjgbgg95y`` v1), not just the design-guide summary. The
+    published article body itself was not readable from here, so anything the
+    deposit does not state is flagged below rather than guessed.
+
+    The procedure:
+
+        grad(i)  = y(i) - y(i-1)
+        z_mod(i) = 0.6745 * (grad(i) - median(grad)) / MAD(grad)
+        |z_mod(i)| > threshold  ->  replace y(i) with a local mean
+
+    Unlike :func:`sers.qc.qc.detect_cosmic_ray`, which inspects only the global
+    maximum and drops the whole spectrum, this repairs each flagged point in
+    place and keeps the spectrum.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Intensity values.
+    z_threshold : float, default 6.0
+        Modified Z-score cutoff. The authors' deposit hard-codes
+        ``threshold = 6`` and advises starting high and decreasing.
+    window : int, default 5
+        Half-width of the neighbourhood averaged to replace a flagged point
+        (the deposit's ``ma = 5``). Flagged neighbours are excluded from that
+        average, which is what makes the method robust to broad spikes.
+    force_endpoints : bool, default True
+        Match the deposit's ``z[1] = z[n] = 1``: the first and last samples are
+        unconditionally treated as spikes and replaced. Set False to leave the
+        endpoints untouched (a deviation from the reference implementation).
+
+    Returns
+    -------
+    np.ndarray
+        Despiked copy of ``y``. Returned unchanged when the spectrum is too
+        short or when MAD is zero (no dispersion to score against).
+    """
+    y_out = np.asarray(y, dtype=float).copy()
+    if y_out.size < 3 or window < 1:
+        return y_out
+
+    grad = np.diff(y_out)
+    mad = float(np.median(np.abs(grad - np.median(grad))))
+    if mad <= 0:
+        return y_out
+
+    # The deposit uses R's mad(), whose default constant is 1.4826; 1/1.4826 =
+    # 0.67449, so this is the same score as the NIST 0.6745 form.
+    z_mod = np.zeros_like(y_out)
+    z_mod[1:] = 0.6745 * (grad - np.median(grad)) / mad
+    flagged = np.abs(z_mod) > z_threshold
+    if force_endpoints:
+        flagged[0] = flagged[-1] = True
+    if not flagged.any():
+        return y_out
+
+    clean = ~flagged
+    for idx in np.flatnonzero(flagged):
+        lo = max(0, idx - window)
+        hi = min(y_out.size, idx + window + 1)
+        neighbours = y_out[lo:hi][clean[lo:hi]]
+        if neighbours.size:
+            y_out[idx] = float(neighbours.mean())
+    return y_out
+
+
+def despike_spectrum(
+    y: np.ndarray,
+    method: str = "whitaker_hayes",
+    z_threshold: float = 6.0,
+    window: int = 5,
+    force_endpoints: bool = True,
+) -> np.ndarray:
+    """Remove cosmic-ray spikes by method name."""
+    method = method.lower().replace("-", "_")
+    aliases = {
+        "wh": "whitaker_hayes",
+        "whitaker": "whitaker_hayes",
+        "modified_zscore": "whitaker_hayes",
+    }
+    method = aliases.get(method, method)
+
+    if method == "none":
+        return np.asarray(y, dtype=float).copy()
+    if method == "whitaker_hayes":
+        return whitaker_hayes_despike(
+            y, z_threshold=z_threshold, window=window, force_endpoints=force_endpoints
+        )
+    raise ValueError(
+        f"Unknown despiking method: '{method}'. "
+        "Choose from: whitaker_hayes, none"
+    )
+
+
 def smooth_spectrum(
     y: np.ndarray,
     method: str = "savgol",
@@ -1330,6 +1435,10 @@ def preprocess_single_spectrum(
     x: np.ndarray,
     y: np.ndarray,
     grid: np.ndarray,
+    do_despike: bool = False,
+    despike_method: str = "whitaker_hayes",
+    despike_z_threshold: float = 7.0,
+    despike_window: int = 5,
     do_trim: bool = True,
     trim_region: Tuple[float, float] = FINGERPRINT_REGION,
     do_smooth: bool = True,
@@ -1362,6 +1471,7 @@ def preprocess_single_spectrum(
     normalization_peak_wn: Optional[float] = None,
     normalization_peak_window: float = 10.0,
     normalization_emsc_order: int = 2,
+    baseline_before_smooth: bool = False,
 ) -> np.ndarray:
     """
     Apply full preprocessing pipeline to a single spectrum.
@@ -1403,6 +1513,10 @@ def preprocess_single_spectrum(
     normalization : str
         Normalization method: snv, robust_snv, minmax, l2, area, max, peak,
         mean_center, pareto, pqn, msc, emsc, none
+    baseline_before_smooth : bool
+        If True, run baseline correction before smoothing (design guide §2
+        says the smoothing/baseline order is contested and both should be
+        tried). Default False keeps the production order smooth → baseline.
 
     Returns
     -------
@@ -1411,14 +1525,24 @@ def preprocess_single_spectrum(
     """
     y_proc = y.copy()
 
+    # ⓪ Despike (opt-in) — 설계 가이드 ②단계. trim보다 앞서야 절단 경계 밖의
+    #    spike도 제거된다.
+    if do_despike:
+        y_proc = despike_spectrum(
+            y_proc,
+            method=despike_method,
+            z_threshold=despike_z_threshold,
+            window=despike_window,
+        )
+
     # ① Trim
     if do_trim:
         x, y_proc = trim_spectrum(x, y_proc, region=trim_region)
 
-    # ② Smooth
-    if do_smooth:
-        y_proc = smooth_spectrum(
-            y_proc,
+    # ② Smooth / ③ Baseline — order switchable (design guide §2, order is contested)
+    def _smooth(v: np.ndarray) -> np.ndarray:
+        return smooth_spectrum(
+            v,
             method=smoothing_method,
             window_length=smooth_window,
             polyorder=smooth_poly,
@@ -1429,10 +1553,9 @@ def preprocess_single_spectrum(
             wavelet_level=wavelet_level,
         )
 
-    # ③ Baseline correction
-    if do_baseline:
-        y_proc = baseline_correction(
-            y_proc,
+    def _baseline(v: np.ndarray) -> np.ndarray:
+        return baseline_correction(
+            v,
             window=baseline_window,
             method=baseline_method,
             x=x,
@@ -1450,6 +1573,12 @@ def preprocess_single_spectrum(
             moving_quantile=baseline_moving_quantile,
             clip_negative=baseline_clip_negative,
         )
+
+    stages = [("baseline", _baseline), ("smooth", _smooth)] if baseline_before_smooth \
+        else [("smooth", _smooth), ("baseline", _baseline)]
+    for name, fn in stages:
+        if (name == "smooth" and do_smooth) or (name == "baseline" and do_baseline):
+            y_proc = fn(y_proc)
 
     # ④ Normalize
     y_proc = normalize_spectrum(
@@ -1522,6 +1651,10 @@ def preprocess_spectra(
         normalization = "snv" if getattr(prep, 'use_snv', True) else "none"
 
     # Trim settings
+    do_despike = getattr(prep, 'do_despike', False)
+    despike_method = getattr(prep, 'despike_method', 'whitaker_hayes')
+    despike_z_threshold = getattr(prep, 'despike_z_threshold', 7.0)
+    despike_window = getattr(prep, 'despike_window', 5)
     do_trim = getattr(prep, 'do_trim', True)
     trim_region = tuple(getattr(prep, 'trim_region', list(FINGERPRINT_REGION)))
 
@@ -1559,6 +1692,11 @@ def preprocess_spectra(
         proc_grid = grid
 
     logger.info("Preprocessing pipeline:")
+    logger.info(
+        "  \u24ea Despike: %s%s",
+        do_despike,
+        f" (method={despike_method}, z>{despike_z_threshold})" if do_despike else "",
+    )
     logger.info(f"  ① Trim: {do_trim} → region {trim_region} cm⁻¹")
     logger.info(
         f"  ② Smooth: {prep.do_smooth} "
@@ -1596,10 +1734,15 @@ def preprocess_spectra(
                 x=x,
                 y=y,
                 grid=proc_grid,
+                do_despike=do_despike,
+                despike_method=despike_method,
+                despike_z_threshold=despike_z_threshold,
+                despike_window=despike_window,
                 do_trim=do_trim,
                 trim_region=trim_region,
                 do_smooth=prep.do_smooth,
                 smoothing_method=smoothing_method,
+                baseline_before_smooth=getattr(prep, "baseline_before_smooth", False),
                 smooth_window=prep.smooth_window,
                 smooth_poly=prep.smooth_poly,
                 median_window=median_window,

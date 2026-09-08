@@ -39,4 +39,4 @@ def production(stacking, output_dir, fit_pds, grid, pds_out):
             pds_args += ["--grid", grid]
         if pds_out:
             pds_args += ["--out", pds_out]
-        run_script("scripts/deployment/fit_pds_artifact.py", pds_args)
+        run_script("scripts/analysis/calibration/fit_pds_artifact.py", pds_args)

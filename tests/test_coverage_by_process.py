@@ -75,4 +75,4 @@ def test_markdown_report_keeps_deployment_software_scope_explicit(tmp_path):
     assert "Coverage By Process" in markdown
     assert "SSI/CTI risk scoring" in markdown
     assert "deployment_software" in markdown
-    assert "outside the current --cov=sers gate" in markdown
+    assert "moved to the SERS-Clinical-App repo" in markdown

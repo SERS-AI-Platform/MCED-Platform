@@ -244,8 +244,11 @@ CONFIG_DIR: Path = Path(_normalize_path(
 ))
 
 # MLflow
-MLFLOW_TRACKING_URI: str = _normalize_path(
-    os.environ.get("MLFLOW_TRACKING_URI", str(_PROJECT_ROOT / "mlruns"))
+# Tracking store is the SQLite DB; mlruns/ holds artifacts only. MLflow reads
+# this env var natively, so the default must match the URI that scripts/db/*.py
+# and models/legacy/**/train.py pass to set_tracking_uri().
+MLFLOW_TRACKING_URI: str = os.environ.get(
+    "MLFLOW_TRACKING_URI", f"sqlite:///{_PROJECT_ROOT / 'mlflow.db'}"
 )
 MLFLOW_EXPERIMENT_NAME: str = os.environ.get(
     "MLFLOW_EXPERIMENT_NAME", "sers-cancer-detection"
@@ -263,6 +266,10 @@ LOG_LEVEL: str = os.environ.get("SERS_LOG_LEVEL", "INFO")
 class PreprocessingConfig:
     """Preprocessing parameters (user-adjustable)."""
 
+    do_despike: bool = False           # opt-in: 기본 off라 프로덕션 동작 불변
+    despike_method: str = "whitaker_hayes"
+    despike_z_threshold: float = 6.0  # 저자 deposit 값
+    despike_window: int = 5
     do_trim: bool = True
     trim_region: tuple[float, float] = (400.0, 2200.0)
     do_smooth: bool = True

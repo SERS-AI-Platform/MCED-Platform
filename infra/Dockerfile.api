@@ -29,6 +29,8 @@ RUN pip install --no-cache-dir joblib fastapi uvicorn python-multipart
 # ── Stage 2: Runtime ──
 FROM python:3.11-slim
 
+LABEL com.solum.sers.intended-use="research-only-non-clinical"
+
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv

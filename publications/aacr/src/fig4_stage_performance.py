@@ -7,23 +7,22 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from sklearn.metrics import confusion_matrix
-
 from nature_style import (
-    apply_style,
-    apply_nature_style,
-    add_panel_label,
-    save_figure,
     CANCER_COLORS,
     CANCER_LABELS,
     DOUBLE_COL,
     FONT_SIZE,
-    ROOT,
+    OUTPUT_DIR,
+    add_panel_label,
+    apply_nature_style,
+    apply_style,
+    save_figure,
 )
+from sklearn.metrics import confusion_matrix
 from stk_v2_fixed_non_ypan import (
     DISPLAY_CANCERS,
     binary_metric_table,
@@ -31,7 +30,6 @@ from stk_v2_fixed_non_ypan import (
     load_cancer_types,
     load_test_predictions,
 )
-
 
 apply_style()
 
@@ -68,10 +66,16 @@ def main() -> None:
     type_df = cancer_type_sensitivity_table()
     type_df["label"] = type_df["cancer_type"].map(lambda x: CANCER_LABELS.get(x, x))
 
-    out_dir = os.path.join(ROOT, "publications", "aacr", "figures")
+    out_dir = OUTPUT_DIR
     os.makedirs(out_dir, exist_ok=True)
-    binary_df.to_csv(os.path.join(out_dir, "fig4_binary_metrics_ci.csv"), index=False)
-    type_df.to_csv(os.path.join(out_dir, "fig4_cancer_type_sensitivity_ci.csv"), index=False)
+    binary_df.to_csv(
+        os.path.join(out_dir, "fig4_binary_metrics_ci.csv"), index=False, encoding="utf-8-sig"
+    )
+    type_df.to_csv(
+        os.path.join(out_dir, "fig4_cancer_type_sensitivity_ci.csv"),
+        index=False,
+        encoding="utf-8-sig",
+    )
 
     fig = plt.figure(figsize=(DOUBLE_COL, 2.55))
     gs = fig.add_gridspec(1, 3, width_ratios=[1.16, 1.0, 1.22], wspace=0.52)
@@ -84,14 +88,24 @@ def main() -> None:
     sub = binary_df.set_index("metric").loc[ordered_metrics].reset_index()
     x = np.arange(len(sub))
     y = sub["value"].values
-    err = np.vstack([
-        np.maximum(0, y - sub["ci_low"].values),
-        np.maximum(0, sub["ci_high"].values - y),
-    ])
+    err = np.vstack(
+        [
+            np.maximum(0, y - sub["ci_low"].values),
+            np.maximum(0, sub["ci_high"].values - y),
+        ]
+    )
     ax1.errorbar(
-        x, y, yerr=err, fmt="o", color="#2C3E50",
-        ecolor="#2C3E50", elinewidth=0.9, capsize=3,
-        markerfacecolor="#2C3E50", markeredgecolor="white", markeredgewidth=0.6,
+        x,
+        y,
+        yerr=err,
+        fmt="o",
+        color="#2C3E50",
+        ecolor="#2C3E50",
+        elinewidth=0.9,
+        capsize=3,
+        markerfacecolor="#2C3E50",
+        markeredgecolor="white",
+        markeredgewidth=0.6,
     )
     ax1.set_xticks(x)
     ax1.set_xticklabels(sub["metric"], rotation=40, ha="right")
@@ -106,19 +120,35 @@ def main() -> None:
     type_sub = type_df.set_index("cancer_type").loc[type_order].reset_index()
     x2 = np.arange(len(type_sub))
     y2 = type_sub["sensitivity"].values
-    err2 = np.vstack([
-        np.maximum(0, y2 - type_sub["ci_low"].values),
-        np.maximum(0, type_sub["ci_high"].values - y2),
-    ])
+    err2 = np.vstack(
+        [
+            np.maximum(0, y2 - type_sub["ci_low"].values),
+            np.maximum(0, type_sub["ci_high"].values - y2),
+        ]
+    )
     colors = [CANCER_COLORS.get(g, "#333333") for g in type_sub["cancer_type"]]
     for xi, yi, lohi, color, row in zip(x2, y2, err2.T, colors, type_sub.to_dict("records")):
         ax2.errorbar(
-            xi, yi, yerr=np.array([[lohi[0]], [lohi[1]]]), fmt="o",
-            color=color, ecolor=color, elinewidth=0.9, capsize=3,
-            markerfacecolor=color, markeredgecolor="white", markeredgewidth=0.6,
+            xi,
+            yi,
+            yerr=np.array([[lohi[0]], [lohi[1]]]),
+            fmt="o",
+            color=color,
+            ecolor=color,
+            elinewidth=0.9,
+            capsize=3,
+            markerfacecolor=color,
+            markeredgecolor="white",
+            markeredgewidth=0.6,
         )
-        ax2.text(xi, min(1.02, yi + lohi[1] + 0.035), f"n={int(row['n'])}",
-                 ha="center", fontsize=FONT_SIZE["annotation"], color=color)
+        ax2.text(
+            xi,
+            min(1.02, yi + lohi[1] + 0.035),
+            f"n={int(row['n'])}",
+            ha="center",
+            fontsize=FONT_SIZE["annotation"],
+            color=color,
+        )
     ax2.set_xticks(x2)
     ax2.set_xticklabels(type_sub["cancer_type"], rotation=0, ha="center")
     ax2.set_ylim(0.43, 1.08)
@@ -132,10 +162,10 @@ def main() -> None:
     row_sum = cm.sum(axis=1, keepdims=True)
     cm_norm = np.divide(cm, row_sum, out=np.zeros_like(cm, dtype=float), where=row_sum > 0)
     pd.DataFrame(cm, index=present_labels, columns=present_labels).to_csv(
-        os.path.join(out_dir, "fig4_confusion_matrix_counts.csv")
+        os.path.join(out_dir, "fig4_confusion_matrix_counts.csv"), encoding="utf-8-sig"
     )
     pd.DataFrame(cm_norm, index=present_labels, columns=present_labels).to_csv(
-        os.path.join(out_dir, "fig4_confusion_matrix_row_normalized.csv")
+        os.path.join(out_dir, "fig4_confusion_matrix_row_normalized.csv"), encoding="utf-8-sig"
     )
 
     n_cm = len(present_labels)
@@ -150,16 +180,25 @@ def main() -> None:
             facecolor = _blend_with_white(base_color, strength)
         ax3.add_patch(
             plt.Rectangle(
-                (j - 0.5, i - 0.5), 1, 1,
+                (j - 0.5, i - 0.5),
+                1,
+                1,
                 facecolor=facecolor,
                 edgecolor="white",
                 linewidth=0.8,
             )
         )
-        text_color = "white" if value > 0 and _relative_luminance(mcolors.to_rgb(facecolor)) < 0.55 else "#222222"
+        text_color = (
+            "white"
+            if value > 0 and _relative_luminance(mcolors.to_rgb(facecolor)) < 0.55
+            else "#222222"
+        )
         ax3.text(
-            j, i, f"{value}\n{norm_value:.2f}",
-            ha="center", va="center",
+            j,
+            i,
+            f"{value}\n{norm_value:.2f}",
+            ha="center",
+            va="center",
             fontsize=5.4,
             color=text_color,
         )

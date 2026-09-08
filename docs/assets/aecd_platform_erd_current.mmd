@@ -1,0 +1,220 @@
+---
+title: AECD Platform Clinical-SERS ERD (Current PostgreSQL Schema)
+---
+%%{init: {"theme":"dark","themeVariables":{"background":"#080d17","primaryTextColor":"#e8eef6","lineColor":"#9aa8b8","fontFamily":"DejaVu Sans"},"er":{"layoutDirection":"TB","minEntityWidth":180,"minEntityHeight":60,"entityPadding":12,"stroke":"#7890a8","fill":"#101827","fontSize":14}}}%%
+erDiagram
+    MASTER_SITES {
+        bigint site_id PK
+        varchar site_code UK
+        text site_name
+    }
+
+    MASTER_SUBJECTS {
+        bigint subject_id PK
+        bigint site_id FK
+        varchar patient_code
+        text sex
+        date birth_date
+        text smoking_history
+        text drinking_history
+    }
+
+    MASTER_SAMPLES {
+        bigint sample_id PK
+        bigint subject_id FK
+        varchar solum_label UK
+        text sample_type
+        text sample_amount_raw
+        date collection_date
+        date receipt_date
+        text sample_timing
+        date post_treatment_collection_date
+    }
+
+    CLINICAL_DIAGNOSES {
+        bigint diagnosis_id PK
+        bigint subject_id FK
+        text cohort_group
+        text cancer_type
+        text diagnosis_code
+        text diagnosis_name
+        date diagnosis_date
+        text pathology_result
+        text histologic_type
+        text gleason_score
+        integer grade_group
+        text overall_stage
+        text tnm_stage_raw
+        text t_stage
+        text n_stage
+        text m_stage
+        boolean metastasis_status
+        text metastasis_raw
+    }
+
+    CLINICAL_OBSERVATIONS {
+        bigint observation_id PK
+        bigint subject_id FK
+        bigint sample_id FK
+        date observation_date
+        text panel
+        text code
+        text raw_value
+        numeric numeric_value
+        text text_value
+        text unit
+        text normalization_status
+    }
+
+    CLINICAL_MEDICAL_HISTORIES {
+        bigint medical_history_id PK
+        bigint subject_id FK
+        integer sequence_number
+        text condition_raw
+    }
+
+    CLINICAL_TREATMENTS {
+        bigint treatment_id PK
+        bigint subject_id FK
+        text treatment_type
+        text treatment_name
+        date start_date
+        date end_date
+        text details_raw
+    }
+
+    MEASUREMENT_INSTRUMENTS {
+        bigint instrument_id PK
+        text instrument_name UK
+        text manufacturer
+        text model_name
+        text laser_serial_number UK
+        text grating_serial_number UK
+        text filter_serial_number UK
+        text location
+        text status
+    }
+
+    MEASUREMENT_CALIBRATIONS {
+        bigint calibration_id PK
+        bigint instrument_id FK
+        text calibration_type
+        text standard_material
+        numeric tolerance_cm1
+        text result
+        text operator_name
+        text report_filename
+        text notes
+        date calibration_date
+        numeric_array reference_peaks_cm1
+        numeric_array observed_peaks_cm1
+        numeric_array peak_errors_cm1
+        numeric global_shift_cm1
+        numeric alignment_score
+        numeric replicate_shift_std_cm1
+        text evaluation_method
+    }
+
+    MEASUREMENT_REAGENTS {
+        bigint reagent_id PK
+        text reagent_name
+        text manufacturer
+        text catalog_number
+    }
+
+    MEASUREMENT_REAGENT_LOTS {
+        bigint reagent_lot_id PK
+        bigint reagent_id FK
+        text lot_number
+        date received_date
+        date opened_date
+        date expiration_date
+    }
+
+    MEASUREMENT_STRIP_LOTS {
+        bigint strip_lot_id PK
+        text strip_name
+        text manufacturer
+        text catalog_number
+        text lot_number
+        date received_date
+        date expiration_date
+        date manufactured_date
+    }
+
+    MEASUREMENT_STRIP_UNITS {
+        bigint strip_unit_id PK
+        bigint strip_lot_id FK
+        integer unit_number
+    }
+
+    MEASUREMENT_RUNS {
+        bigint measurement_run_id PK
+        bigint instrument_id FK
+        bigint calibration_id FK
+        bigint reagent_lot_id FK
+        bigint strip_lot_id FK
+        date measurement_date
+        text operator_name
+        numeric temperature_c
+        numeric humidity_percent
+        numeric laser_wavelength_nm
+        numeric laser_power_mw
+        numeric exposure_time_s
+        text objective_lens
+        text notes
+    }
+
+    MEASUREMENT_RUN_CALIBRATIONS {
+        bigint measurement_run_id PK, FK
+        bigint calibration_id PK, FK
+        bigint instrument_id FK
+    }
+
+    MEASUREMENT_MEASUREMENTS {
+        bigint measurement_id PK
+        bigint measurement_run_id FK
+        bigint sample_id FK
+        integer point_no
+        text measurement_role
+        text control_type
+        text status
+        text invalid_reason
+    }
+
+    MEASUREMENT_RAW_SPECTRA {
+        bigint raw_spectrum_id PK
+        bigint measurement_id FK, UK
+        text source_uri
+        text raw_filename
+        text source_kind
+        float8_array wavenumber
+        float8_array intensities
+        integer n_points
+        float8 x_min
+        float8 x_max
+        text source_sha256
+        timestamptz created_at
+    }
+
+    MASTER_SITES ||--o{ MASTER_SUBJECTS : has
+    MASTER_SUBJECTS ||--o{ MASTER_SAMPLES : provides
+    MASTER_SUBJECTS ||--o{ CLINICAL_DIAGNOSES : diagnosed_with
+    MASTER_SUBJECTS ||--o{ CLINICAL_MEDICAL_HISTORIES : has_history
+    MASTER_SUBJECTS ||--o{ CLINICAL_TREATMENTS : receives
+    MASTER_SUBJECTS ||--o{ CLINICAL_OBSERVATIONS : has_result
+    MASTER_SAMPLES o|--o{ CLINICAL_OBSERVATIONS : specimen_for
+
+    MEASUREMENT_INSTRUMENTS ||--o{ MEASUREMENT_CALIBRATIONS : calibrated_by
+    MEASUREMENT_INSTRUMENTS ||--o{ MEASUREMENT_RUNS : used_for
+    MEASUREMENT_REAGENTS ||--o{ MEASUREMENT_REAGENT_LOTS : supplied_as
+    MEASUREMENT_REAGENT_LOTS o|--o{ MEASUREMENT_RUNS : used_in
+    MEASUREMENT_STRIP_LOTS o|--o{ MEASUREMENT_RUNS : used_in
+    MEASUREMENT_STRIP_LOTS ||--o{ MEASUREMENT_STRIP_UNITS : contains
+    MEASUREMENT_CALIBRATIONS o|--o{ MEASUREMENT_RUNS : applies_to
+    MEASUREMENT_RUNS ||--o{ MEASUREMENT_RUN_CALIBRATIONS : links
+    MEASUREMENT_CALIBRATIONS ||--o{ MEASUREMENT_RUN_CALIBRATIONS : links
+
+    MEASUREMENT_RUNS ||--o{ MEASUREMENT_MEASUREMENTS : contains
+    MASTER_SAMPLES ||--o{ MEASUREMENT_MEASUREMENTS : measured_as
+    MEASUREMENT_MEASUREMENTS ||--o| MEASUREMENT_RAW_SPECTRA : produces

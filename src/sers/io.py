@@ -395,7 +395,7 @@ def _collect_equipment(
     for eq_folder_name, entry in equipment_mapping.items():
         eq_dir = data_dir / eq_folder_name
         if not eq_dir.is_dir():
-            logger.warning(f"Equipment folder not found: {eq_dir}")
+            logger.warning(f"Equipment folder not found: {eq_folder_name!r}")
             continue
         equipment_name = entry.equipment
         sample_mapping = entry.sample_folder_to_group
@@ -407,7 +407,9 @@ def _collect_equipment(
                     continue
                 sample_dir = eq_dir / sample_folder_name
                 if not sample_dir.is_dir():
-                    logger.warning(f"Sample folder not found: {sample_dir}")
+                    logger.warning(
+                        f"Sample folder not found: {sample_folder_name!r} (equipment {eq_folder_name!r})"
+                    )
                     continue
                 files = find_spectra(sample_dir, pattern=pattern, recursive=False)
                 all_files.extend([(f, sample_group, equipment_name) for f in files])
@@ -493,7 +495,7 @@ def load_dataset(
     else:
         all_files = _collect_equipment(data_dir, equipment_mapping, groups, pattern)
 
-    logger.info(f"Loading {len(all_files)} spectra from {data_dir}")
+    logger.info(f"Loading {len(all_files)} spectra")
     if read_from_subdir:
         logger.info(f"Reading from subdirectory: {read_from_subdir}/")
     if wavenumber_shift != 0.0:

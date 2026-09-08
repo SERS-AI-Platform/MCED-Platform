@@ -1,7 +1,10 @@
 -- =====================================================================
+-- LEGACY / NON-GOVERNED historical reproduction only
 -- 01_schema.sql
 -- WHY: std schema + 병원 lookup + 소스↔병원 매핑 VIEW + clinical_unified DDL
 -- 실행 순서: 최초 한 번만. 이후 INSERT 스크립트 실행.
+-- Do not use this schema or mapping as governed lineage input.
+-- Canonical source contracts live in src/sers/master_data/clinical_inventory.py.
 -- =====================================================================
 
 CREATE SCHEMA IF NOT EXISTS std;

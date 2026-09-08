@@ -43,6 +43,7 @@ env/
 # Environment
 .env
 .env.local
+.env.aecd-api
 secrets/
 credentials/
 
@@ -52,6 +53,8 @@ Thumbs.db
 *:Zone.Identifier
 
 # Non-code presentation/research deliverables
+# Publication work products are kept outside Git.
+/publications/
 # NOTE: anchored to repo root with leading slash. core.ignorecase=true on this
 # filesystem, so an unanchored "AACR/" also matches publications/aacr/ (a tracked
 # code+figure dir) and silently ignores new files there. Keep these anchored.
@@ -59,12 +62,54 @@ Thumbs.db
 publications/대한암학회/
 monthly_meeting_*.pptx
 
+# Notebook scratch/experiment outputs (source .py/.ipynb stay tracked)
+/notebooks/*_outputs/
+/notebooks/figures/
+/notebooks/stkv2_dataset/
+/notebooks/annotated_historical_figures/
+/notebooks/three_condition_figures_20260828/
+/notebooks/*.png
+/notebooks/*.log
+/notes/session-logs/
+# Patent drafts kept outside Git (master lives in Obsidian vault).
+/patent/
+
 # Temporary
 *.tmp
 *.log
 *.db
 *.sqlite
 .cache/
+/.omo/
+
+# Generated review and SharePoint deliverables
+/reports/
+/publications/대한암학회_*/
+/publications/전향검체/*/sharepoint_upload/
+/publications/전향검체/*/internal/
+
+# Publication source is versioned; large rendered cancer maps stay in SharePoint.
+/publications/cancers/*.csv
+/publications/cancers/*.pdf
+/publications/cancers/*.png
+
+# Internal Yonsei linkage and subject-level prediction exports
+/publications/전향검체/연세세브란스 병원/tables/yonsei_clinical_data_mapping.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_sample_clinical_mapping_compact.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_specimen_clinical_mapping.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_cohort_manifest.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_cv_folds.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_oof_predictions.csv
+/publications/전향검체/연세세브란스 병원/tables/severance_lr_cv_folds.csv
+/publications/전향검체/연세세브란스 병원/tables/severance_lr_oof_predictions.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_ynor_ypan_acquisition_inventory.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_ynor_ypan_clinical_records.csv
+/publications/전향검체/연세세브란스 병원/tables/yonsei_ynor_ypan_processed_inventory.csv
+
+# Subject-level Boramae clinical and prediction exports
+/publications/전향검체/보라매병원/tables/clinical_classification_analysis.csv
+/publications/전향검체/보라매병원/tables/*_oof_predictions.csv
+/publications/전향검체/보라매병원/clean_vs_prospective/tables/*_oof_predictions.csv
 
 # Images & Figures (general)
 *.jpg
@@ -80,3 +125,10 @@ monthly_meeting_*.pptx
 # Allow analysis figures and SVGs
 # *.png — allowed for reports
 # *.svg — allowed for reports
+
+# SQLite WAL/SHM journal artifacts
+*.db-shm
+*.db-wal
+
+# 논문 PDF (저작권 자료 — 추적하지 않음, 추출된 스펙만 docs/ml에 커밋)
+docs/ml/papers/

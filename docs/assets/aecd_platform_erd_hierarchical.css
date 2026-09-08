@@ -1,0 +1,111 @@
+svg {
+  background-color: #ffffff !important;
+}
+
+.erDiagramTitleText,
+.nodeLabel,
+.edgeLabel,
+.label,
+foreignObject div,
+foreignObject span,
+foreignObject p {
+  color: #172033 !important;
+  fill: #172033 !important;
+}
+
+.relationshipLine {
+  stroke: #64748b !important;
+}
+
+.edgeLabel .labelBkg {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+g.node path[stroke]:not([stroke="none"]),
+g.node .divider path[stroke]:not([stroke="none"]) {
+  stroke: #64748b !important;
+}
+
+g.node[id*="entity-MASTER_"] .outer-path path[fill]:not([fill="none"]) {
+  fill: #bfdbfe !important;
+}
+
+g.node[id*="entity-MASTER_"] .row-rect-odd path[fill]:not([fill="none"]) {
+  fill: #dbeafe !important;
+}
+
+g.node[id*="entity-MASTER_"] .row-rect-even path[fill]:not([fill="none"]) {
+  fill: #eff6ff !important;
+}
+
+g.node[id*="entity-CLINICAL_"] .outer-path path[fill]:not([fill="none"]) {
+  fill: #bbf7d0 !important;
+}
+
+g.node[id*="entity-CLINICAL_"] .row-rect-odd path[fill]:not([fill="none"]) {
+  fill: #dcfce7 !important;
+}
+
+g.node[id*="entity-CLINICAL_"] .row-rect-even path[fill]:not([fill="none"]) {
+  fill: #f0fdf4 !important;
+}
+
+g.node:is(
+  [id*="entity-MEASUREMENT_INSTRUMENTS"],
+  [id*="entity-MEASUREMENT_CALIBRATIONS"],
+  [id*="entity-MEASUREMENT_REAGENTS"],
+  [id*="entity-MEASUREMENT_REAGENT_LOTS"],
+  [id*="entity-MEASUREMENT_STRIP_LOTS"],
+  [id*="entity-MEASUREMENT_STRIP_UNITS"]
+) .outer-path path[fill]:not([fill="none"]) {
+  fill: #fde68a !important;
+}
+
+g.node:is(
+  [id*="entity-MEASUREMENT_INSTRUMENTS"],
+  [id*="entity-MEASUREMENT_CALIBRATIONS"],
+  [id*="entity-MEASUREMENT_REAGENTS"],
+  [id*="entity-MEASUREMENT_REAGENT_LOTS"],
+  [id*="entity-MEASUREMENT_STRIP_LOTS"],
+  [id*="entity-MEASUREMENT_STRIP_UNITS"]
+) .row-rect-odd path[fill]:not([fill="none"]) {
+  fill: #fef3c7 !important;
+}
+
+g.node:is(
+  [id*="entity-MEASUREMENT_INSTRUMENTS"],
+  [id*="entity-MEASUREMENT_CALIBRATIONS"],
+  [id*="entity-MEASUREMENT_REAGENTS"],
+  [id*="entity-MEASUREMENT_REAGENT_LOTS"],
+  [id*="entity-MEASUREMENT_STRIP_LOTS"],
+  [id*="entity-MEASUREMENT_STRIP_UNITS"]
+) .row-rect-even path[fill]:not([fill="none"]) {
+  fill: #fffbeb !important;
+}
+
+g.node:is(
+  [id*="entity-MEASUREMENT_RUNS"],
+  [id*="entity-MEASUREMENT_RUN_CALIBRATIONS"],
+  [id*="entity-MEASUREMENT_MEASUREMENTS"],
+  [id*="entity-MEASUREMENT_RAW_SPECTRA"]
+) .outer-path path[fill]:not([fill="none"]) {
+  fill: #ddd6fe !important;
+}
+
+g.node:is(
+  [id*="entity-MEASUREMENT_RUNS"],
+  [id*="entity-MEASUREMENT_RUN_CALIBRATIONS"],
+  [id*="entity-MEASUREMENT_MEASUREMENTS"],
+  [id*="entity-MEASUREMENT_RAW_SPECTRA"]
+) .row-rect-odd path[fill]:not([fill="none"]) {
+  fill: #ede9fe !important;
+}
+
+g.node:is(
+  [id*="entity-MEASUREMENT_RUNS"],
+  [id*="entity-MEASUREMENT_RUN_CALIBRATIONS"],
+  [id*="entity-MEASUREMENT_MEASUREMENTS"],
+  [id*="entity-MEASUREMENT_RAW_SPECTRA"]
+) .row-rect-even path[fill]:not([fill="none"]) {
+  fill: #f5f3ff !important;
+}

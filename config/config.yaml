@@ -178,7 +178,7 @@ dataset:
       label: "Pancreatic Cancer (Chungbuk)"
       category: "cancer"
       n_samples: 70
-      protocol: "SMCXD06"
+      protocol: "SMCMD06"
       study_type: "retrospective"
       hospital: "Chungbuk National University Hospital"
       hospital_kr: "충북대학교병원"
@@ -209,6 +209,7 @@ dataset:
       label: "Pancreatic Cancer (Severance)"
       category: "cancer"
       n_samples: 30
+      protocol: "SMCXD04"
       study_type: "prospective"
       hospital: "Yonsei Severance Hospital"
       hospital_kr: "연세세브란스병원"
@@ -218,6 +219,7 @@ dataset:
       label: "Normal Control (Severance)"
       category: "control"
       n_samples: 30
+      protocol: "SMCXD04"
       study_type: "prospective"
       hospital: "Yonsei Severance Hospital"
       hospital_kr: "연세세브란스병원"
@@ -227,6 +229,7 @@ dataset:
       label: "Prostate Cancer (Boramae)"
       category: "cancer"
       n_samples: 300
+      protocol: "SMCXD07"
       study_type: "prospective"
       hospital: "Seoul National University Boramae Hospital"
       hospital_kr: "서울대보라매병원"
@@ -236,6 +239,7 @@ dataset:
       label: "Normal Control (Boramae)"
       category: "control"
       n_samples: 150
+      protocol: "SMCXD07"
       study_type: "prospective"
       hospital: "Seoul National University Boramae Hospital"
       hospital_kr: "서울대보라매병원"

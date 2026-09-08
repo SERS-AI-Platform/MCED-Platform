@@ -1,9 +1,15 @@
-# clinical_unified — 임상 데이터 통합 파이프라인
+# clinical_unified — LEGACY / NON-GOVERNED 임상 변환 파이프라인
 
 raw schema의 각 엑셀별 테이블(`raw.raw_pro`, `raw.raw_ova1`, ..., `raw.raw_cpan`)을
 std.clinical_unified 통합 테이블로 정규화하는 SQL 파이프라인.
 
-## 실행 순서
+> 이 디렉터리는 과거 결과 재현 전용이다. source identity를 보존하지 않는
+> `BLA → BLC` rewrite와 sheet/row-order derive가 포함되므로 `source_assets`,
+> governed matching, label evidence, dataset manifest 입력으로 사용할 수 없다.
+> 신규·운영 적재는 `sers data ingest-clinical-registry`와
+> `src/sers/master_data/clinical_inventory.py`의 계약만 사용한다.
+
+## 과거 결과 재현 순서
 
 ```bash
 # DBeaver에서 아래 순서대로 실행
@@ -40,6 +46,10 @@ std.clinical_unified 통합 테이블로 정규화하는 SQL 파이프라인.
 
 ## 주의사항
 
+- 아래 SQL은 canonical `sers data`에서 호출되지 않으며 governed migration이 아니다.
+- `02_ingest_bla.sql`의 `BLA → BLC`는 legacy model-label rewrite다. 원 source
+  identity와 `canonical_alias=BLC` review metadata를 분리하는 governed registry
+  동작을 대체하지 않는다.
 - `raw.raw_col`, `raw.raw_cpan`의 **한글 컬럼명**은 여분 공백 포함 → `DO $$ format('%I', ...)` 패턴으로 동적 rename
 - CPAN의 `surgery_date`에 `"2007-09-07(타병원)"` 같은 주석 있음 → `substring(..., '^\d{4}-\d{2}-\d{2}')` 로 날짜만 추출
 - CRC의 `cancer_stage_group`은 TNM이 아니라 **sheet 구조(source_no ≤ 270)** 기준 (임상 근거)

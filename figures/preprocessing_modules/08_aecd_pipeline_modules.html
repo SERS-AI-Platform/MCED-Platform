@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AECD Repeat-Spectrum Processing Modules</title>
+  <style>
+    :root {
+      --slide-width: 1600px;
+      --slide-height: 900px;
+      --navy-950: #001f3c;
+      --navy-800: #0a306d;
+      --ink-900: #111827;
+      --ink-700: #333333;
+      --ink-500: #6b7280;
+      --line-300: #d6e0ef;
+      --surface-100: #f4f6fa;
+      --green-700: #029567;
+      --green-100: #d0ede4;
+      --purple-700: #391d8d;
+      --purple-100: #e0ddf0;
+      --white: #ffffff;
+      --font-sans: "NanumSquare", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: #d9dde5;
+      color: var(--ink-900);
+      font-family: var(--font-sans);
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .figure {
+      position: relative;
+      width: var(--slide-width);
+      height: var(--slide-height);
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .modules {
+      display: grid;
+      grid-template-columns: 432px 72px 432px 72px 432px;
+      grid-template-rows: 384px 384px;
+      row-gap: 56px;
+      width: 1440px;
+      margin: 24px 80px 0;
+    }
+
+    .module {
+      position: relative;
+      width: 432px;
+      height: 384px;
+    }
+
+    .module h2 {
+      margin: 0 0 8px;
+      color: var(--ink-900);
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.015em;
+      text-align: center;
+    }
+
+    .module h2 span {
+      display: inline-grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      margin-right: 8px;
+      color: var(--white);
+      background: var(--navy-950);
+      font-family: "Pretendard", "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1;
+      vertical-align: 2px;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 28px;
+      gap: 20px;
+      margin-bottom: 4px;
+      color: var(--ink-700);
+      font-family: "Pretendard", "Segoe UI", sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .swatch {
+      width: 28px;
+      height: 0;
+      border-top: 2px solid var(--navy-800);
+    }
+
+    .swatch--gray { border-color: #9ca3af; }
+    .swatch--light { border-color: #c6cfdb; }
+    .swatch--green { border-color: var(--green-700); }
+    .swatch--purple { border-color: var(--purple-700); }
+    .swatch--dash { border-top-style: dashed; }
+
+    .plot {
+      display: block;
+      width: 432px;
+      height: 300px;
+      overflow: visible;
+    }
+
+    .axis-label {
+      fill: var(--ink-900);
+      font-family: "Pretendard", "Segoe UI", sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .tick {
+      fill: var(--ink-500);
+      font-family: "Pretendard", "Segoe UI", sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .annotation {
+      fill: var(--ink-700);
+      font-family: "Pretendard", "Segoe UI", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .arrow {
+      position: relative;
+      align-self: center;
+      justify-self: center;
+      width: 32px;
+      height: 18px;
+      margin-top: 10px;
+      background: var(--navy-800);
+    }
+
+    .arrow::after {
+      position: absolute;
+      top: -9px;
+      right: -18px;
+      width: 0;
+      height: 0;
+      content: "";
+      border-top: 18px solid transparent;
+      border-bottom: 18px solid transparent;
+      border-left: 18px solid var(--navy-800);
+    }
+
+    .footer {
+      position: absolute;
+      right: 80px;
+      bottom: 14px;
+      left: 80px;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid var(--line-300);
+      color: var(--ink-500);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    @page { size: 13.333in 7.5in; margin: 0; }
+
+    @media print {
+      html,
+      body { background: var(--white); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <main class="figure" aria-label="AECD 반복 스펙트럼 처리 모듈 도식">
+    <section class="modules">
+      <article class="module" style="grid-column:1;grid-row:1" aria-labelledby="module-1-title">
+        <h2 id="module-1-title"><span>01</span>AECD Repeat Spectra</h2>
+        <div class="legend" aria-label="범례">
+          <span class="key"><i class="swatch swatch--gray"></i>Replicate 1</span>
+          <span class="key"><i class="swatch"></i>Replicate 2</span>
+          <span class="key"><i class="swatch swatch--green"></i>Replicate 3</span>
+        </div>
+        <svg class="plot" viewBox="0 0 432 300" role="img" aria-label="AECD API에서 수집한 합성 반복 Raman 스펙트럼 3개">
+          <g stroke="#d6e0ef" stroke-width="1">
+            <line x1="54" y1="38" x2="418" y2="38"/><line x1="54" y1="92" x2="418" y2="92"/><line x1="54" y1="146" x2="418" y2="146"/><line x1="54" y1="200" x2="418" y2="200"/><line x1="54" y1="254" x2="418" y2="254"/>
+            <line x1="54" y1="38" x2="54" y2="254"/><line x1="145" y1="38" x2="145" y2="254"/><line x1="236" y1="38" x2="236" y2="254"/><line x1="327" y1="38" x2="327" y2="254"/><line x1="418" y1="38" x2="418" y2="254"/>
+          </g>
+          <rect x="54" y="38" width="364" height="216" fill="none" stroke="#c6cfdb"/>
+          <path d="M58 236 L68 229 L78 233 L88 218 L98 226 L108 211 L118 218 L128 186 L136 213 L146 205 L156 211 L166 169 L174 207 L184 191 L194 204 L204 158 L214 198 L224 179 L234 192 L244 124 L252 184 L262 166 L272 180 L282 112 L291 173 L302 144 L312 168 L322 96 L330 159 L340 139 L350 151 L360 84 L369 146 L380 117 L390 139 L400 94 L414 128" fill="none" stroke="#9ca3af" stroke-width="1.7"/>
+          <path d="M58 239 L68 232 L78 236 L88 221 L98 229 L108 214 L118 221 L128 189 L136 216 L146 208 L156 214 L166 172 L174 210 L184 194 L194 207 L204 161 L214 201 L224 182 L234 195 L244 127 L252 187 L262 169 L272 183 L282 115 L291 176 L302 147 L312 171 L322 99 L330 162 L340 142 L350 154 L360 87 L369 149 L380 120 L390 142 L400 97 L414 131" fill="none" stroke="#0a306d" stroke-width="1.9"/>
+          <path d="M58 233 L68 226 L78 230 L88 215 L98 223 L108 208 L118 215 L128 183 L136 210 L146 202 L156 208 L166 166 L174 204 L184 188 L194 201 L204 155 L214 195 L224 176 L234 189 L244 121 L252 181 L262 163 L272 177 L282 109 L291 170 L302 141 L312 165 L322 93 L330 156 L340 136 L350 148 L360 81 L369 143 L380 114 L390 136 L400 91 L414 125" fill="none" stroke="#029567" stroke-width="1.9"/>
+          <g class="tick"><text x="49" y="273">400</text><text x="133" y="273">850</text><text x="220" y="273">1300</text><text x="310" y="273">1750</text><text x="398" y="273">2200</text><text x="37" y="258">0</text><text x="25" y="150">0.5</text><text x="25" y="43">1.0</text></g>
+          <text class="axis-label" x="236" y="296" text-anchor="middle">Raman shift (cm⁻¹)</text>
+          <text class="axis-label" x="14" y="146" text-anchor="middle" transform="rotate(-90 14 146)">Intensity</text>
+        </svg>
+      </article>
+
+      <div class="arrow" style="grid-column:2;grid-row:1" aria-hidden="true"></div>
+
+      <article class="module" style="grid-column:3;grid-row:1" aria-labelledby="module-2-title">
+        <h2 id="module-2-title"><span>02</span>PS Wavenumber Calibration</h2>
+        <div class="legend" aria-label="범례">
+          <span class="key"><i class="swatch swatch--gray"></i>Observed</span>
+          <span class="key"><i class="swatch"></i>Corrected</span>
+          <span class="key"><i class="swatch swatch--dash"></i>PS target</span>
+        </div>
+        <svg class="plot" viewBox="0 0 432 300" role="img" aria-label="PS calibration record에 따른 Raman-shift 축 보정 개념">
+          <g stroke="#d6e0ef" stroke-width="1">
+            <line x1="54" y1="38" x2="418" y2="38"/><line x1="54" y1="92" x2="418" y2="92"/><line x1="54" y1="146" x2="418" y2="146"/><line x1="54" y1="200" x2="418" y2="200"/><line x1="54" y1="254" x2="418" y2="254"/>
+            <line x1="54" y1="38" x2="54" y2="254"/><line x1="145" y1="38" x2="145" y2="254"/><line x1="236" y1="38" x2="236" y2="254"/><line x1="327" y1="38" x2="327" y2="254"/><line x1="418" y1="38" x2="418" y2="254"/>
+          </g>
+          <rect x="54" y="38" width="364" height="216" fill="none" stroke="#c6cfdb"/>
+          <line x1="236" y1="38" x2="236" y2="254" stroke="#111827" stroke-width="2" stroke-dasharray="7 6"/>
+          <path d="M58 244 L90 240 L116 231 L140 210 L160 171 L179 104 L194 58 L208 82 L223 140 L243 194 L268 224 L302 238 L342 244 L414 247" fill="none" stroke="#9ca3af" stroke-width="2"/>
+          <path d="M58 245 L104 241 L136 232 L165 211 L188 173 L210 106 L225 60 L236 83 L251 141 L273 195 L301 225 L334 239 L369 245 L414 247" fill="none" stroke="#0a306d" stroke-width="2.4"/>
+          <path d="M194 58 L194 26 L236 26 L236 46" fill="none" stroke="#0a306d" stroke-width="1.5"/>
+          <path d="M228 40 L236 46 L244 40" fill="none" stroke="#0a306d" stroke-width="1.5"/>
+          <text class="annotation" x="215" y="19" text-anchor="middle">global shift</text>
+          <text class="annotation" x="244" y="58">1001.4</text>
+          <rect x="187" y="207" width="223" height="39" fill="#f4f6fa" stroke="#d6e0ef"/>
+          <text class="annotation" x="299" y="222" text-anchor="middle">PS record: date + instrument match</text>
+          <text class="annotation" x="299" y="239" text-anchor="middle">x_corrected = x_observed − global_shift</text>
+          <g class="tick"><text x="49" y="273">960</text><text x="132" y="273">980</text><text x="219" y="273">1000</text><text x="310" y="273">1020</text><text x="396" y="273">1040</text><text x="37" y="258">0</text><text x="25" y="150">0.5</text><text x="25" y="43">1.0</text></g>
+          <text class="axis-label" x="236" y="296" text-anchor="middle">Raman shift (cm⁻¹)</text>
+          <text class="axis-label" x="14" y="146" text-anchor="middle" transform="rotate(-90 14 146)">Intensity</text>
+        </svg>
+      </article>
+
+      <div class="arrow" style="grid-column:4;grid-row:1" aria-hidden="true"></div>
+
+      <article class="module" style="grid-column:5;grid-row:1" aria-labelledby="module-3-title">
+        <h2 id="module-3-title"><span>03</span>Common-Grid Interpolation</h2>
+        <div class="legend" aria-label="범례">
+          <span class="key"><i class="swatch swatch--light"></i>Observed points</span>
+          <span class="key"><i class="swatch swatch--green"></i>400–2200 cm⁻¹ grid</span>
+        </div>
+        <svg class="plot" viewBox="0 0 432 300" role="img" aria-label="400에서 2200 inverse centimeter 공통 grid 선형 보간 개념">
+          <g stroke="#d6e0ef" stroke-width="1">
+            <line x1="54" y1="38" x2="418" y2="38"/><line x1="54" y1="92" x2="418" y2="92"/><line x1="54" y1="146" x2="418" y2="146"/><line x1="54" y1="200" x2="418" y2="200"/><line x1="54" y1="254" x2="418" y2="254"/>
+            <line x1="54" y1="38" x2="54" y2="254"/><line x1="145" y1="38" x2="145" y2="254"/><line x1="236" y1="38" x2="236" y2="254"/><line x1="327" y1="38" x2="327" y2="254"/><line x1="418" y1="38" x2="418" y2="254"/>
+          </g>
+          <rect x="54" y="38" width="364" height="216" fill="none" stroke="#c6cfdb"/>
+          <path d="M58 239 L68 232 L78 236 L88 221 L98 229 L108 214 L118 221 L128 189 L136 216 L146 208 L156 214 L166 172 L174 210 L184 194 L194 207 L204 161 L214 201 L224 182 L234 195 L244 127 L252 187 L262 169 L272 183 L282 115 L291 176 L302 147 L312 171 L322 99 L330 162 L340 142 L350 154 L360 87 L369 149 L380 120 L390 142 L400 97 L414 131" fill="none" stroke="#c6cfdb" stroke-width="1.7"/>
+          <path d="M58 239 L68 232 L78 236 L88 221 L98 229 L108 214 L118 221 L128 189 L136 216 L146 208 L156 214 L166 172 L174 210 L184 194 L194 207 L204 161 L214 201 L224 182 L234 195 L244 127 L252 187 L262 169 L272 183 L282 115 L291 176 L302 147 L312 171 L322 99 L330 162 L340 142 L350 154 L360 87 L369 149 L380 120 L390 142 L400 97 L414 131" fill="none" stroke="#029567" stroke-width="2.2"/>
+          <g fill="#029567">
+            <circle cx="58" cy="239" r="3"/><circle cx="78" cy="236" r="3"/><circle cx="98" cy="229" r="3"/><circle cx="118" cy="221" r="3"/><circle cx="136" cy="216" r="3"/><circle cx="156" cy="214" r="3"/><circle cx="174" cy="210" r="3"/><circle cx="194" cy="207" r="3"/><circle cx="214" cy="201" r="3"/><circle cx="234" cy="195" r="3"/><circle cx="252" cy="187" r="3"/><circle cx="272" cy="183" r="3"/><circle cx="291" cy="176" r="3"/><circle cx="312" cy="171" r="3"/><circle cx="330" cy="162" r="3"/><circle cx="350" cy="154" r="3"/><circle cx="369" cy="149" r="3"/><circle cx="390" cy="142" r="3"/><circle cx="414" cy="131" r="3"/>
+          </g>
+          <g class="tick"><text x="49" y="273">400</text><text x="133" y="273">850</text><text x="220" y="273">1300</text><text x="310" y="273">1750</text><text x="398" y="273">2200</text><text x="37" y="258">0</text><text x="25" y="150">0.5</text><text x="25" y="43">1.0</text></g>
+          <text class="axis-label" x="236" y="296" text-anchor="middle">Raman shift (cm⁻¹)</text>
+          <text class="axis-label" x="14" y="146" text-anchor="middle" transform="rotate(-90 14 146)">Intensity</text>
+        </svg>
+      </article>
+
+      <article class="module" style="grid-column:1;grid-row:2" aria-labelledby="module-4-title">
+        <h2 id="module-4-title"><span>04</span>Within-Subject Robust QC</h2>
+        <div class="legend" aria-label="범례">
+          <span class="key"><i class="swatch swatch--green"></i>QC pass</span>
+          <span class="key"><i class="swatch swatch--gray swatch--dash"></i>Excluded</span>
+          <span class="key"><i class="swatch"></i>Median</span>
+        </div>
+        <svg class="plot" viewBox="0 0 432 300" role="img" aria-label="median MAD 기반 피험자 내부 robust spectral distance QC 개념">
+          <g stroke="#d6e0ef" stroke-width="1">
+            <line x1="54" y1="38" x2="418" y2="38"/><line x1="54" y1="92" x2="418" y2="92"/><line x1="54" y1="146" x2="418" y2="146"/><line x1="54" y1="200" x2="418" y2="200"/><line x1="54" y1="254" x2="418" y2="254"/>
+            <line x1="54" y1="38" x2="54" y2="254"/><line x1="145" y1="38" x2="145" y2="254"/><line x1="236" y1="38" x2="236" y2="254"/><line x1="327" y1="38" x2="327" y2="254"/><line x1="418" y1="38" x2="418" y2="254"/>
+          </g>
+          <rect x="54" y="38" width="364" height="216" fill="none" stroke="#c6cfdb"/>
+          <path d="M58 238 L79 230 L96 235 L113 215 L130 225 L147 182 L160 220 L178 196 L195 211 L212 151 L228 203 L246 174 L264 195 L281 124 L298 186 L316 154 L334 178 L351 105 L369 164 L388 132 L414 151" fill="none" stroke="#029567" stroke-width="1.7" opacity="0.7"/>
+          <path d="M58 241 L79 233 L96 238 L113 218 L130 228 L147 185 L160 223 L178 199 L195 214 L212 154 L228 206 L246 177 L264 198 L281 127 L298 189 L316 157 L334 181 L351 108 L369 167 L388 135 L414 154" fill="none" stroke="#029567" stroke-width="1.7" opacity="0.45"/>
+          <path d="M58 232 L79 211 L96 240 L113 166 L130 230 L147 128 L160 231 L178 145 L195 218 L212 86 L228 221 L246 104 L264 214 L281 65 L298 205 L316 92 L334 198 L351 54 L369 186 L388 103 L414 166" fill="none" stroke="#9ca3af" stroke-width="2" stroke-dasharray="6 5"/>
+          <path d="M58 239 L79 231 L96 236 L113 216 L130 226 L147 183 L160 221 L178 197 L195 212 L212 152 L228 204 L246 175 L264 196 L281 125 L298 187 L316 155 L334 179 L351 106 L369 165 L388 133 L414 152" fill="none" stroke="#0a306d" stroke-width="2.5"/>
+          <rect x="294" y="45" width="113" height="44" fill="#f4f6fa" stroke="#d6e0ef"/>
+          <text class="annotation" x="350" y="63" text-anchor="middle">median / MAD</text>
+          <text class="annotation" x="350" y="80" text-anchor="middle">spectral distance</text>
+          <g class="tick"><text x="49" y="273">400</text><text x="133" y="273">850</text><text x="220" y="273">1300</text><text x="310" y="273">1750</text><text x="398" y="273">2200</text><text x="37" y="258">0</text><text x="25" y="150">0.5</text><text x="25" y="43">1.0</text></g>
+          <text class="axis-label" x="236" y="296" text-anchor="middle">Raman shift (cm⁻¹)</text>
+          <text class="axis-label" x="14" y="146" text-anchor="middle" transform="rotate(-90 14 146)">Robust distance</text>
+        </svg>
+      </article>
+
+      <div class="arrow" style="grid-column:2;grid-row:2" aria-hidden="true"></div>
+
+      <article class="module" style="grid-column:3;grid-row:2" aria-labelledby="module-5-title">
+        <h2 id="module-5-title"><span>05</span>Subject Mean Spectrum</h2>
+        <div class="legend" aria-label="범례">
+          <span class="key"><i class="swatch swatch--light"></i>QC-passed repeats</span>
+          <span class="key"><i class="swatch swatch--green"></i>Arithmetic mean</span>
+        </div>
+        <svg class="plot" viewBox="0 0 432 300" role="img" aria-label="QC 통과 반복 측정의 피험자별 산술평균 스펙트럼">
+          <g stroke="#d6e0ef" stroke-width="1">
+            <line x1="54" y1="38" x2="418" y2="38"/><line x1="54" y1="92" x2="418" y2="92"/><line x1="54" y1="146" x2="418" y2="146"/><line x1="54" y1="200" x2="418" y2="200"/><line x1="54" y1="254" x2="418" y2="254"/>
+            <line x1="54" y1="38" x2="54" y2="254"/><line x1="145" y1="38" x2="145" y2="254"/><line x1="236" y1="38" x2="236" y2="254"/><line x1="327" y1="38" x2="327" y2="254"/><line x1="418" y1="38" x2="418" y2="254"/>
+          </g>
+          <rect x="54" y="38" width="364" height="216" fill="none" stroke="#c6cfdb"/>
+          <path d="M58 236 L68 229 L78 233 L88 218 L98 226 L108 211 L118 218 L128 186 L136 213 L146 205 L156 211 L166 169 L174 207 L184 191 L194 204 L204 158 L214 198 L224 179 L234 192 L244 124 L252 184 L262 166 L272 180 L282 112 L291 173 L302 144 L312 168 L322 96 L330 159 L340 139 L350 151 L360 84 L369 146 L380 117 L390 139 L400 94 L414 128" fill="none" stroke="#c6cfdb" stroke-width="1.4"/>
+          <path d="M58 242 L68 235 L78 239 L88 224 L98 232 L108 217 L118 224 L128 192 L136 219 L146 211 L156 217 L166 175 L174 213 L184 197 L194 210 L204 164 L214 204 L224 185 L234 198 L244 130 L252 190 L262 172 L272 186 L282 118 L291 179 L302 150 L312 174 L322 102 L330 165 L340 145 L350 157 L360 90 L369 152 L380 123 L390 145 L400 100 L414 134" fill="none" stroke="#c6cfdb" stroke-width="1.4"/>
+          <path d="M58 233 L68 226 L78 230 L88 215 L98 223 L108 208 L118 215 L128 183 L136 210 L146 202 L156 208 L166 166 L174 204 L184 188 L194 201 L204 155 L214 195 L224 176 L234 189 L244 121 L252 181 L262 163 L272 177 L282 109 L291 170 L302 141 L312 165 L322 93 L330 156 L340 136 L350 148 L360 81 L369 143 L380 114 L390 136 L400 91 L414 125" fill="none" stroke="#c6cfdb" stroke-width="1.4"/>
+          <path d="M58 237 L68 230 L78 234 L88 219 L98 227 L108 212 L118 219 L128 187 L136 214 L146 206 L156 212 L166 170 L174 208 L184 192 L194 205 L204 159 L214 199 L224 180 L234 193 L244 125 L252 185 L262 167 L272 181 L282 113 L291 174 L302 145 L312 169 L322 97 L330 160 L340 140 L350 152 L360 85 L369 147 L380 118 L390 140 L400 95 L414 129" fill="none" stroke="#029567" stroke-width="2.7"/>
+          <rect x="244" y="43" width="166" height="43" fill="#f4f6fa" stroke="#d6e0ef"/>
+          <text class="annotation" x="327" y="61" text-anchor="middle">No extra preprocessing</text>
+          <text class="annotation" x="327" y="78" text-anchor="middle">after subject mean</text>
+          <g class="tick"><text x="49" y="273">400</text><text x="133" y="273">850</text><text x="220" y="273">1300</text><text x="310" y="273">1750</text><text x="398" y="273">2200</text><text x="37" y="258">0</text><text x="25" y="150">0.5</text><text x="25" y="43">1.0</text></g>
+          <text class="axis-label" x="236" y="296" text-anchor="middle">Raman shift (cm⁻¹)</text>
+          <text class="axis-label" x="14" y="146" text-anchor="middle" transform="rotate(-90 14 146)">Mean intensity</text>
+        </svg>
+      </article>
+
+      <div class="arrow" style="grid-column:4;grid-row:2" aria-hidden="true"></div>
+
+      <article class="module" style="grid-column:5;grid-row:2" aria-labelledby="module-6-title">
+        <h2 id="module-6-title"><span>06</span>Probability Stacking</h2>
+        <div class="legend" aria-label="범례">
+          <span class="key"><i class="swatch swatch--purple"></i>Base probability</span>
+          <span class="key"><i class="swatch"></i>Elastic-net output</span>
+        </div>
+        <svg class="plot" viewBox="0 0 432 300" role="img" aria-label="4개 base model 확률과 Elastic-net Logistic Regression 최종 전립선암 확률">
+          <g stroke="#d6e0ef" stroke-width="1">
+            <line x1="54" y1="38" x2="276" y2="38"/><line x1="54" y1="92" x2="276" y2="92"/><line x1="54" y1="146" x2="276" y2="146"/><line x1="54" y1="200" x2="276" y2="200"/><line x1="54" y1="254" x2="276" y2="254"/>
+          </g>
+          <rect x="54" y="38" width="222" height="216" fill="none" stroke="#c6cfdb"/>
+          <rect x="72" y="113" width="28" height="141" fill="#391d8d" opacity="0.72"/>
+          <rect x="122" y="87" width="28" height="167" fill="#391d8d" opacity="0.8"/>
+          <rect x="172" y="126" width="28" height="128" fill="#391d8d" opacity="0.88"/>
+          <rect x="222" y="69" width="28" height="185" fill="#391d8d"/>
+          <g class="tick"><text x="79" y="273">A</text><text x="129" y="273">B</text><text x="179" y="273">C</text><text x="229" y="273">D</text><text x="37" y="258">0</text><text x="25" y="150">0.5</text><text x="25" y="43">1.0</text></g>
+          <text class="axis-label" x="165" y="296" text-anchor="middle">Base models</text>
+          <text class="axis-label" x="14" y="146" text-anchor="middle" transform="rotate(-90 14 146)">Probability</text>
+          <path d="M291 145 H322" stroke="#0a306d" stroke-width="5"/><path d="M322 133 L339 145 L322 157 Z" fill="#0a306d"/>
+          <text class="annotation" x="307" y="121" text-anchor="middle">Elastic-net</text>
+          <text class="annotation" x="307" y="137" text-anchor="middle">Logistic</text>
+          <rect x="344" y="85" width="74" height="120" fill="#e0ddf0" stroke="#391d8d" stroke-width="2"/>
+          <text x="381" y="121" text-anchor="middle" fill="#391d8d" font-family="Pretendard, Segoe UI, sans-serif" font-size="22" font-weight="800">FINAL</text>
+          <text x="381" y="161" text-anchor="middle" fill="#391d8d" font-family="Pretendard, Segoe UI, sans-serif" font-size="38" font-weight="800">P</text>
+          <text x="381" y="184" text-anchor="middle" fill="#391d8d" font-family="Pretendard, Segoe UI, sans-serif" font-size="13" font-weight="700">Prostate</text>
+          <text x="381" y="199" text-anchor="middle" fill="#391d8d" font-family="Pretendard, Segoe UI, sans-serif" font-size="13" font-weight="700">cancer</text>
+        </svg>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <span>Concept diagram — spectra and probabilities are synthetic examples, not actual clinical data or performance values.</span>
+      <span>AECD repeated-spectrum preprocessing &amp; inference</span>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,17 @@
+﻿consensus_peak_cm_minus_1,category,present_groups,control_peak_cm_minus_1,cancer_peak_cm_minus_1,shaded_start_cm_minus_1,shaded_end_cm_minus_1
+623.6,differential,Pancreatic cancer (YPAN),,623.6,611.6,635.6
+683.4,differential,Pancreatic cancer (YPAN),,683.4,671.4,695.4
+723.9,common,Control (YNOR);Pancreatic cancer (YPAN),723.9,723.9,,
+847.2,common,Control (YNOR);Pancreatic cancer (YPAN),847.2,847.2,,
+895.4,common,Control (YNOR);Pancreatic cancer (YPAN),895.4,895.4,,
+935.9,common,Control (YNOR);Pancreatic cancer (YPAN),935.9,935.9,,
+999.5,common,Control (YNOR);Pancreatic cancer (YPAN),999.5,999.5,,
+1238.6,differential,Control (YNOR),1238.6,,1226.6,1250.6
+1286.8,differential,Pancreatic cancer (YPAN),,1286.8,1274.8,1298.8
+1352.3,differential,Pancreatic cancer (YPAN),,1352.3,1340.3,1364.3
+1365.8,differential,Control (YNOR),1365.8,,1353.8,1377.8
+1448.8,common,Control (YNOR);Pancreatic cancer (YPAN),1450.7,1446.8,,
+1597.2,common,Control (YNOR);Pancreatic cancer (YPAN),1597.2,1597.2,,
+1657.0,differential,Pancreatic cancer (YPAN),,1657.0,1645.0,1669.0
+1689.7,differential,Control (YNOR),1689.7,,1677.7,1701.7
+2099.4,common,Control (YNOR);Pancreatic cancer (YPAN),2098.4,2100.4,,

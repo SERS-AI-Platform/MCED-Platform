@@ -24,13 +24,20 @@ REQUIREMENTS_LOCK = ROOT / "requirements.lock"
 DOCKERFILES = (ROOT / "infra" / "Dockerfile", ROOT / "infra" / "Dockerfile.api")
 ENVIRONMENT = ROOT / "config" / "environment.yml"
 ENVIRONMENT_LOCK = ROOT / "config" / "environment.lock.yml"
-SBOM_MD = ROOT / "docs" / "SBOM.md"
-SBOM_CDX = ROOT / "docs" / "sbom.cdx.json"
+SBOM_MD = ROOT / "docs" / "compliance" / "SBOM.md"
+SBOM_CDX = ROOT / "docs" / "compliance" / "sbom.cdx.json"
 
 REQ_NAME_RE = re.compile(r"^\s*([A-Za-z0-9_.-]+)")
 LOCK_PACKAGE_RE = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s]+)$")
 FROM_RE = re.compile(r"^\s*FROM\s+([^\s]+)")
-PIP_INSTALL_RE = re.compile(r"pip install .*?((?:[A-Za-z0-9_.-]+(?:\[[^\]]+\])?\s*)+)$")
+# CodeQL py/polynomial-redos (2026-09-02): the previous pattern nested a
+# quantified char-class inside another repeated group -
+# (?:[A-Za-z0-9_.-]+...\s*)+ - which lets the engine partition a run of
+# '-' characters between the inner and outer '+' in exponentially many
+# ways. The caller already .split()s group(1) on whitespace and filters
+# each token, so the regex only needs to grab everything after "pip
+# install " - no need to also tokenize inside the pattern.
+PIP_INSTALL_RE = re.compile(r"pip install\s+(.+)$")
 
 
 def normalize_name(name: str) -> str:
@@ -403,7 +410,7 @@ def make_markdown(
 | License | Proprietary |
 | Generated | {timestamp} |
 | SBOM standard | CycloneDX 1.5 JSON plus human-readable Markdown |
-| Machine-readable file | `docs/sbom.cdx.json` |
+| Machine-readable file | `docs/compliance/sbom.cdx.json` |
 
 ## Scope
 
@@ -459,8 +466,6 @@ Excluded from package license resolution:
 | Artifact path | Purpose | Supplier | License |
 | --- | --- | --- | --- |
 | `src/sers/` | Core SERS analysis library | SOLUM Healthcare | Proprietary |
-| `scripts/deployment/sers_predict.py` | CLI inference entry point | SOLUM Healthcare | Proprietary |
-| `scripts/deployment/sers_webapp.py` | Web/API inference entry point | SOLUM Healthcare | Proprietary |
 | `artifacts/usersnet/` | Production model artifacts copied into Docker images | SOLUM Healthcare | Proprietary |
 | `artifacts/baselines/` | Baseline artifacts copied into Docker images | SOLUM Healthcare | Proprietary |
 | `config/config.yaml` | Runtime pipeline configuration | SOLUM Healthcare | Proprietary |
@@ -491,7 +496,7 @@ Run:
 python scripts/compliance/generate_sbom.py
 ```
 
-The command rewrites `docs/SBOM.md` and `docs/sbom.cdx.json`.
+The command rewrites `docs/compliance/SBOM.md` and `docs/compliance/sbom.cdx.json`.
 """
 
 

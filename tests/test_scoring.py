@@ -48,9 +48,12 @@ def test_compute_cti_scores_converts_all_probabilities():
 
 
 def test_ssi_risk_level_returns_expected_bands():
-    assert ssi_risk_level(1.9)[0] == "LOW"
+    assert ssi_risk_level(0.9)[0] == "LOW"
+    assert ssi_risk_level(1.0)[0] == "MODERATE"
+    assert ssi_risk_level(3.99)[0] == "MODERATE"
     assert ssi_risk_level(4.0)[0] == "MODERATE"
-    assert ssi_risk_level(9.9)[0] == "VERY_HIGH"
+    assert ssi_risk_level(4.0001)[0] == "HIGH"
+    assert ssi_risk_level(9.9)[0] == "HIGH"
 
 
 def test_format_ssi_uses_one_decimal_place():

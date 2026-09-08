@@ -5,11 +5,9 @@ import click
 from .. import __version__
 from .analyze import analyze
 from .data import data
-from .predict import predict
 from .preprocess import preprocess
 from .production import production
 from .qc import qc
-from .serve import serve
 from .test import test as test_command
 from .train import benchmark, train
 
@@ -24,8 +22,6 @@ cli.add_command(preprocess)
 cli.add_command(train)
 cli.add_command(benchmark)
 cli.add_command(test_command, "test")
-cli.add_command(predict)
-cli.add_command(serve)
 cli.add_command(production)
 cli.add_command(qc)
 cli.add_command(data)

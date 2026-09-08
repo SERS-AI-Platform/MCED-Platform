@@ -87,16 +87,14 @@ class ConfigurationError(PipelineError):
 # ==================== Helper Functions ====================
 def validate_data_directory(data_dir: Path, pattern: str = "*.csv") -> None:
     """Validate that data directory exists and contains spectrum files."""
+    # Raised errors are logged once by main()'s DataNotFoundError handler;
+    # logging here as well duplicated the message.
     if not data_dir.exists():
-        msg = f"Data directory {data_dir} does not exist."
-        logger.error(msg)
-        raise DataNotFoundError(msg)
+        raise DataNotFoundError(f"Data directory {data_dir} does not exist.")
 
     files = list(find_spectra(data_dir, pattern=pattern))
     if not files:
-        msg = f"No spectrum files ({pattern}) found in {data_dir}."
-        logger.error(msg)
-        raise DataNotFoundError(msg)
+        raise DataNotFoundError(f"No spectrum files ({pattern}) found in {data_dir}.")
 
 
 def load_raw_spectra(files: list[Path], folder_mapping: dict) -> tuple:
