@@ -195,3 +195,65 @@ class ExperimentTracker:
         except psycopg2.Error as error:
             raise ExperimentTrackingError(operation) from error
         return len(rows)
+
+
+# ---------------------------------------------------------------------------
+# 성능 지표 (표준 스키마 → experiment.run_metrics)
+# ---------------------------------------------------------------------------
+
+def load_metric_rows(self, rows: Sequence[Any], *, git_commit: str | None = None) -> int:
+    """`sers.evaluation.schema.MetricRow` 목록을 experiment 스키마에 적재한다.
+
+    같은 run_id의 runs 행이 없으면 코호트 정보와 함께 만들고, 있으면 코호트
+    컬럼만 갱신한다. 지표는 (run_id, metric_name, split, model_name) 기준으로
+    upsert되므로 재실행해도 중복되지 않는다.
+    """
+    if not rows:
+        return 0
+    first = rows[0]
+    cohort = first.cohort
+    run_query = (
+        "INSERT INTO experiment.runs (run_name, cancer_types, non_cancer_groups, "
+        "n_subjects, cohort_id, site, n_positive, n_negative, git_commit, status, "
+        "aggregation, notes) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'complete', %s, %s) "
+        # 같은 run에 task가 여럿(screening / type-ID)이면 코호트 구성이 다르다.
+        # runs 행은 run 전체 코호트를 뜻하므로 **처음 기록된 값을 보존**하고
+        # (COALESCE), task별 실질 표본수는 run_metrics.n_units가 갖는다.
+        "ON CONFLICT (run_name) DO UPDATE SET "
+        "cohort_id = COALESCE(experiment.runs.cohort_id, EXCLUDED.cohort_id), "
+        "site = COALESCE(experiment.runs.site, EXCLUDED.site), "
+        "n_positive = COALESCE(experiment.runs.n_positive, EXCLUDED.n_positive), "
+        "n_negative = COALESCE(experiment.runs.n_negative, EXCLUDED.n_negative), "
+        "n_subjects = COALESCE(experiment.runs.n_subjects, EXCLUDED.n_subjects) "
+        "RETURNING run_id"
+    )
+    run_params = (
+        first.run_id, list(cohort.cancer_groups), list(cohort.control_groups),
+        cohort.n_patients, cohort.cohort_id, cohort.site,
+        cohort.n_positive, cohort.n_negative, git_commit, first.aggregation, cohort.notes,
+    )
+    run_id = self._insert_returning_id(run_query, run_params, "metric run upsert")
+
+    metric_rows = [
+        (run_id, r.metric, r.value, str(r.evaluation), r.model_name,
+         r.ci_low, r.ci_high, r.ci_method, r.n_boot, r.n_units, r.n_rows,
+         str(r.task), str(r.evaluation), r.aggregation)
+        for r in rows
+    ]
+    query = (
+        "INSERT INTO experiment.run_metrics "
+        "(run_id, metric_name, metric_value, split, model_name, "
+        "ci_low, ci_high, ci_method, n_boot, n_units, n_rows, task, evaluation, aggregation) "
+        "VALUES %s "
+        "ON CONFLICT (run_id, metric_name, split, model_name) DO UPDATE SET "
+        "metric_value = EXCLUDED.metric_value, ci_low = EXCLUDED.ci_low, "
+        "ci_high = EXCLUDED.ci_high, ci_method = EXCLUDED.ci_method, "
+        "n_boot = EXCLUDED.n_boot, n_units = EXCLUDED.n_units, n_rows = EXCLUDED.n_rows, "
+        "task = EXCLUDED.task, evaluation = EXCLUDED.evaluation, "
+        "aggregation = EXCLUDED.aggregation"
+    )
+    return self._execute_values(query, metric_rows, "metric rows insert")
+
+
+ExperimentTracker.load_metric_rows = load_metric_rows  # noqa: E305
