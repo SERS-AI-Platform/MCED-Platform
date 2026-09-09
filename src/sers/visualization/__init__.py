@@ -31,6 +31,7 @@ from .distribution import (
 
 # --- fonts ---
 from .fonts import available_korean_font, use_korean_font
+from .performance import plot_confusion_matrix, plot_pr, plot_roc
 
 # --- shap ---
 from .shap import (
@@ -52,8 +53,12 @@ from .spectra import (
     visualize_raw_spectra,
     visualize_raw_spectra_by_sample,
 )
+from .style import apply_style, save_png, set_title, style_axes, subtitle_from
 
 __all__ = [
+    # style SSOT + performance figures
+    "apply_style", "save_png", "set_title", "style_axes", "subtitle_from",
+    "plot_roc", "plot_pr", "plot_confusion_matrix",
     # spectra
     "build_mean_spectrum_profile",
     "plot_mean_spectrum",
