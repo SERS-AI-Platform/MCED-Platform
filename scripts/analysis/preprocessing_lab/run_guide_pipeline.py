@@ -246,6 +246,17 @@ for _w in (7, 9):
         calibrate=False, ps_calibrate="linear", method_key="savgol",
         label=f"[PS+Si 축보정, urea✗] 기준점에서 smoothing=SG 창 {_w}",
     )
+# baseline 보정 없음 (2026-09-09 사용자 질문 "baseline correction이 없는 것이 좋다는 거지?"에 직접 답하기 위한 조건)
+CONDITIONS["ps_bl_none"] = dict(
+    overrides={**_BASE, "do_baseline": False},
+    calibrate=False, ps_calibrate="linear", method_key=None,
+    label="[PS+Si 축보정, urea✗] 기준점에서 baseline 보정 없음 (SG 5, SNV)",
+)
+CONDITIONS["ps_sm_none_bl_none"] = dict(
+    overrides={**_BASE, "do_baseline": False, "do_smooth": False},
+    calibrate=False, ps_calibrate="linear", method_key=None,
+    label="[PS+Si 축보정, urea✗] smoothing 없음 + baseline 없음 (SNV만)",
+)
 PS_LADDER = tuple(k for k in CONDITIONS if k.startswith("ps_"))
 
 
