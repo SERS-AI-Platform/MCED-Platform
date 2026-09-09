@@ -13,11 +13,10 @@ API 계약은 `sers.aecd_api` (models.Spectrum / SpectrumPage, X-API-Key 인증,
 limit/offset 페이지네이션)를 그대로 따르며, 응답은 같은 pydantic 모델로 파싱한다.
 2026-09-09 실제 API/DB에 대해 확인.
 
-⚠️  데이터 범위 (2026-09-09 aecd_platform 기준): BORAMAE site에 적재된 clinical
-    스펙트럼은 2026-08-10~14 **mapping 측정(샘플당 121점)** 뿐이다. 논문 원본이
-    쓴 7월 5-replicate 점 측정(BPRO/BNOR *.CSV)은 DB에 없다. 따라서 이 로더로
-    만든 subject 평균은 121점 mapping 평균이며, 원본 논문 수치를 재현하지 않는다.
-    원본 재현이 목적이면 그 replicate 측정을 먼저 적재해야 한다.
+데이터 범위 (2026-09-09 결정): 이 publication은 aecd_platform의 BORAMAE
+2026-08-10~14 **mapping 측정(샘플당 121점)** 을 기준으로 한다. 7월 5-replicate
+점 측정(BPRO/BNOR *.CSV)으로 만든 이전 산출물/수치는 이 로더로 재현되지 않으며,
+mapping 데이터로 다시 생성한다. subject 평균 = 해당 subject의 모든 mapping 점 평균.
 """
 
 from __future__ import annotations
