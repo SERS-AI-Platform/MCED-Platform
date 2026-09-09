@@ -483,6 +483,39 @@
   - 스크립트: `run_guide_pipeline.py --cohort aecd_ctrl` (다른 세션의 PS 보정 조건 추가와 같은 파일에 미커밋 상태 — 해당 세션 커밋 후 반영).
   - 그림: `src/sers/visualization/performance.py` — 혼동행렬은 행(실제 클래스)마다 클래스 색 램프로 칠한다 (`cbb3f30` 이후 수정).
 
+- [x] PL-3 추가 (2026-09-09): 표준물질(PS) 축 보정 조건 2개 — `cal_ps`, `cal_ps_urea` ✅
+  - **배경**: PL-3 "production" 조건의 calibration은 검체 내 urea 1001.4 cm⁻¹ 피크 기준 스펙트럼별 보정(config.yaml)인데,
+    DB `experiment.preprocessing_methods`에는 `calibration_astm_reference`(표준물질 보정, ASTM E1840)로 연결돼 있었다 —
+    **명칭 불일치**. 결정된 표준물질 보정은 AECD API 파이프라인에만 있었고 AUC 비교가 없었다. 사용자 요청으로 추가 실행.
+  - **정의**: `measurement.calibrations`(PS, raman_shift, pass)의 run(측정일+장비) 단위 global_shift를 x축에서 뺌
+    (x − shift; `aecd_api_model_mean_spectrum_clinical_performance.py`와 동일). 5 run 값: −0.027 / +0.024 / +0.111 / +0.125 / +0.203 cm⁻¹.
+    urea 보정은 스펙트럼별 shift sd 2.2 / |max| 6.9 cm⁻¹, fail-safe(0) 4.6% — 두 보정의 크기가 한 자릿수 이상 다르다.
+  - **결과** (112명, 5시드, 짝지은 bootstrap Δ; 나머지 규약 PL-3과 동일):
+
+    | 조건 | spectra(QC 후) | 이진 AUC seed42 [CI] | 5시드 | Δ vs production | Δ vs no_cal | 3-class macro AUC seed42 | 5시드 | Δ3 vs production |
+    |---|---|---|---|---|---|---|---|---|
+    | no_cal | 10,823 | 0.735 [0.637, 0.821] | 0.730±0.015 | −0.082 [−0.158, −0.023] | 0 | 0.649 | 0.664 | −0.066 [−0.134, 0.001] |
+    | production (urea) | 10,413 | 0.817 [0.728, 0.885] | 0.796±0.028 | 0 | +0.082 [0.023, 0.158] | 0.715 | 0.682 | 0 |
+    | **cal_ps** (PS만) | 10,821 | 0.730 [0.628, 0.813] | 0.745±0.010 | **−0.087 [−0.158, −0.030]** | −0.005 [−0.030, 0.016] | 0.647 | 0.665 | **−0.067 [−0.135, −0.003]** |
+    | **cal_ps_urea** (PS→urea) | 10,413 | 0.811 [0.719, 0.883] | 0.799±0.022 | −0.006 [−0.055, 0.046] | +0.076 [0.017, 0.151] | 0.661 | 0.682 | −0.054 [−0.091, −0.016] |
+
+  - **관찰 (해석·채택은 사용자 몫)**:
+    1. PS 보정 단독은 보정 없음(no_cal)과 구별되지 않는다 (Δ −0.005, CI가 0 포함). run 간 이동 0.03~0.20 cm⁻¹는 그리드 간격
+       1.92 cm⁻¹의 1/10 이하라 이 코호트(단일 장비, 5일)에서는 효과가 나올 수 없는 크기다.
+    2. PS 뒤에 urea 보정을 얹으면 production과 같다 (이진 Δ −0.006, 5시드 0.799 vs 0.796). urea 보정 후 잔여 shift 분포도 동일(sd 2.2).
+    3. 3-class에서 cal_ps_urea seed42 Δ −0.054 [−0.091, −0.016]는 CI가 0을 제외하지만 5시드 평균은 0.682 = production 0.682로 같다 —
+       seed 42 하나의 fold 배치 효과. 단일 seed CI만으로 읽지 말 것.
+    4. **해석상 주의**: 이 코호트에서 성능에 영향을 주는 것은 장비 축 드리프트(PS가 잡는 것)가 아니라 스펙트럼별 urea 피크 위치 변동
+       (sd 2.2 cm⁻¹)이다. 장비 드리프트가 0.2 이하인데 검체 피크가 ±7 움직인다면 urea "보정"은 장비 보정이 아니라 생화학적 피크 위치
+       차이(예: 1001 urea vs 1004 phenylalanine 겹침)를 정렬해 버리는 것일 수 있다 — 이것이 신호 제거인지 정렬인지는 미확인.
+       PL-3 앞 관찰(urea 효과가 SG 5에서만 나타나고 SG 11에서는 사라짐)과 함께 봐야 한다.
+  - **기록 정정 필요(미조치)**: DB `experiment.runs`의 기존 `production`/`cal_*` run들은 method `calibration_astm_reference`(id 1)에
+    연결돼 있으나 실제 알고리즘은 urea 피크 보정이다. 새 run #208(cal_ps)·#210(cal_ps_urea)만 이 method가 맞다. 기존 run의 method 연결을
+    바꿀지(또는 urea 보정 method를 새로 등록할지)는 사용자 결정 후 처리.
+  - 코드: `run_guide_pipeline.py`에 `ps_calibrate` 옵션·`_load_ps_shifts()`(DB 조인, 대응 없으면 오류) 추가, `DELTA_REFERENCES`에 `no_cal` 추가.
+  - 산출물: `results/preprocessing_lab/guide_pipeline_20260907/aecd/{cal_ps,cal_ps_urea}/`, `summary.csv` 갱신.
+    DB: `experiment.runs` #208, #210 (run_measurements 각 13,552 연결, 시드·CI 행 적재).
+
 ## Phase OV — 측정자(operator) 변동성 분석 (2026-09-04)
 
 - [x] OV-1: 측정자에 따른 스펙트럼 변동성 통계 분석

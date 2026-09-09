@@ -23,6 +23,15 @@ SG(config: 창 5, 차수 3), 개별 spectrum 학습, 환자 mean OOF:
                   : 기준점에서 ④ smoothing만 교체 (기준점은 SG 창 5)
     order_baseline_first
                   : 기준점에서 ④↔⑤ 순서만 교체 (baseline → smooth)
+    cal_ps        : 표준물질(PS) run 단위 축 보정만 (urea ✗ despike ✗)  ← 2026-09-09 추가
+    cal_ps_urea   : PS 축 보정 후 urea 피크 보정 (despike ✗)            ← 2026-09-09 추가
+
+표준물질 보정(2026-09-09 추가): `measurement.calibrations`(PS, raman_shift, pass)의
+run(측정일+장비) 단위 global_shift를 x축에서 빼는 것(x − shift)이며, AECD API
+파이프라인(scripts/analysis/aecd_api_model_mean_spectrum_clinical_performance.py)의
+정의와 같다. 기존 "production"의 calibration은 검체 내 urea 1001.4 피크 기준
+스펙트럼별 보정(config.yaml)이고, DB method_key `calibration_astm_reference`와는
+다른 알고리즘임에 주의 — PL-3 초기 기록의 명칭 불일치.
 
 과제(task) 두 개를 같은 조건·같은 전처리 결과로 낸다:
     cancer_screening     — 전립선암 vs 비암(질환대조+control), 이진 LR
@@ -178,6 +187,16 @@ CONDITIONS["no_cal_sg11"] = dict(
     calibrate=False, method_key=None,
     label="PL-1 despike_off 정확 재현: cal✗ despike✗ SG 11 rolling_min SNV",
 )
+CONDITIONS["cal_ps"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=False, ps_calibrate=True, method_key="calibration_astm_reference",
+    label="표준물질(PS) run 단위 축 보정만: ps✓ urea✗ despike✗ rolling_min SNV",
+)
+CONDITIONS["cal_ps_urea"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=True, ps_calibrate=True, method_key="calibration_astm_reference",
+    label="PS 축 보정 후 urea 피크 보정: ps✓ urea✓ despike✗ rolling_min SNV",
+)
 CONDITIONS["order_baseline_first"] = dict(
     overrides={**_BASE, "baseline_before_smooth": True},
     calibrate=True, method_key=None,
@@ -201,7 +220,7 @@ def _prep_config(cfg, overrides: dict) -> PreprocessingConfigExt:
 
 
 #: 짝지은 Δ를 낼 기준. production = 현재 배포 파이프라인, cal_despike = 요인 교체의 기준점
-DELTA_REFERENCES = ("production", "cal_despike")
+DELTA_REFERENCES = ("production", "cal_despike", "no_cal")
 
 #: 3-class 라벨 (aecd cohort_group → 클래스 인덱스). 매핑 run의 GROUP_ORDER와 같은 순서.
 THREE_CLASS = {"control": 0, "prostate disease control": 1, "prostate": 2,
@@ -222,28 +241,90 @@ class Cohort:
     control_groups: tuple[str, ...]
     measurement_ids: list[int] | None      # aecd만 FK 연결
     data_query_filters: dict
+    ps_shift_by_key: dict | None = None    # aecd만: key → PS global_shift_cm1 (run 단위)
 
 
-def load_aecd() -> Cohort:
+def load_aecd(groups: tuple[str, ...] = AECD_COHORTS, name: str = "aecd") -> Cohort:
+    """aecd_platform 전립선 코호트. ``groups``로 비암군을 좁힐 수 있다 (aecd_ctrl = 암 vs 정상만)."""
     from sers.aecd_api.loader import load_spectra_from_aecd
     from sers.aecd_api.models import SpectrumFilters
     from sers.aecd_api.repository import DatabaseSettings, PostgresAecdRepository
 
     repo = PostgresAecdRepository(DatabaseSettings.from_environment())
-    spectra, ids, observed = {}, [], {}
-    for cohort in AECD_COHORTS:
+    spectra, ids, observed, key_to_mid = {}, [], {}, {}
+    for cohort in groups:
         res = load_spectra_from_aecd(repo, SpectrumFilters(cohort_group=cohort), page_size=500)
+        # loader는 spectra dict와 measurement_ids를 같은 루프에서 같은 순서로 채운다
+        key_to_mid.update(dict(zip(res.spectra.keys(), res.measurement_ids)))
         spectra.update(res.spectra)
         ids.extend(res.measurement_ids)
         observed[cohort] = len(res.spectra)
         print(f"  {cohort:26s} {len(res.spectra):6d} spectra")
+    ps_shift_by_key = _load_ps_shifts(key_to_mid)
     return Cohort(
-        name="aecd", site="aecd_platform(전립선 3군)", spectra=spectra,
+        name=name, site=f"aecd_platform(전립선 {len(groups)}군)", spectra=spectra,
         cancer_group=AECD_CANCER,
-        control_groups=tuple(c for c in AECD_COHORTS if c != AECD_CANCER),
+        control_groups=tuple(c for c in groups if c != AECD_CANCER),
         measurement_ids=ids,
-        data_query_filters={"cohort_group": list(AECD_COHORTS), "observed_at_load": observed},
+        data_query_filters={"cohort_group": list(groups), "observed_at_load": observed},
+        ps_shift_by_key=ps_shift_by_key,
     )
+
+
+def _load_ps_shifts(key_to_mid: dict) -> dict:
+    """key → 표준물질(PS) run 단위 global_shift_cm1.
+
+    AECD API 파이프라인(`load_standard_material_calibrations`/`calibration_for_item`)과
+    같은 정의: 측정일(date)+장비명으로 `measurement.calibrations`(PS, raman_shift, pass)를
+    조인하고, 축 보정은 x_corrected = x_observed − global_shift_cm1. 대응 보정이 없는
+    측정은 오류로 멈춘다 (조용히 0 처리하지 않음).
+    """
+    import os
+
+    import psycopg2
+
+    conn = psycopg2.connect(
+        host=os.environ.get("PGHOST", "localhost"), port=int(os.environ.get("PGPORT", "5432")),
+        dbname=os.environ.get("PGDATABASE", "aecd_platform"),
+        user=os.environ.get("PGUSER", "postgres"), password=os.environ.get("PGPASSWORD", ""),
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT c.calibration_date::date, i.instrument_name, c.global_shift_cm1, "
+                "c.reference_peaks_cm1, c.observed_peaks_cm1 "
+                "FROM measurement.calibrations c "
+                "JOIN measurement.instruments i ON i.instrument_id = c.instrument_id "
+                "WHERE c.standard_material = 'Polystyrene (PS)' AND c.calibration_type = 'raman_shift' "
+                "AND c.result = 'pass' AND c.global_shift_cm1 IS NOT NULL")
+            cal = {}
+            for d, inst, shift, ref, obs in cur.fetchall():
+                k = (d.isoformat(), inst)
+                if k in cal:
+                    raise RuntimeError(f"PS calibration ambiguous for {k}")
+                if not np.allclose(np.asarray(obs, dtype=float) - np.asarray(ref, dtype=float),
+                                   float(shift), atol=0.05):
+                    raise RuntimeError(f"stored global_shift disagrees with peak errors for {k}")
+                cal[k] = float(shift)
+            mids = [int(m) for m in key_to_mid.values()]
+            cur.execute(
+                "SELECT m.measurement_id, r.measurement_date, i.instrument_name "
+                "FROM measurement.measurements m "
+                "JOIN measurement.runs r ON r.measurement_run_id = m.measurement_run_id "
+                "JOIN measurement.instruments i ON i.instrument_id = r.instrument_id "
+                "WHERE m.measurement_id = ANY(%s)", (mids,))
+            mid_to_run = {int(mid): (d.isoformat(), inst) for mid, d, inst in cur.fetchall()}
+    finally:
+        conn.close()
+    out = {}
+    for key, mid in key_to_mid.items():
+        run = mid_to_run.get(int(mid))
+        if run is None or run not in cal:
+            raise RuntimeError(f"no PS calibration for measurement {mid} (run={run})")
+        out[key] = cal[run]
+    uniq = sorted(set(out.values()))
+    print(f"  PS calibration: {len(cal)} run(s), shift(cm⁻¹) = {uniq}")
+    return out
 
 
 def load_mapping() -> Cohort:
@@ -276,6 +357,12 @@ def load_mapping() -> Cohort:
 def run_condition(cohort: Cohort, cfg, spec: dict):
     raw = cohort.spectra
     shift_df = None
+    if spec.get("ps_calibrate"):
+        if cohort.ps_shift_by_key is None:
+            raise RuntimeError("PS 보정은 aecd 코호트(measurement.calibrations)에서만 가능")
+        # x_corrected = x_observed − global_shift (AECD API 파이프라인과 동일 정의)
+        raw = {k: (np.asarray(x, dtype=float) - cohort.ps_shift_by_key[k], y)
+               for k, (x, y) in raw.items()}
     if spec["calibrate"]:
         raw, shift_df = calibrate_spectra_batch(
             raw, target_wn=cfg.preprocessing.calibration_reference_wn,
@@ -422,6 +509,9 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
             "cohort": cohort.name, "site": cohort.site, "condition": cond,
             "label": spec["label"], "method_key": spec["method_key"],
             "calibrate": spec["calibrate"],
+            "ps_calibrate": bool(spec.get("ps_calibrate", False)),
+            "ps_shift_cm1": (None if not spec.get("ps_calibrate") else
+                             sorted({float(v) for v in cohort.ps_shift_by_key.values()})),
             "preprocessing": {k: (list(v) if isinstance(v, tuple) else v)
                               for k, v in dataclasses.asdict(prep_cfg).items()
                               if isinstance(v, (int, float, str, bool, tuple, list)) or v is None},
@@ -451,7 +541,12 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
 # ---------------------------------------------------------------------------
 
 def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str, task: Task) -> CohortSpec:
-    if cohort_key == "aecd":
+    if cohort_key == "aecd_ctrl":
+        cancer, control = (AECD_CANCER,), ("control",)
+        cohort_id, site = f"aecd_prostate_vs_control_{DATE_TAG}", "aecd_platform"
+        note = ("aecd_platform 전립선암 vs 정상(control)만 — 질환대조군 제외. 3군 코호트의 부분집합이며 "
+                "같은 환자·같은 전처리에서 두 군만으로 학습·OOF. 양성=전립선암.")
+    elif cohort_key == "aecd":
         cancer, control = (AECD_CANCER,), tuple(c for c in AECD_COHORTS if c != AECD_CANCER)
         cohort_id, site = f"aecd_prostate3_{DATE_TAG}", "aecd_platform"
         note = ("aecd_platform 전립선 3군(prostate / prostate disease control / control) = 보라매 "
@@ -645,7 +740,8 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--cohort", choices=["aecd", "mapping", "both"], default="both")
+    ap.add_argument("--cohort", choices=["aecd", "aecd_ctrl", "mapping", "both"], default="aecd",
+                    help="aecd=전립선 3군, aecd_ctrl=암 vs 정상만(질환대조 제외), mapping=파일 로더 확인용")
     ap.add_argument("--conditions", default=",".join(CONDITIONS),
                     help="쉼표 구분. 기본: 전부")
     ap.add_argument("--seeds", default=",".join(map(str, SEEDS)))
@@ -671,7 +767,12 @@ def main() -> None:
         cfg = load_config()
         for key in cohorts:
             print(f"\n=== 데이터 로드: {key} ===")
-            cohort = load_aecd() if key == "aecd" else load_mapping()
+            if key == "aecd":
+                cohort = load_aecd()
+            elif key == "aecd_ctrl":
+                cohort = load_aecd(groups=(AECD_CANCER, "control"), name="aecd_ctrl")
+            else:
+                cohort = load_mapping()
             compute(cohort, conditions, seeds, cfg, args.dry_run,
                     tasks=tuple(t.strip() for t in args.tasks.split(",")), force=args.force)
         if args.dry_run:
@@ -679,7 +780,7 @@ def main() -> None:
             return
 
     print("\n=== CI 표 / summary ===")
-    frames = [build_ci(key, conditions, load_db=args.load_db and key == "aecd") for key in cohorts]
+    frames = [build_ci(key, conditions, load_db=args.load_db and key.startswith("aecd")) for key in cohorts]
     summary = pd.concat([f for f in frames if len(f)], ignore_index=True)
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
     path = OUT_ROOT / "summary.csv"
