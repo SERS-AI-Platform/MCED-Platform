@@ -119,6 +119,7 @@ def test_variance_components_reject_unbalanced_input() -> None:
         variance_components(values)
 
 
+@pytest.mark.slow  # real data: needs data/20260715_Powder_Reproducibility test/ (gitignored)
 def test_actual_powder_lot_inventory_is_balanced() -> None:
     # Given: the reviewed five-lot powder reproducibility experiment.
     repo = Path(__file__).resolve().parents[2]

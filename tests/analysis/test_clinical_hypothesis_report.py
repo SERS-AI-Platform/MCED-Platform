@@ -4,6 +4,12 @@ import csv
 import subprocess
 from pathlib import Path
 
+import pytest
+
+# Real-data regression test: reviewed covariate table is not tracked in git.
+# Run locally with `pytest -m slow`; CI runs `-m "not slow"`.
+pytestmark = pytest.mark.slow
+
 REPO = Path(__file__).resolve().parents[2]
 PUBLICATION = REPO / "publications" / "전향검체" / "보라매병원"
 SCRIPT = PUBLICATION / "src" / "generate_clinical_hypothesis_report.py"
