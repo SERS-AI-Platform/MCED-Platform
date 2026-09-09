@@ -55,12 +55,34 @@ COLORS: Final = {
     "Prostate cancer": "#D95F02",
 }
 
-# CONFIRM: API의 cohort_group 코드값 -> 분석 라벨 매핑
+# aecd_platform clinical.diagnoses.cohort_group -> 분석 라벨.
+# 값은 BORAMAE site의 실제 DB 값 (2026-09-09 확인: control 28 / prostate disease
+# control 61 / prostate 53 / Drop 1 subjects). 'prostate disease control'이
+# 논문의 Biopsy-negative(PSA↑/Bx−) 그룹이며, 리포 내 다른 AECD 분석 스크립트와
+# 같은 규약이다.
 GROUP_MAP: Final = {
     "control": "Control",
-    "biopsy_negative": "Biopsy-negative",  # CONFIRM 실제 코드값
+    "prostate disease control": "Biopsy-negative",
     "prostate": "Prostate cancer",
 }
+# v7 임상 워크북에서 제외 판정된 subject는 cohort_group='Drop'으로 적재된다.
+EXCLUDED_COHORT_GROUPS: Final = frozenset({"Drop"})
+
+
+def parse_group(cohort_group: str | None) -> str:
+    """API/DB의 cohort_group 코드값을 분석 라벨로 변환한다.
+
+    cohort_group이 없거나 제외 코드이면 "Excluded"를 돌려주고, 그 밖의 알 수 없는
+    값은 조용히 버리지 않고 RuntimeError로 올린다 — 코드값이 바뀌었을 때 한 그룹이
+    통째로 사라지는 것을 막기 위해서다.
+    """
+    if cohort_group is None or cohort_group in EXCLUDED_COHORT_GROUPS:
+        return "Excluded"
+    try:
+        return GROUP_MAP[cohort_group]
+    except KeyError:
+        msg = f"Unknown cohort_group: {cohort_group!r}"
+        raise RuntimeError(msg) from None
 
 
 # ------------------------------------------------------------------ #
@@ -186,7 +208,7 @@ def _record_sample(record: dict[str, Any]) -> ClinicalSample:
     return ClinicalSample(
         label=label,
         sample_no=str(record.get("sample_no") or label.split()[-1]),
-        group=GROUP_MAP.get(str(record.get("cohort_group")), "Excluded"),  # CONFIRM
+        group=parse_group(record.get("cohort_group")),
         grade_group=int(grade_raw) if isinstance(grade_raw, int) else None,
         # CONFIRM: API에 'excluded' 플래그가 있는지 (원본은 셀 배경색으로 판단)
         excluded=bool(record.get("excluded", False)),

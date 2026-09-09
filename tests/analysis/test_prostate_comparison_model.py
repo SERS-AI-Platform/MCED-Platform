@@ -7,6 +7,7 @@ import warnings
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 SRC = Path(__file__).resolve().parents[2] / "publications" / "전향검체" / "보라매병원" / "src"
 sys.path.insert(0, str(SRC))
@@ -90,14 +91,26 @@ def test_boramae_data_uses_canonical_sers_package() -> None:
 
 
 def test_parse_group_when_biopsy_is_negative_uses_publication_label() -> None:
-    # Given
-    raw_group = "Elevated PSA, biopsy-negative (PSA↑/Bx−)"
+    # Given: the aecd_platform cohort_group code for the PSA-elevated, biopsy-negative arm
+    cohort_group = "prostate disease control"
 
     # When
-    label = boramae_data.parse_group(raw_group)
+    label = boramae_data.parse_group(cohort_group)
 
     # Then
     assert label == "Biopsy-negative"
+
+
+def test_parse_group_maps_every_boramae_cohort_code() -> None:
+    assert boramae_data.parse_group("control") == "Control"
+    assert boramae_data.parse_group("prostate") == "Prostate cancer"
+    assert boramae_data.parse_group("Drop") == "Excluded"
+    assert boramae_data.parse_group(None) == "Excluded"
+
+
+def test_parse_group_when_code_is_unknown_raises_instead_of_dropping_the_group() -> None:
+    with pytest.raises(RuntimeError, match="biopsy_negative"):
+        boramae_data.parse_group("biopsy_negative")
 
 
 def test_publication_figure_titles_use_exact_biopsy_negative_label() -> None:
