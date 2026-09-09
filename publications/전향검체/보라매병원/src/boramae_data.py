@@ -21,7 +21,9 @@ mapping 데이터로 다시 생성한다. subject 평균 = 해당 subject의 모
 
 from __future__ import annotations
 
+import csv
 import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,6 +58,12 @@ MAX_SPECTRA: Final = 100_000
 # 모델 공용 그리드는 여전히 로컬 아티팩트를 사용 (필요하면 API로도 교체 가능)
 REPO: Final = Path(__file__).resolve().parents[4]
 MODEL_GRID: Final = REPO / "artifacts" / "usersnet" / "v1.0.0" / "common_grid.npy"
+OUT: Final = REPO / "publications" / "전향검체" / "보라매병원"
+FIG_DIR: Final = OUT / "figures"
+TABLE_DIR: Final = OUT / "tables"
+# fig02 비교용 레거시 PRO 코호트 — 보라매 데이터가 아니라 별개 데이터셋(파일 기반 유지).
+LEGACY_PRO_ROOT: Final = REPO / "data" / "raw_data" / "1. Prostate cancer (100개)"
+CLEAN_MANIFEST: Final = REPO / "results" / "clean_cohort_20260605" / "clean_cohort_manifest.csv"
 
 LABELS: Final = ["Control", "Biopsy-negative", "Prostate cancer"]
 SHORT_LABELS: Final = ["Control", "Biopsy-negative", "Prostate"]
@@ -112,6 +120,8 @@ class SubjectSpectrum:
     sample: ClinicalSample
     mean_spectrum: np.ndarray
     replicate_spectra: np.ndarray
+    # 전처리 단계 그림(fig01)용 원시 (wavenumber, intensity) 한 개 — 첫 mapping 점.
+    example_raw: tuple[np.ndarray, np.ndarray] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,7 +358,12 @@ def build_boramae_subjects(
             raise RuntimeError(msg)
         mat = np.vstack([_preprocess_record(r, grid) for r in records])
         subjects.append(
-            SubjectSpectrum(sample=sample, mean_spectrum=mat.mean(axis=0), replicate_spectra=mat)
+            SubjectSpectrum(
+                sample=sample,
+                mean_spectrum=mat.mean(axis=0),
+                replicate_spectra=mat,
+                example_raw=_record_arrays(records[0]),
+            )
         )
     return subjects
 
@@ -377,9 +392,84 @@ def build_aligned_boramae_subjects(
         matrix = np.vstack([item[0] for item in aligned])
         shifts.append(np.asarray([item[1] for item in aligned], dtype=float))
         subjects.append(
-            SubjectSpectrum(sample=sample, mean_spectrum=matrix.mean(axis=0), replicate_spectra=matrix)
+            SubjectSpectrum(
+                sample=sample,
+                mean_spectrum=matrix.mean(axis=0),
+                replicate_spectra=matrix,
+                example_raw=_record_arrays(records[0]),
+            )
         )
     return subjects, np.vstack(shifts) if shifts else np.empty((0, 0))
+
+
+def load_raw_replicates(
+    samples: list[ClinicalSample],
+    *,
+    client: AecdApiClient | None = None,
+    site_code: str | None = SITE_CODE,
+    cohort_group: str | None = COHORT_GROUP,
+    cancer_type: str | None = CANCER_TYPE,
+) -> dict[str, list[tuple[np.ndarray, np.ndarray]]]:
+    """subject label -> 전처리하지 않은 (wavenumber, intensity) 목록 (mapping 점 순서).
+
+    resolution/noise 재분석처럼 원시 replicate가 필요한 스크립트용. 제외된 subject는
+    건너뛴다.
+    """
+    grouped = _fetch_grouped(client, site_code, cohort_group, cancer_type)
+    raw: dict[str, list[tuple[np.ndarray, np.ndarray]]] = {}
+    for sample in samples:
+        if sample.excluded or sample.group == "Excluded":
+            continue
+        records = grouped.get(sample.label)
+        if not records:
+            msg = f"No spectra returned by the API for {sample.label}"
+            raise RuntimeError(msg)
+        raw[sample.label] = [_record_arrays(r) for r in records]
+    return raw
+
+
+def ensure_dirs() -> None:
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    TABLE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ------------------------------------------------------------------ #
+# 레거시 PRO 비교 코호트 (fig02) — 파일 기반, b6fcf97 이전 구현 그대로
+# ------------------------------------------------------------------ #
+def preprocess_aligned_file(path: Path, grid: np.ndarray) -> tuple[np.ndarray, float]:
+    x, y = read_spectrum(path)
+    aligned_x, aligned_y, shift = calibrate_spectrum(x, y, window=20.0)
+    return preprocess_arrays(aligned_x, aligned_y, grid)[1], shift
+
+
+def clean_pro_ids() -> set[str]:
+    with CLEAN_MANIFEST.open(encoding="utf-8-sig") as handle:
+        rows = csv.DictReader(handle)
+        return {str(int(float(row["sample_id"]))) for row in rows if row["source_group"] == "PRO"}
+
+
+def build_clean_pro_alignment(grid: np.ndarray) -> CleanProSpectra:
+    selected = clean_pro_ids()
+    grouped: dict[str, list[Path]] = {}
+    for path in sorted(LEGACY_PRO_ROOT.glob("PRO *.CSV")):
+        match = re.match(r"^PRO\s+([0-9]+)_([0-9]+|ave)\.CSV$", path.name)
+        if match is not None and match.group(1) in selected and match.group(2) != "ave":
+            grouped.setdefault(match.group(1), []).append(path)
+    ordered = sorted(grouped, key=int)
+    spectra = [
+        np.vstack([preprocess_file(path, grid)[1] for path in grouped[item]]).mean(axis=0)
+        for item in ordered
+    ]
+    aligned_items = [
+        [preprocess_aligned_file(path, grid) for path in grouped[item]] for item in ordered
+    ]
+    aligned = [np.vstack([result[0] for result in items]).mean(axis=0) for items in aligned_items]
+    shifts = [result[1] for items in aligned_items for result in items]
+    return CleanProSpectra(np.vstack(spectra), np.vstack(aligned), np.asarray(shifts, dtype=float))
+
+
+def build_clean_pro_subjects(grid: np.ndarray) -> np.ndarray:
+    return build_clean_pro_alignment(grid).spectra
 
 
 def group_matrix(subjects: list[SubjectSpectrum], group: str) -> np.ndarray:
