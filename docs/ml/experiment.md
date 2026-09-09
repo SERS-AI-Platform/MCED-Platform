@@ -346,7 +346,7 @@
 
     짝 검정 (Screening, 동일 환자 DeLong): 7월→8월(121점) ΔAUC **−0.011 ± 0.027** (범위 −0.048~+0.027), p<0.05 **0/10회**, p 중앙값 0.68 → **차이 없음**. 7월→8월(5점) −0.137, 6/10 유의. 8월 121점→5점 −0.126, 7/10 유의.
   - **3군 하락은 fold 노이즈 밖**: 7월 최저 0.776 > 8월 최고 0.666, 10/10 반복 모두 하락. 혼동행렬(repeat 0, 행=실제): 7월 Control 16/2/2, Biopsy-neg 6/31/12, Cancer 2/18/23 → 8월 Control **7**/10/3, Biopsy-neg **16**/24/9, Cancer **8**/8/27. 즉 **Control 군 구분이 사라짐**(Control 정답 16→7명, 비암·암이 Control로 오인 8→24명). 암→암은 23→27로 유지 → Screening AUC 불변과 정합.
-  - 환자 수준: 같은 환자의 OOF P(암)은 두 조건 사이에서 거의 상관 없음 — 0.5 기준 판정 뒤집힘 **45/112명**, ΔP 중앙값 −0.006 (Wilcoxon p=0.87). 전처리 후 스펙트럼의 환자별 피어슨 상관 중앙값 **0.55** (5–95% 0.31–0.78; 군별 Control 0.56 / 비암 0.60 / 암 0.51).
+  - 환자 수준: 같은 환자의 OOF P(암)은 두 조건 사이에서 거의 상관 없음 — 0.5 기준 판정 뒤집힘 **45/112명**, ΔP 중앙값 −0.006 (Wilcoxon p=0.87). 전처리 후 스펙트럼의 환자별 피어슨 상관 중앙값 **0.55** (5–95% 0.42–0.73 — 처음 적은 0.31–0.78은 오기, summary.json 기준 정정; 군별 Control 0.56 / 비암 0.60 / 암 0.51).
   - **반복 수 통제 결과**: mapping 단일 점 5개 평균은 121점 평균보다 뚜렷이 나쁨(−0.126, 7/10 유의). 7월 "1회"는 Ave100 누적이라 mapping 1점과 품질이 다르다 — 7월 5회 ≈ 8월 121점 수준. 조건 간 비교는 121점 평균 기준이 맞다.
   - **해석 한계 (환원제 단독 효과로 못 봄)**: 7월 센서/환원제 lot 미기록, 측정일 1개월 차, 점 측정 vs mapping 방식 차, 7명 제외. 결론은 "Screening 불변 / Control 구분 하락"까지이고 원인 귀속은 없음. 다음: 7월 lot 기록 복원, 같은 날 같은 분주를 구·신 환원제로 측정하는 한-변수 실험(07-15 Sigma 1~5 설계 형태).
   - 스크립트: `scripts/analysis/boramae_paired_reducing_agent_comparison.py`(분석, ~16분) → `_figures.py` → `_deck.py`(대표님 보고 덱, 수치는 summary.json에서 자동 생성). 산출물 `results/boramae_paired_reducing_agent/` (summary.json, repeat_summary.csv, paired_summary.csv, paired_tests.csv, subject_oof.csv, confusion_*.csv, fig_*.png), 덱 `publications/전향검체/보라매병원/slides/환원제 변경전후 동일환자 비교.html`

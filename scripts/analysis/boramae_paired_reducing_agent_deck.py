@@ -46,6 +46,27 @@ def main() -> None:
     p_jm = pair["july_liquid -> aug_mapping"]
     p_m5 = pair["aug_mapping -> aug_mapping_5"]
     flips = rep0["july_liquid -> aug_mapping"]["subjects_flipped"]
+    flips_all = [p["subjects_flipped"] for p in s["paired"] if p["comparison"] == "july_liquid -> aug_mapping"]
+    flips_lo, flips_hi = min(flips_all), max(flips_all)
+    deltas_sorted = sorted(p["delta_auc"] for p in s["paired"] if p["comparison"] == "july_liquid -> aug_mapping")
+    rep0_delta = rep0["july_liquid -> aug_mapping"]["delta_auc"]
+    rep0_delta_rank = deltas_sorted.index(rep0_delta) + 1  # 1 = worst for August
+    thr_aug_all = sorted(float(m["macro_ovr_roc_auc"]) for m in s["metrics"] if m["task"] == "three_group" and m["condition"] == "aug_mapping")
+    rep0_thr_aug = float(next(m["macro_ovr_roc_auc"] for m in s["metrics"] if m["task"] == "three_group" and m["condition"] == "aug_mapping" and m["repeat"] == 0))
+    rep0_thr_rank_from_top = len(thr_aug_all) - thr_aug_all.index(rep0_thr_aug)
+    rep0_note = (f"repeat 0은 Screening에서는 8월에 불리한 편(ΔAUC {rep0_delta:+.3f}, {reps}회 중 {rep0_delta_rank}번째로 낮음), "
+                 f"3군에서는 8월에 가장 유리한 회차({rep0_thr_aug:.3f}, {reps}회 중 위에서 {rep0_thr_rank_from_top}번째)")
+    import numpy as _np
+    grid = _np.array(s["grid"])
+    def band(lo: float, hi: float, cond: str, g: str) -> float:
+        sel = (grid >= lo) & (grid <= hi)
+        return float(_np.mean(_np.array(s["mean_by_group"][cond][g])[sel]))
+    groups = ("Control", "Biopsy-negative", "Prostate cancer")
+    b1000 = {c: [band(990, 1010, c, g) for g in groups] for c in ("july_liquid", "aug_mapping")}
+    b1650 = {c: [band(1600, 1700, c, g) for g in groups] for c in ("july_liquid", "aug_mapping")}
+    b1450 = {c: [band(1430, 1470, c, g) for g in groups] for c in ("july_liquid", "aug_mapping")}
+    def rng_txt(vals: list[float]) -> str:
+        return f"{min(vals):.1f}~{max(vals):.1f}"
 
     # headline judgement is deliberately descriptive: is the July->August shift larger than the
     # fold-to-fold spread, and do the two ranges overlap at all?
@@ -57,8 +78,8 @@ def main() -> None:
     ctrl_ok = {c: conf[c][0][0] for c in conf}                      # true Control predicted Control
     into_ctrl = {c: conf[c][1][0] + conf[c][2][0] for c in conf}    # non-controls predicted Control
     cancer_ok = {c: conf[c][2][2] for c in conf}
-    headline = (f"Screening(암 vs 비암)은 변경 전후 차이가 없고(ΔAUC {delta_jm:+.3f}, 유의 {p_jm['repeats_delong_p_lt_0_05']}/{reps}회), "
-                f"3군 구분은 {reps}/{reps}회 모두 하락했다(macro AUC {thr['july_liquid']['mean']:.3f} → {thr['aug_mapping']['mean']:.3f}) — 하락은 Control 군 구분 상실에서 온다.")
+    headline = (f"Screening(암 vs 나머지=정상+조직검사음성)은 변경 전후 차이가 없고(ΔAUC {delta_jm:+.3f}, 유의 {p_jm['repeats_delong_p_lt_0_05']}/{reps}회), "
+                f"3군 구분은 {reps}/{reps}회 모두 하락했다(macro AUC {thr['july_liquid']['mean']:.3f} → {thr['aug_mapping']['mean']:.3f}) — 하락은 정상(Control) 군 구분 상실에서 온다.")
 
     pipeline = ("전처리·모델 동일: trim(400–2,200 cm⁻¹) → Savitzky–Golay(11,3) → rolling-min baseline(101) → SNV → 환자당 평균 → "
                 "StandardScaler + class-weighted LR · nested 5×4-fold OOF · 라벨은 두 조건 모두 aecd_platform clinical v7 cohort_group")
@@ -72,12 +93,12 @@ def main() -> None:
       <h1 id="s1-title" class="display">같은 환자 {n}명, 같은 알고리즘 — 환원제 변경 전후 성능 비교</h1></header>
     <div class="hero-layout center">
       <div>
-        <p class="lead">7월 액상 측정(변경 전)과 8월 mapping 측정(변경 후)을 <strong>같은 환자·같은 임상 라벨·같은 모델</strong>로 맞춰 비교했습니다.
+        <p class="lead">7월 점측정(변경 전, 5회)과 8월 mapping 측정(변경 후, 121점) — 둘 다 액상 검체 — 을 <strong>같은 환자·같은 임상 라벨·같은 모델</strong>로 맞춰 비교했습니다.
         결과는 한 번의 학습이 아니라 fold 배정을 {reps}번 바꿔 얻은 분포로 제시합니다.</p>
         <div class="grid-3">
-          <div class="card liquid-card"><p class="kicker">변경 전 · 7월 액상</p><span class="metric">{fmt(scr["july_liquid"]["mean"])}</span><p>Screening AUC 평균<br><span class="muted">± {fmt(scr["july_liquid"]["sd"])} (fold {reps}회)</span></p></div>
-          <div class="card powder-card"><p class="kicker">변경 후 · 8월 mapping</p><span class="metric">{fmt(scr["aug_mapping"]["mean"])}</span><p>Screening AUC 평균<br><span class="muted">± {fmt(scr["aug_mapping"]["sd"])} (fold {reps}회)</span></p></div>
-          <div class="card green-card"><p class="kicker">3군 macro AUC · 전 → 후</p><span class="metric">{fmt(thr["july_liquid"]["mean"])} → {fmt(thr["aug_mapping"]["mean"])}</span><p>Control / Biopsy-neg / Cancer 구분<br><span class="muted">{reps}회 반복 모두 하락 · 범위 비겹침</span></p></div>
+          <div class="card liquid-card"><p class="kicker">변경 전 · 7월 점측정 5회</p><span class="metric">{fmt(scr["july_liquid"]["mean"])}</span><p>Screening AUC 평균<br><span class="muted">± {fmt(scr["july_liquid"]["sd"])} (fold {reps}회)</span></p></div>
+          <div class="card powder-card"><p class="kicker">변경 후 · 8월 mapping 121점</p><span class="metric">{fmt(scr["aug_mapping"]["mean"])}</span><p>Screening AUC 평균<br><span class="muted">± {fmt(scr["aug_mapping"]["sd"])} (fold {reps}회)</span></p></div>
+          <div class="card green-card"><p class="kicker">3군 macro AUC · 전 → 후</p><span class="metric">{fmt(thr["july_liquid"]["mean"])} → {fmt(thr["aug_mapping"]["mean"])}</span><p>정상 / 조직검사 음성 / 암 3군 구분<br><span class="muted">{reps}회 반복 모두 하락 · 범위 비겹침</span></p></div>
         </div>
       </div>
       <div class="hero-meta">
@@ -98,13 +119,13 @@ def main() -> None:
     <header><h1 id="s2-title">무엇을 무엇과 비교했나</h1><div class="pipeline">{pipeline}</div></header>
     <div class="center">
       <table>
-        <thead><tr><th></th><th class="liquid">변경 전 · 7월 액상</th><th class="powder">변경 후 · 8월 mapping</th><th>8월 mapping 5점 추출</th></tr></thead>
+        <thead><tr><th></th><th class="liquid">변경 전 · 7월 점측정</th><th class="powder">변경 후 · 8월 mapping</th><th>8월 mapping 5점 추출</th></tr></thead>
         <tbody>
           <tr><td>측정일</td><td>2026-07-09</td><td>2026-08-10 ~ 08-14</td><td>(동일)</td></tr>
           <tr><td>환원제 / 센서 lot</td><td><strong>기록 없음</strong></td><td>Sigma-Aldrich 226904 Lot BCCP0922 · strip lot 기록</td><td>(동일)</td></tr>
-          <tr><td>환자당 스펙트럼</td><td>점 측정 5회</td><td>mapping 121점</td><td>121점 중 무작위 5점 (반복 수 통제용)</td></tr>
+          <tr><td>시료 형태 / 환자당 스펙트럼</td><td>액상 / 점 측정 5회 (Ave100)</td><td>액상 / mapping 121점 (누적 횟수 미기록)</td><td>121점 중 무작위 5점 (반복 수 통제용)</td></tr>
           <tr><td>데이터 위치</td><td>로컬 CSV (DB 미적재)</td><td>aecd_platform (API)</td><td>(동일)</td></tr>
-          <tr><td>라벨</td><td colspan="3"><strong>세 조건 모두 DB clinical v7 cohort_group</strong> — 7월 파일명 라벨(BPRO/BNOR)은 병리 확정 전 번호라 사용하지 않음. 7월 BPRO로 적힌 49명이 DB에서는 비암(Biopsy-negative)</td></tr>
+          <tr><td>라벨</td><td colspan="3"><strong>세 조건 모두 DB clinical v7 cohort_group</strong> — 7월 파일명 라벨(BPRO/BNOR)은 병리 확정 전 번호라 사용하지 않음. 7월 BPRO로 적힌 49명이 DB에서는 조직검사 음성(Biopsy-negative)</td></tr>
           <tr><td>환자 짝</td><td colspan="3">solum_label 번호로 대조 — 8월 113명 전원이 7월 세트에 존재 (Drop 1명 제외 → {n}명)</td></tr>
         </tbody>
       </table>
@@ -131,23 +152,23 @@ def main() -> None:
   <section class="slide" data-title="3군 하락의 위치" aria-labelledby="s3b-title">
     <header><h1 id="s3b-title">3군 하락은 Control 군에서 온다 — 암 구분은 그대로</h1></header>
     <div class="grid-3 center" style="grid-template-columns:1fr 1fr .8fr">
-      {conf_table("july_liquid", "liquid", "변경 전 · 7월 액상 (fold 반복 1회분)")}
-      {conf_table("aug_mapping", "powder", "변경 후 · 8월 mapping (fold 반복 1회분)")}
+      {conf_table("july_liquid", "liquid", "변경 전 · 7월 점측정 (repeat 0)")}
+      {conf_table("aug_mapping", "powder", "변경 후 · 8월 mapping (repeat 0)")}
       <div>
         <div class="card liquid-card"><p class="kicker">Control을 Control로</p><span class="metric">{ctrl_ok["july_liquid"]} → {ctrl_ok["aug_mapping"]}</span><p>/ {lab["Control"]}명</p></div>
-        <div class="card powder-card" style="margin-top:10px"><p class="kicker">비암·암이 Control로 오인</p><span class="metric">{into_ctrl["july_liquid"]} → {into_ctrl["aug_mapping"]}</span><p>명</p></div>
+        <div class="card powder-card" style="margin-top:10px"><p class="kicker">조직검사 음성·암이 Control로 오인</p><span class="metric">{into_ctrl["july_liquid"]} → {into_ctrl["aug_mapping"]}</span><p>명</p></div>
         <div class="card" style="margin-top:10px"><p class="kicker">Cancer를 Cancer로</p><span class="metric">{cancer_ok["july_liquid"]} → {cancer_ok["aug_mapping"]}</span><p>/ {lab["Prostate cancer"]}명 — 유지</p></div>
       </div>
     </div>
-    <footer class="slide-footer"><span>핵심 메시지: 8월 mapping에서는 정상(Control) 스펙트럼이 비암·암과 섞인다. 암 자체의 구분은 유지되므로 Screening AUC는 변하지 않고 3군 AUC만 떨어진다. 원인이 환원제인지 측정 방식인지는 이 자료로 알 수 없다.</span><span>혼동행렬 = OOF, 행=DB 임상군</span></footer>
+    <footer class="slide-footer"><span>핵심 메시지: 8월 mapping에서는 정상(Control) 스펙트럼이 조직검사 음성·암과 섞인다. 암 자체의 구분은 유지되므로 Screening AUC는 변하지 않고 3군 AUC만 떨어진다. 원인이 환원제인지 측정 방식인지는 이 자료로 알 수 없다.</span><span>혼동행렬 = OOF, 행=DB 임상군, repeat 0 ({rep0_note})</span></footer>
   </section>''')
 
     # 4. per-patient
     slides.append(f'''
   <section class="slide" data-title="환자별 변화" aria-labelledby="s4-title">
-    <header><h1 id="s4-title">환자별 암 확률 — 평균은 같아도 개별 판정은 {flips}명이 뒤집힌다</h1></header>
-    <div class="center"><img class="fig" src="{img("fig_prob_shift.png")}" alt="환자별 7월 대 8월 OOF 암 확률 산점도와 변화량 막대"></div>
-    <footer class="slide-footer"><span>왼쪽: 같은 환자의 OOF P(암) — x=7월, y=8월, 점선=0.5 판정선 · 오른쪽: 8월−7월 변화량을 정렬, 색=DB 임상군 · fold 반복 1회분(repeat 0) · 확률 변화 중앙값 {rep0["july_liquid -> aug_mapping"]["prob_shift_median"]:+.3f}, Wilcoxon p={fmt(rep0["july_liquid -> aug_mapping"]["wilcoxon_p"], 2)}</span><span>n={n}</span></footer>
+    <header><h1 id="s4-title">환자별 암 확률 — AUC는 같아도 개별 판정은 {flips_lo}~{flips_hi}명이 뒤집힌다</h1></header>
+    <div class="center"><img class="fig" src="{img("fig_prob_shift.png")}" alt="환자별 7월 점측정 대 8월 mapping OOF 암 확률 산점도와 변화량 막대"></div>
+    <footer class="slide-footer"><span>왼쪽: 같은 환자의 OOF P(암) — x=7월, y=8월, 점선=0.5 판정선 · 오른쪽: 8월−7월 변화량을 정렬, 색=DB 임상군 · 그림은 repeat 0 (뒤집힘 {flips}명; {reps}회 범위 {flips_lo}~{flips_hi}명) · 확률 변화 중앙값 {rep0["july_liquid -> aug_mapping"]["prob_shift_median"]:+.3f}, Wilcoxon p={fmt(rep0["july_liquid -> aug_mapping"]["wilcoxon_p"], 2)}</span><span>n={n} · x축 7월 점측정, y축 8월 mapping</span></footer>
   </section>''')
 
     # 5. spectra
@@ -155,13 +176,13 @@ def main() -> None:
   <section class="slide" data-title="스펙트럼" aria-labelledby="s5-title">
     <header><h1 id="s5-title">전처리 후 스펙트럼은 같은 환자에서 얼마나 닮았나</h1></header>
     <div class="grid-2 center">
-      <img class="fig" src="{img("fig_group_mean_spectra.png")}" alt="임상군별 평균 스펙트럼, 7월 액상 대 8월 mapping">
+      <img class="fig" src="{img("fig_group_mean_spectra.png")}" alt="임상군별 평균 스펙트럼, 7월 점측정 대 8월 mapping">
       <div>
-        <div class="card"><p class="kicker">같은 환자 7월 ↔ 8월 스펙트럼 상관</p><span class="metric">{fmt(corr["median"], 3)}</span><p>중앙값 · 5–95 백분위 {fmt(corr["p5"], 3)} – {fmt(corr["p95"], 3)}<br><span class="muted">전처리 후 935점 SNV 스펙트럼, 환자별 피어슨 상관</span></p></div>
-        <div class="card" style="margin-top:12px"><p class="kicker">반복 수 통제 — mapping 5점만 쓰면</p><p>Screening AUC {fmt(scr["aug_mapping_5"]["mean"])}±{fmt(scr["aug_mapping_5"]["sd"])} (121점 {fmt(scr["aug_mapping"]["mean"])}, ΔAUC {p_m5["delta_auc_mean"]:+.3f}, 유의 {p_m5["repeats_delong_p_lt_0_05"]}/{reps}회). <strong>mapping 한 점은 7월 "1회 측정"(Ave100 누적)과 같은 품질이 아니다</strong> — 8월은 121점 평균이어야 7월 5회 평균과 비슷해진다.</p></div>
+        <div class="card"><p class="kicker">같은 환자 7월 점측정 ↔ 8월 mapping 스펙트럼 상관</p><span class="metric">{fmt(corr["median"], 3)}</span><p>중앙값 · 5–95 백분위 {fmt(corr["p5"], 3)} – {fmt(corr["p95"], 3)}<br><span class="muted">전처리 후 935점 SNV 스펙트럼, 환자별 피어슨 상관</span></p></div>
+        <div class="card" style="margin-top:12px"><p class="kicker">반복 수 통제 — mapping 5점만 쓰면</p><p>Screening AUC {fmt(scr["aug_mapping_5"]["mean"])}±{fmt(scr["aug_mapping_5"]["sd"])} (121점 {fmt(scr["aug_mapping"]["mean"])}, ΔAUC {p_m5["delta_auc_mean"]:+.3f}, 유의 {p_m5["repeats_delong_p_lt_0_05"]}/{reps}회). 즉 mapping 한 점은 7월 1회 측정보다 정보가 적다. 7월은 Ave100 누적이고 8월 mapping의 누적 횟수는 <strong>기록에 없어</strong> 획득 조건 차이는 확인이 필요하다. 비교 단위는 8월 121점 평균 — 이때 <strong>Screening AUC 수준에서만</strong> 7월 5회 평균과 같아진다.</p></div>
       </div>
     </div>
-    <footer class="slide-footer"><span>핵심 메시지: 군 평균의 피크 위치는 유지되지만 같은 환자의 두 스펙트럼 상관은 중앙값 {fmt(corr["median"], 2)}에 그친다 — 환자 개별 신호는 조건 사이에서 상당히 달라진다.</span><span>임상군 = DB v7 · 상관은 935점 SNV 스펙트럼</span></footer>
+    <footer class="slide-footer"><span>핵심 메시지: 세 군 모두 같은 방향으로 형태가 바뀐다 — 1000 cm⁻¹ 부근 SNV {rng_txt(b1000["july_liquid"])} → {rng_txt(b1000["aug_mapping"])}, 1450 부근 {rng_txt(b1450["july_liquid"])} → {rng_txt(b1450["aug_mapping"])} 감소, 1600–1700 {rng_txt(b1650["july_liquid"])} → {rng_txt(b1650["aug_mapping"])} 증가(군별 범위). 같은 환자의 두 스펙트럼 상관은 중앙값 {fmt(corr["median"], 2)}. 이 형태 변화와 Control 구분 상실의 연결은 미분석.</span><span>임상군 = DB v7 · 상관은 935점 SNV 스펙트럼 · 띠 평균은 군 평균 스펙트럼</span></footer>
   </section>''')
 
     # 6. how to read
@@ -169,11 +190,11 @@ def main() -> None:
   <section class="slide" data-title="해석" aria-labelledby="s6-title">
     <header><h1 id="s6-title">이 수치를 어떻게 읽어야 하나</h1></header>
     <div class="grid-3 center">
-      <div class="card liquid-card"><p class="kicker">1 · 같은 데이터, fold만 바꿔도</p><p>8월 mapping Screening AUC는 fold 배정에 따라 <strong>{fmt(scr["aug_mapping"]["min"])} ~ {fmt(scr["aug_mapping"]["max"])}</strong> 사이를 오간다 (SD {fmt(scr["aug_mapping"]["sd"])}). 오늘 오전 단일 실행값 0.789도 이 범위의 한 점이다.</p></div>
+      <div class="card liquid-card"><p class="kicker">1 · 같은 데이터, fold만 바꿔도</p><p>8월 mapping Screening AUC는 fold 배정에 따라 <strong>{fmt(scr["aug_mapping"]["min"])} ~ {fmt(scr["aug_mapping"]["max"])}</strong> 사이를 오간다 (SD {fmt(scr["aug_mapping"]["sd"])}). 단일 fold 배정 값 0.789(AS-11, 2026-09-09)는 이 {reps}회의 최대치보다도 높아 반복에서 재현되지 않았다 — 대표값으로 쓰지 않는다.</p></div>
       <div class="card powder-card"><p class="kicker">2 · Screening 차이는 그 폭 안, 3군 차이는 밖</p><p>Screening ΔAUC {delta_jm:+.3f} (범위 {p_jm["delta_auc_min"]:+.3f} ~ {p_jm["delta_auc_max"]:+.3f}), DeLong p&lt;0.05 <strong>{p_jm["repeats_delong_p_lt_0_05"]}/{reps}회</strong> → 차이 없음. 3군 macro AUC는 7월 최저 {fmt(thr["july_liquid"]["min"])} &gt; 8월 최고 {fmt(thr["aug_mapping"]["max"])} — <strong>{reps}회 어느 반복에서도 겹치지 않는다</strong>.</p></div>
       <div class="card green-card"><p class="kicker">3 · 그래서</p><p><strong>암 검출(Screening)은 변경 전후 같다.</strong> 달라진 것은 정상군을 따로 알아보는 능력이고, 이것은 fold 노이즈가 아니다. 다만 7월 lot·측정일·측정 방식이 함께 바뀌었으므로 <strong>"환원제 때문"이라고는 아직 말할 수 없다</strong>.</p></div>
     </div>
-    <footer class="slide-footer"><span>핵심 메시지: 단일 실행값(오전 0.789)이 아니라 반복 분포로 읽어야 한다 — 그렇게 읽으면 Screening은 불변, 3군은 실제 하락이다.</span><span>DeLong: 동일 환자 상관 AUC 검정 · 3군은 macro OvR AUC 범위 비교</span></footer>
+    <footer class="slide-footer"><span>핵심 메시지: 단일 실행값(0.789)이 아니라 반복 분포로 읽어야 한다 — 그렇게 읽으면 Screening은 불변, 3군은 실제 하락이다.</span><span>DeLong: 동일 환자 상관 AUC 검정 · 3군은 macro OvR AUC 범위 비교</span></footer>
   </section>''')
 
     # 7. limits + next actions
@@ -191,7 +212,7 @@ def main() -> None:
       <div class="card green-card"><p class="kicker">다음 행동 (권고)</p>
         <ol>
           <li><strong>lot 기록 복원</strong>: 7월 09일 측정에 쓴 센서·환원제 lot을 실험 노트에서 확인 — 이것 하나로 해석이 갈린다</li>
-          <li><strong>한 변수 실험</strong>: 같은 날, 같은 검체 분주를 구·신 환원제 센서로 각각 측정 (07-15 "Sigma 1~5" 재현성 설계와 같은 형태) — 20검체면 충분</li>
+          <li><strong>한 변수 실험</strong>: 같은 날, 같은 검체 분주를 구·신 환원제 센서로 각각 측정 — 나머지 조건(장비·측정자·누적 횟수·mapping 여부) 고정. 검체 수는 이 자료의 환자별 변동(상관 {fmt(corr["median"], 2)})으로 검정력을 계산해 정한다</li>
           <li>이 짝 비교 코드는 재실행 가능 상태로 유지 — 새 측정이 들어오면 같은 표를 다시 만든다</li>
         </ol></div>
     </div>
