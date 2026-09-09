@@ -5,6 +5,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 SRC = Path(__file__).resolve().parents[2] / "publications" / "전향검체" / "보라매병원" / "src"
 sys.path.insert(0, str(SRC))
@@ -49,6 +50,7 @@ def test_comparison_shows_trimmed_raw_and_processed_panels() -> None:
     plt.close(figure)
 
 
+@pytest.mark.slow  # real data: needs data/mapping/clinical_df.xlsx (gitignored)
 def test_mapping_spectra_include_only_prostate_cancer_on_canonical_grid() -> None:
     # Given: the canonical 935-point comparison grid and verified new-reagent mapping data.
     grid = np.load(REPO / "artifacts" / "usersnet" / "v1.0.0" / "common_grid.npy")

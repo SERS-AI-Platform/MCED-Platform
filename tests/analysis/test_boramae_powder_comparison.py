@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 SRC = Path(__file__).resolve().parents[2] / "publications" / "전향검체" / "보라매병원" / "src"
 sys.path.insert(0, str(SRC))
@@ -193,6 +194,7 @@ def test_powder_native_figures_match_binary_and_three_group_layout(tmp_path: Pat
         assert (tmp_path / f"{name}.pdf").is_file()
 
 
+@pytest.mark.slow  # real data: needs data/clinical_data/보라매 병원 임상정보.xlsx (gitignored)
 def test_actual_powder_inventory_has_109_paired_subjects() -> None:
     # Given: the reviewed liquid, powder, and Boramae clinical sources.
     repo = Path(__file__).resolve().parents[2]
@@ -214,6 +216,7 @@ def test_actual_powder_inventory_has_109_paired_subjects() -> None:
     assert sum(row.clinical_group == "Cancer" for row in pairs) == 41
 
 
+@pytest.mark.slow  # real data: needs data/clinical_data/보라매 병원 임상정보.xlsx (gitignored)
 def test_clinical_covariates_preserve_psa_missingness_by_group() -> None:
     # Given: the Boramae clinical workbook and paired subject order.
     repo = Path(__file__).resolve().parents[2]
@@ -303,6 +306,7 @@ def test_binary_crossfit_optimizes_threshold_inside_each_training_fold() -> None
     )
 
 
+@pytest.mark.slow  # real data: needs data/clinical_data/보라매 병원 임상정보.xlsx (gitignored)
 def test_lr_crossfit_reproduces_historical_liquid_auc() -> None:
     # Given: the paired Boramae cohort and the historical model grid.
     repo = Path(__file__).resolve().parents[2]

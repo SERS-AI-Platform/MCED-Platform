@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 PUBLICATION = (
     Path(__file__).resolve().parents[2]
@@ -40,6 +41,7 @@ def test_strict_binary_excludes_biopsy_negative() -> None:
     assert indices.tolist() == [0, 2, 3, 5]
 
 
+@pytest.mark.slow  # real data: needs clean_vs_prospective/ outputs generated from gitignored clinical data
 def test_requested_outputs_exist() -> None:
     expected = [
         PUBLICATION / "figures" / "fig07_legacy_vs_prospective_peak_alignment.png",
@@ -53,6 +55,7 @@ def test_requested_outputs_exist() -> None:
     assert not [path for path in expected if not path.exists()]
 
 
+@pytest.mark.slow  # real data: needs clean_vs_prospective/ outputs generated from gitignored clinical data
 def test_combined_metrics_has_eight_unique_tasks() -> None:
     path = PUBLICATION / "tables" / "prostate_classification_metrics.csv"
     with path.open(encoding="utf-8-sig") as handle:
@@ -64,6 +67,7 @@ def test_combined_metrics_has_eight_unique_tasks() -> None:
     assert len({row["task"] for row in rows}) == 8
 
 
+@pytest.mark.slow  # real data: needs clean_vs_prospective/ outputs generated from gitignored clinical data
 def test_calibration_shift_counts_match_replicates() -> None:
     path = PUBLICATION / "tables" / "prostate_urea_calibration_shifts.csv"
     with path.open(encoding="utf-8-sig") as handle:
@@ -73,6 +77,7 @@ def test_calibration_shift_counts_match_replicates() -> None:
     assert sum(row["cohort"] == "Prospective cancer" for row in rows) == 205
 
 
+@pytest.mark.slow  # real data: needs clean_vs_prospective/ outputs generated from gitignored clinical data
 def test_publication_outputs_are_anonymized_and_bom_encoded() -> None:
     pattern = re.compile(r"\b(?:BPRO|BNOR|PRO)\s+\d+\b")
     paths = [
@@ -88,6 +93,7 @@ def test_publication_outputs_are_anonymized_and_bom_encoded() -> None:
     )
 
 
+@pytest.mark.slow  # real data: needs clean_vs_prospective/ outputs generated from gitignored clinical data
 def test_report_contains_alignment_and_hospital_confound_warning() -> None:
     report = (PUBLICATION / "PROSTATE_COMPARISON.md").read_text(encoding="utf-8")
 
