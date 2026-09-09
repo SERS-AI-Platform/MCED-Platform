@@ -539,6 +539,38 @@
     ③ 분석 측: leave-one-day-out CV, 날짜 공변량 포함 모델, 날짜별 중심화 후 재평가. ④ 정상군 n 확대(현재 20명, 특이도 CI ±0.23).
   - 산출: 이 절의 수치는 `results/preprocessing_lab/guide_pipeline_20260907/aecd/production/patient_oof_*.csv` + DB 조인으로 재현 (스크립트 없음, 세션 내 계산).
 
+- [x] PL-3 추가 (2026-09-09, 사용자 결정): **축 보정은 PS+Si 표준물질로만** — `cal_ps_si`, `cal_ps_si_sg11` ✅
+  - **결정 근거**: urea 1001.4 피크 보정은 검체 화학을 정렬할 수 있다(위 cal_ps 항목 관찰 4). 후향 DACR 데이터의 urea shift는
+    sd 2.41 / |max| 7.06 cm⁻¹, fail-safe 12.5%이고 **그룹별 평균이 다르다** (CRC +2.37, CPAN +2.04, LUN +1.65 vs PRO 0.03, DIA 0.01,
+    HBP −0.65; `results/preprocessing_dacr/calibration_shifts.csv`). 그룹 = 병원이므로 urea 보정은 병원 배치 효과와 생화학 차이를
+    구분 없이 지운다. 장비 축 오차는 표준물질로 잰 값이 run당 PS −0.03~+0.20, Si +0.28~+0.51 cm⁻¹로 한 자릿수 작다.
+  - **구현**: `sers.preprocessing.fit_standard_material_axis(ref, obs)` → err(x)=a+b·x 최소제곱, `apply_standard_material_axis(x,a,b)` →
+    x−(a+b·x). run(측정일+장비)별로 `measurement.calibrations`의 PS 8피크 + Si 520.7 피크(총 9점)에 적합. 적합 결과(5 run):
+    b = −1.5e-4 (5일 모두 동일), a = +0.17~+0.40 → 보정량 520 cm⁻¹에서 +0.09~+0.32, 2000 cm⁻¹에서 −0.14~+0.10.
+    PS 관측피크는 DB에 global_shift 파생값으로 저장돼 있어 기울기는 사실상 Si↔PS 차이가 정한다 (Si만 독립 관측).
+    `config.yaml do_calibration: false`(urea OFF). 테스트 2건 추가(`tests/test_preprocessing.py`).
+  - **결과** (112명, 5시드; 이전 항목과 같은 규약):
+
+    | 조건 | spectra | 이진 AUC seed42 [CI] | 5시드 | Δ vs production(urea) | Δ vs no_cal | 3-class 5시드 | Δ3 vs production |
+    |---|---|---|---|---|---|---|---|
+    | cal_ps_si (SG 5) | 10,828 | 0.766 [0.671, 0.842] | 0.745±0.030 | −0.051 [−0.118, 0.004] | +0.031 [−0.011, 0.074] | 0.665±0.043 | −0.060 [−0.116, −0.013] |
+    | cal_ps_si_sg11 | 11,332 | 0.765 [0.660, 0.851] | 0.765±0.023 | −0.052 [−0.134, 0.017] | +0.030 [−0.036, 0.100] | **0.690±0.023** | +0.005 [−0.045, 0.060] |
+    | (참고) no_cal_sg11 | 11,331 | 0.782 | 0.794±0.011 | −0.036 [−0.116, 0.035] | | 0.674±0.020 | |
+    | (참고) production urea SG5 | 10,413 | 0.817 | 0.796±0.028 | 0 | | 0.682±0.025 | 0 |
+
+  - **관찰 (채택 판단은 사용자)**:
+    1. urea를 빼면 이진 AUC 5시드 평균이 0.03~0.05 낮아지지만 짝지은 CI는 모두 0을 포함한다. 3-class는 SG 11에서 0.690으로 전 조건 중 최고.
+    2. urea 없는 조건들끼리(no_cal 0.730, cal_ps 0.745, cal_ps_si 0.745, no_cal_sg11 0.794, cal_ps_si_sg11 0.765)의 차이는
+       그리드 간격(1.92 cm⁻¹)보다 작은 축 이동에서 나온 것이라 **측정 잡음 수준(±0.03)** 으로 읽어야 한다. PS+Si 보정의 효과를
+       이 코호트에서 AUC로 증명할 수는 없다 — 단일 장비·5일이라 보정할 드리프트가 거의 없기 때문이며, 이는 예상된 결과다.
+    3. urea 제거 후에는 SG 창 선택이 다시 열린다(SG 11이 5보다 이진·3-class 모두 높음). PL-2 기록 누락과 함께 재확인 필요.
+  - **후속 영향 (미조치, 사용자 확인 필요)**:
+    (a) 후향 7암종 데이터(1,630명)는 표준물질 기록이 없어 PS/Si 보정이 불가능하다 — `do_calibration: false`로 재전처리하면 보정 없음.
+    (b) STK-V2(production 모델)는 urea 보정된 데이터로 학습됐다. 추론 코드(`scripts/deployment`)는 urea 보정을 적용하지 않으므로
+        이미 학습/추론 불일치가 있었고, 이번 결정으로 새 데이터 파이프라인과 기존 모델의 전처리는 공식적으로 갈라진다.
+    (c) `experiment.preprocessing_methods` `calibration_astm_reference`에 연결된 기존 urea run(production 등)의 method 정정.
+  - DB: `experiment.runs` cal_ps_si / cal_ps_si_sg11 적재(run_measurements 각 13,552). `summary.csv` Δ 기준에 `cal_ps_si` 추가.
+
 ## Phase OV — 측정자(operator) 변동성 분석 (2026-09-04)
 
 - [x] OV-1: 측정자에 따른 스펙트럼 변동성 통계 분석

@@ -25,6 +25,9 @@ SG(config: 창 5, 차수 3), 개별 spectrum 학습, 환자 mean OOF:
                   : 기준점에서 ④↔⑤ 순서만 교체 (baseline → smooth)
     cal_ps        : 표준물질(PS) run 단위 축 보정만 (urea ✗ despike ✗)  ← 2026-09-09 추가
     cal_ps_urea   : PS 축 보정 후 urea 피크 보정 (despike ✗)            ← 2026-09-09 추가
+    cal_ps_si     : PS 8피크 + Si 520.7 피크로 run 단위 1차(offset+slope) 축 보정, urea ✗
+    cal_ps_si_sg11: 위와 같고 SG 창만 11                                 ← 2026-09-09 사용자 결정
+                    ("urea 보정은 화학 신호를 볼 수 있으므로 PS/Si 표준물질로만 보정")
 
 표준물질 보정(2026-09-09 추가): `measurement.calibrations`(PS, raman_shift, pass)의
 run(측정일+장비) 단위 global_shift를 x축에서 빼는 것(x − shift)이며, AECD API
@@ -103,7 +106,12 @@ from sers.evaluation.schema import (  # noqa: E402
     Task,
     write_metrics_csv,
 )
-from sers.preprocessing import calibrate_spectra_batch, preprocess_spectra  # noqa: E402
+from sers.preprocessing import (  # noqa: E402
+    apply_standard_material_axis,
+    calibrate_spectra_batch,
+    fit_standard_material_axis,
+    preprocess_spectra,
+)
 from sers.qc.qc import (  # noqa: E402
     apply_per_spectrum_corr_qc,
     apply_stage1_qc,
@@ -197,6 +205,17 @@ CONDITIONS["cal_ps_urea"] = dict(
     calibrate=True, ps_calibrate=True, method_key="calibration_astm_reference",
     label="PS 축 보정 후 urea 피크 보정: ps✓ urea✓ despike✗ rolling_min SNV",
 )
+CONDITIONS["cal_ps_si"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=False, ps_calibrate="linear", method_key="calibration_astm_reference",
+    label="PS+Si 표준물질 run 단위 1차 축 보정(offset+slope): urea✗ despike✗ rolling_min SNV (SG 5)",
+)
+CONDITIONS["cal_ps_si_sg11"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv",
+                   smooth_window=11),
+    calibrate=False, ps_calibrate="linear", method_key="calibration_astm_reference",
+    label="PS+Si 표준물질 run 단위 1차 축 보정: urea✗ despike✗ rolling_min SNV (SG 11)",
+)
 CONDITIONS["order_baseline_first"] = dict(
     overrides={**_BASE, "baseline_before_smooth": True},
     calibrate=True, method_key=None,
@@ -220,7 +239,8 @@ def _prep_config(cfg, overrides: dict) -> PreprocessingConfigExt:
 
 
 #: 짝지은 Δ를 낼 기준. production = 현재 배포 파이프라인, cal_despike = 요인 교체의 기준점
-DELTA_REFERENCES = ("production", "cal_despike", "no_cal")
+DELTA_REFERENCES = ("production", "cal_despike", "no_cal", "cal_ps_si")
+# 2026-09-09 사용자 결정 이후 기준 조건은 cal_ps_si(표준물질만). "production"은 urea 보정 시절 기록 유지용.
 
 #: 3-class 라벨 (aecd cohort_group → 클래스 인덱스). 매핑 run의 GROUP_ORDER와 같은 순서.
 THREE_CLASS = {"control": 0, "prostate disease control": 1, "prostate": 2,
@@ -242,6 +262,7 @@ class Cohort:
     measurement_ids: list[int] | None      # aecd만 FK 연결
     data_query_filters: dict
     ps_shift_by_key: dict | None = None    # aecd만: key → PS global_shift_cm1 (run 단위)
+    ps_si_linear_by_key: dict | None = None  # aecd만: key → (a, b): x_corr = x − (a + b·x)
 
 
 def load_aecd(groups: tuple[str, ...] = AECD_COHORTS, name: str = "aecd") -> Cohort:
@@ -260,7 +281,7 @@ def load_aecd(groups: tuple[str, ...] = AECD_COHORTS, name: str = "aecd") -> Coh
         ids.extend(res.measurement_ids)
         observed[cohort] = len(res.spectra)
         print(f"  {cohort:26s} {len(res.spectra):6d} spectra")
-    ps_shift_by_key = _load_ps_shifts(key_to_mid)
+    ps_shift_by_key, ps_si_linear_by_key = _load_ps_shifts(key_to_mid)
     return Cohort(
         name=name, site=f"aecd_platform(전립선 {len(groups)}군)", spectra=spectra,
         cancer_group=AECD_CANCER,
@@ -268,6 +289,7 @@ def load_aecd(groups: tuple[str, ...] = AECD_COHORTS, name: str = "aecd") -> Coh
         measurement_ids=ids,
         data_query_filters={"cohort_group": list(groups), "observed_at_load": observed},
         ps_shift_by_key=ps_shift_by_key,
+        ps_si_linear_by_key=ps_si_linear_by_key,
     )
 
 
@@ -291,21 +313,35 @@ def _load_ps_shifts(key_to_mid: dict) -> dict:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT c.calibration_date::date, i.instrument_name, c.global_shift_cm1, "
-                "c.reference_peaks_cm1, c.observed_peaks_cm1 "
+                "SELECT c.calibration_date::date, i.instrument_name, c.standard_material, "
+                "c.global_shift_cm1, c.reference_peaks_cm1, c.observed_peaks_cm1 "
                 "FROM measurement.calibrations c "
                 "JOIN measurement.instruments i ON i.instrument_id = c.instrument_id "
-                "WHERE c.standard_material = 'Polystyrene (PS)' AND c.calibration_type = 'raman_shift' "
-                "AND c.result = 'pass' AND c.global_shift_cm1 IS NOT NULL")
-            cal = {}
-            for d, inst, shift, ref, obs in cur.fetchall():
+                "WHERE c.standard_material IN ('Polystyrene (PS)', 'Silicon (Si)') "
+                "AND c.calibration_type = 'raman_shift' AND c.result = 'pass'")
+            cal, peaks = {}, {}
+            for d, inst, material, shift, ref, obs in cur.fetchall():
                 k = (d.isoformat(), inst)
-                if k in cal:
-                    raise RuntimeError(f"PS calibration ambiguous for {k}")
-                if not np.allclose(np.asarray(obs, dtype=float) - np.asarray(ref, dtype=float),
-                                   float(shift), atol=0.05):
-                    raise RuntimeError(f"stored global_shift disagrees with peak errors for {k}")
-                cal[k] = float(shift)
+                ref_a = np.asarray(ref, dtype=float)
+                err_a = np.asarray(obs, dtype=float) - ref_a
+                if material.startswith("Polystyrene"):
+                    if k in cal:
+                        raise RuntimeError(f"PS calibration ambiguous for {k}")
+                    if shift is None or not np.allclose(err_a, float(shift), atol=0.05):
+                        raise RuntimeError(f"stored global_shift disagrees with peak errors for {k}")
+                    cal[k] = float(shift)
+                peaks.setdefault(k, []).append((ref_a, err_a, material))
+            # PS+Si 1차 축 보정: 관측오차 err(x) = a + b·x 를 두 물질의 피크에 최소제곱 적합.
+            # PS 관측피크는 DB에 global_shift로 파생 저장돼 있어 8점이 같은 오차를 가지며,
+            # Si 520.7은 독립 관측이라 기울기는 사실상 Si↔PS 차이가 결정한다.
+            linear = {}
+            for k, items in peaks.items():
+                mats = {m for _, _, m in items}
+                if not {"Polystyrene (PS)", "Silicon (Si)"} <= mats:
+                    raise RuntimeError(f"PS+Si calibration incomplete for {k}: {mats}")
+                xs = np.concatenate([r for r, _, _ in items])
+                es = np.concatenate([e for _, e, _ in items])
+                linear[k] = fit_standard_material_axis(xs, xs + es)
             mids = [int(m) for m in key_to_mid.values()]
             cur.execute(
                 "SELECT m.measurement_id, r.measurement_date, i.instrument_name "
@@ -316,15 +352,20 @@ def _load_ps_shifts(key_to_mid: dict) -> dict:
             mid_to_run = {int(mid): (d.isoformat(), inst) for mid, d, inst in cur.fetchall()}
     finally:
         conn.close()
-    out = {}
+    out, out_lin = {}, {}
     for key, mid in key_to_mid.items():
         run = mid_to_run.get(int(mid))
-        if run is None or run not in cal:
-            raise RuntimeError(f"no PS calibration for measurement {mid} (run={run})")
+        if run is None or run not in cal or run not in linear:
+            raise RuntimeError(f"no PS/Si calibration for measurement {mid} (run={run})")
         out[key] = cal[run]
+        out_lin[key] = linear[run]
     uniq = sorted(set(out.values()))
     print(f"  PS calibration: {len(cal)} run(s), shift(cm⁻¹) = {uniq}")
-    return out
+    for k in sorted(linear):
+        a, b = linear[k]
+        print(f"  PS+Si linear {k[0]}: err(x) = {a:+.4f} {b:+.2e}·x  "
+              f"(corr @520={a + b * 520:+.3f}, @1000={a + b * 1000:+.3f}, @2000={a + b * 2000:+.3f})")
+    return out, out_lin
 
 
 def load_mapping() -> Cohort:
@@ -357,7 +398,15 @@ def load_mapping() -> Cohort:
 def run_condition(cohort: Cohort, cfg, spec: dict):
     raw = cohort.spectra
     shift_df = None
-    if spec.get("ps_calibrate"):
+    if spec.get("ps_calibrate") == "linear":
+        if cohort.ps_si_linear_by_key is None:
+            raise RuntimeError("PS+Si 보정은 aecd 코호트(measurement.calibrations)에서만 가능")
+        # x_corrected = x_observed − (a + b·x_observed), run 단위 1차 보정
+        raw = {}
+        for k, (x, y) in cohort.spectra.items():
+            a, b = cohort.ps_si_linear_by_key[k]
+            raw[k] = (apply_standard_material_axis(x, a, b), y)
+    elif spec.get("ps_calibrate"):
         if cohort.ps_shift_by_key is None:
             raise RuntimeError("PS 보정은 aecd 코호트(measurement.calibrations)에서만 가능")
         # x_corrected = x_observed − global_shift (AECD API 파이프라인과 동일 정의)
@@ -509,9 +558,12 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
             "cohort": cohort.name, "site": cohort.site, "condition": cond,
             "label": spec["label"], "method_key": spec["method_key"],
             "calibrate": spec["calibrate"],
-            "ps_calibrate": bool(spec.get("ps_calibrate", False)),
+            "ps_calibrate": spec.get("ps_calibrate", False),
             "ps_shift_cm1": (None if not spec.get("ps_calibrate") else
                              sorted({float(v) for v in cohort.ps_shift_by_key.values()})),
+            "ps_si_linear": (None if spec.get("ps_calibrate") != "linear" else
+                             sorted({(round(a, 5), round(b, 8))
+                                     for a, b in cohort.ps_si_linear_by_key.values()})),
             "preprocessing": {k: (list(v) if isinstance(v, tuple) else v)
                               for k, v in dataclasses.asdict(prep_cfg).items()
                               if isinstance(v, (int, float, str, bool, tuple, list)) or v is None},
