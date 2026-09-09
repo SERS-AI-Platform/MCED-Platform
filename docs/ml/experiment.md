@@ -332,6 +332,25 @@
   - ⚠️ 7월 vs 8월 비교의 해석 한계: (1) 7월 세트는 **파일 라벨(BPRO/BNOR)이 병리 확정 전 번호**라 기존 0.714/0.811 자체의 정답표가 DB v7과 다르다(`project_prospective_label_mismatch`); (2) 7월 센서 lot 미확인; (3) replicate 5 vs mapping 121 차이. **환원제 효과로 귀속하려면 5번↔8번 동일 환자를 DB 라벨로 재짝지어 비교해야 한다.** 2026-09-09 `solum_label` 번호 대조 결과 mapping 113명 **전원**이 7월 액상 세트에 있음(라벨까지 같은 64명 + 7월 BPRO→DB BNOR로 바뀐 49명; 7월에만 있는 7명은 DB 미등록). 즉 짝 비교 가능 n=112(Drop 제외) — AS-12에서 수행.
   - `generate_final_publication_outputs.py`는 산출물 생성 후 `validate_report_snapshot()`의 `ReportDriftError`로 정지 (손으로 쓴 PROSTATE_COMPARISON.md가 새 값을 포함하지 않음 — 설계된 가드). 재생성된 figures/tables는 **커밋하지 않음** (조건표 완성 후 결정)
   - 산출물(미커밋, worktree `/home/user/SERS-AI-ci-tiered/publications/전향검체/보라매병원/{figures,tables}`): fig01/02/03/04a/04b/05/06, `prostate_classification_metrics.csv`, `*_oof_predictions.csv`, `*_confusion_matrix.csv`
+  - ⚠️ **정정 (AS-12에서 확인)**: 위 0.789는 단일 fold 배정 값이다. `nested_oof()`가 fold seed를 고정해 subject 순서가 fold를 결정하는데, 같은 데이터·같은 파이프라인에서 순서만 바꿔 10회 반복하면 screening AUC **0.727 ± 0.035 (범위 0.676–0.770)**, 3군 macro AUC **0.604 ± 0.032**이다. 0.789는 그 분포의 상단이며 대표값으로 인용하지 말 것.
+- [x] Phase AS-12: 환원제 변경 전(7월 액상) vs 후(8월 mapping) — **동일 환자 112명 짝 비교**, fold 반복 10회 ✅ (2026-09-09)
+  - 설계: 7월 07-09 액상(5회 점 측정, Ave100, 로컬 CSV, lot 미기록) ↔ 8월 mapping(121점, aecd_platform, Sigma-Aldrich 226904 Lot BCCP0922). `solum_label` 번호로 짝지음 — mapping 113명 전원이 7월 세트에 있음(라벨 동일 64 + 7월 BPRO→DB BNOR 49), Drop 1 제외 → **112명**. 7월에만 있는 7명(43·58·65·96·104·111·113)은 DB 미등록으로 제외. **라벨은 세 조건 모두 DB clinical v7 cohort_group** (정상 20 / 비암 49 / 암 43). 반복 수 통제용 3번째 조건: mapping 121점 중 무작위 5점(seed 20260909).
+  - 파이프라인 AS-11과 동일 (trim → SG(11,3) → rolling-min(101) → SNV → 환자 평균 → StandardScaler+LR balanced, nested 5×4 StratifiedKFold). 단 subject 순서를 10회 무작위 치환해 fold 배정을 바꿈; 같은 반복 안에서는 세 조건이 같은 치환을 써 짝 검정(동일 환자 DeLong, `powder_comparison/delong.py`)이 성립.
+  - **결과 (평균 ± SD, 10회; 범위)**
+
+    | 조건 | Screening AUC | 3군 macro OvR AUC | Screening BAcc | 3군 BAcc |
+    |---|---|---|---|---|
+    | 7월 액상 (변경 전) | **0.737 ± 0.022** (0.703–0.771) | **0.806 ± 0.023** (0.776–0.844) | 0.694 | 0.658 |
+    | 8월 mapping 121점 (변경 후) | **0.727 ± 0.035** (0.676–0.770) | **0.604 ± 0.032** (0.561–0.666) | 0.653 | 0.413 |
+    | 8월 mapping 5점 추출 | 0.601 ± 0.041 | 0.550 ± 0.026 | 0.571 | 0.366 |
+
+    짝 검정 (Screening, 동일 환자 DeLong): 7월→8월(121점) ΔAUC **−0.011 ± 0.027** (범위 −0.048~+0.027), p<0.05 **0/10회**, p 중앙값 0.68 → **차이 없음**. 7월→8월(5점) −0.137, 6/10 유의. 8월 121점→5점 −0.126, 7/10 유의.
+  - **3군 하락은 fold 노이즈 밖**: 7월 최저 0.776 > 8월 최고 0.666, 10/10 반복 모두 하락. 혼동행렬(repeat 0, 행=실제): 7월 Control 16/2/2, Biopsy-neg 6/31/12, Cancer 2/18/23 → 8월 Control **7**/10/3, Biopsy-neg **16**/24/9, Cancer **8**/8/27. 즉 **Control 군 구분이 사라짐**(Control 정답 16→7명, 비암·암이 Control로 오인 8→24명). 암→암은 23→27로 유지 → Screening AUC 불변과 정합.
+  - 환자 수준: 같은 환자의 OOF P(암)은 두 조건 사이에서 거의 상관 없음 — 0.5 기준 판정 뒤집힘 **45/112명**, ΔP 중앙값 −0.006 (Wilcoxon p=0.87). 전처리 후 스펙트럼의 환자별 피어슨 상관 중앙값 **0.55** (5–95% 0.31–0.78; 군별 Control 0.56 / 비암 0.60 / 암 0.51).
+  - **반복 수 통제 결과**: mapping 단일 점 5개 평균은 121점 평균보다 뚜렷이 나쁨(−0.126, 7/10 유의). 7월 "1회"는 Ave100 누적이라 mapping 1점과 품질이 다르다 — 7월 5회 ≈ 8월 121점 수준. 조건 간 비교는 121점 평균 기준이 맞다.
+  - **해석 한계 (환원제 단독 효과로 못 봄)**: 7월 센서/환원제 lot 미기록, 측정일 1개월 차, 점 측정 vs mapping 방식 차, 7명 제외. 결론은 "Screening 불변 / Control 구분 하락"까지이고 원인 귀속은 없음. 다음: 7월 lot 기록 복원, 같은 날 같은 분주를 구·신 환원제로 측정하는 한-변수 실험(07-15 Sigma 1~5 설계 형태).
+  - 스크립트: `scripts/analysis/boramae_paired_reducing_agent_comparison.py`(분석, ~16분) → `_figures.py` → `_deck.py`(대표님 보고 덱, 수치는 summary.json에서 자동 생성). 산출물 `results/boramae_paired_reducing_agent/` (summary.json, repeat_summary.csv, paired_summary.csv, paired_tests.csv, subject_oof.csv, confusion_*.csv, fig_*.png), 덱 `publications/전향검체/보라매병원/slides/환원제 변경전후 동일환자 비교.html`
+  - 조건표 `workspace/_scratch/2026-09-09-performance-recovery-assessment/dataset_conditions.md` 8번 행·C항 갱신 대상
 
 ---
 
