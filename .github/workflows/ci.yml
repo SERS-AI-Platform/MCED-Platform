@@ -21,6 +21,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install uv
+        # Several tests shell out to `uv run <script>` for PEP 723 scripts that
+        # declare their own (Python 3.13) dependencies; uv fetches that
+        # interpreter itself, independent of the matrix Python above.
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
       - name: Install dependencies
         env:
           # Runners are single-use; caching wheels only doubles disk usage.
@@ -61,7 +69,9 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
+          # `slow` marks real-data regression tests (gitignored clinical files,
+          # untracked publication outputs); they run locally with `pytest -m slow`.
+          pytest -m "not slow" --cov=sers --cov-report=term-missing --cov-report=xml --cov-fail-under=35
 
       - name: Process coverage summary
         run: |
