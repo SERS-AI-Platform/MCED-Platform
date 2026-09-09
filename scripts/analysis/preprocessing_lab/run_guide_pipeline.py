@@ -223,6 +223,32 @@ CONDITIONS["order_baseline_first"] = dict(
 )
 
 
+# ---------------------------------------------------------------------------
+# 2026-09-09 사용자 결정("축 보정은 PS+Si 표준물질로만") 이후의 사다리: 기존 요인 조건을
+# urea 보정 없이 PS+Si 1차 축 보정 위에서 재실행한다. 기준점 = ps_despike
+# (PS+Si ✓, WH despike ✓, rolling_min, SNV, SG 5 = 기존 cal_despike에서 urea→PS+Si만 교체).
+# ---------------------------------------------------------------------------
+_PS_SKIP = {"no_cal", "production", "no_cal_sg11", "cal_ps", "cal_ps_urea", "cal_ps_si", "cal_ps_si_sg11"}
+for _name, _spec in list(CONDITIONS.items()):
+    if _name in _PS_SKIP or not _spec["calibrate"]:
+        continue
+    _new = "ps_despike" if _name == "cal_despike" else f"ps_{_name}"
+    CONDITIONS[_new] = dict(
+        overrides=dict(_spec["overrides"]),
+        calibrate=False, ps_calibrate="linear",
+        method_key=_spec["method_key"] or "calibration_astm_reference",
+        label=f"[PS+Si 축보정, urea✗] {_spec['label']}",
+    )
+# SG 창 5 vs 11 결정용 중간 창 (2026-09-09 사용자 요청) — PS+Si 기준점에서 smoothing 창만 교체
+for _w in (7, 9):
+    CONDITIONS[f"ps_sm_sg{_w}"] = dict(
+        overrides={**_BASE, "smooth_window": _w},
+        calibrate=False, ps_calibrate="linear", method_key="savgol",
+        label=f"[PS+Si 축보정, urea✗] 기준점에서 smoothing=SG 창 {_w}",
+    )
+PS_LADDER = tuple(k for k in CONDITIONS if k.startswith("ps_"))
+
+
 @dataclasses.dataclass(frozen=True)
 class PreprocessingConfigExt(PreprocessingConfig):
     """`baseline_before_smooth`를 config.py를 건드리지 않고 추가한다.
@@ -239,7 +265,7 @@ def _prep_config(cfg, overrides: dict) -> PreprocessingConfigExt:
 
 
 #: 짝지은 Δ를 낼 기준. production = 현재 배포 파이프라인, cal_despike = 요인 교체의 기준점
-DELTA_REFERENCES = ("production", "cal_despike", "no_cal", "cal_ps_si")
+DELTA_REFERENCES = ("production", "cal_despike", "no_cal", "cal_ps_si", "ps_despike")
 # 2026-09-09 사용자 결정 이후 기준 조건은 cal_ps_si(표준물질만). "production"은 urea 보정 시절 기록 유지용.
 
 #: 3-class 라벨 (aecd cohort_group → 클래스 인덱스). 매핑 run의 GROUP_ORDER와 같은 순서.
@@ -807,6 +833,8 @@ def main() -> None:
     args = ap.parse_args()
 
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
+    if conditions == ["PS_LADDER"]:
+        conditions = list(PS_LADDER)
     unknown = set(conditions) - set(CONDITIONS)
     if unknown:
         raise SystemExit(f"unknown conditions: {sorted(unknown)}")
