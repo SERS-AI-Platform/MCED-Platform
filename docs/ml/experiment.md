@@ -329,7 +329,7 @@
 
     3-group confusion (행=true): Control 7/9/4, Biopsy-neg 14/26/9, Cancer 5/10/28. Screening: Non-cancer 49/20, Cancer 15/28.
   - 같은 mapping 세트 다른 파이프라인과의 자리: AS-1 baseline 0.629 < AS-5 raw subject-mean 0.7145 < legacy STK-V2 0.7506 < **AS-11 0.789**. 차이는 전처리(SG+rolling-min+SNV)와 CV 설계 차이를 포함하므로 동일 조건 비교가 아니다.
-  - ⚠️ 7월 vs 8월 비교의 해석 한계: (1) 7월 세트는 **파일 라벨(BPRO/BNOR)이 병리 확정 전 번호**라 기존 0.714/0.811 자체의 정답표가 DB v7과 다르다(`project_prospective_label_mismatch`); (2) 7월 센서 lot 미확인; (3) replicate 5 vs mapping 121 차이. **환원제 효과로 귀속하려면 5번↔8번 동일 환자 64명을 DB 라벨로 재짝지어 비교해야 한다** — 미수행.
+  - ⚠️ 7월 vs 8월 비교의 해석 한계: (1) 7월 세트는 **파일 라벨(BPRO/BNOR)이 병리 확정 전 번호**라 기존 0.714/0.811 자체의 정답표가 DB v7과 다르다(`project_prospective_label_mismatch`); (2) 7월 센서 lot 미확인; (3) replicate 5 vs mapping 121 차이. **환원제 효과로 귀속하려면 5번↔8번 동일 환자를 DB 라벨로 재짝지어 비교해야 한다.** 2026-09-09 `solum_label` 번호 대조 결과 mapping 113명 **전원**이 7월 액상 세트에 있음(라벨까지 같은 64명 + 7월 BPRO→DB BNOR로 바뀐 49명; 7월에만 있는 7명은 DB 미등록). 즉 짝 비교 가능 n=112(Drop 제외) — AS-12에서 수행.
   - `generate_final_publication_outputs.py`는 산출물 생성 후 `validate_report_snapshot()`의 `ReportDriftError`로 정지 (손으로 쓴 PROSTATE_COMPARISON.md가 새 값을 포함하지 않음 — 설계된 가드). 재생성된 figures/tables는 **커밋하지 않음** (조건표 완성 후 결정)
   - 산출물(미커밋, worktree `/home/user/SERS-AI-ci-tiered/publications/전향검체/보라매병원/{figures,tables}`): fig01/02/03/04a/04b/05/06, `prostate_classification_metrics.csv`, `*_oof_predictions.csv`, `*_confusion_matrix.csv`
 
