@@ -54,7 +54,7 @@ def fig_roc(summary: dict, oof: list[dict[str, str]]) -> None:
     ax.plot([0, 1], [0, 1], color="#D8D5CD", lw=1)
     ax.set_xlabel("1 − 특이도 (False positive rate)")
     ax.set_ylabel("민감도 (True positive rate)")
-    ax.set_title(f"Screening: 정상+비암 vs 암 — 동일 환자 {summary['n_paired']}명, OOF 확률 (곡선은 fold 반복 1회분)", fontsize=11.5, color=INK, loc="left")
+    ax.set_title(f"Screening: 암 vs 정상+조직검사음성 — 동일 환자 {summary['n_paired']}명, OOF 확률 (곡선은 fold 반복 1회분)", fontsize=11.5, color=INK, loc="left")
     ax.legend(loc="lower right", frameon=False, fontsize=9.5)
     fig.tight_layout()
     fig.savefig(RES / "fig_roc_paired.png")
@@ -104,7 +104,7 @@ def fig_spectra(summary: dict) -> None:
         ax.plot(grid, mbg["aug_mapping"][lab], color=ORANGE, lw=1.6, label="8월 mapping 121점 (변경 후)")
         ax.set_ylabel("SNV 강도")
         ax.text(.995, .9, f"{lab} (n={summary['labels'][lab]})", transform=ax.transAxes, ha="right", color=GROUP_COLOR[lab], fontweight="bold")
-    axes[0].legend(frameon=False, ncol=2, loc="upper left", fontsize=9.5)
+    axes[0].legend(frameon=False, ncol=2, loc="upper right", bbox_to_anchor=(.86, 1.0), fontsize=9.5)
     axes[0].set_title("임상군별 평균 스펙트럼 — 전처리 후 (SG → baseline → SNV), 동일 환자, 군 평균", fontsize=12, color=INK, loc="left")
     axes[-1].set_xlabel("Raman shift (cm⁻¹)")
     fig.tight_layout()
@@ -119,7 +119,7 @@ def fig_metric_bars(summary: dict) -> None:
         per_repeat.setdefault((m["task"], m["condition"]), []).append(m)
     conds = ["july_liquid", "aug_mapping", "aug_mapping_5"]
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), gridspec_kw={"width_ratios": [1, 1, .9]})
-    for ax, (task, key, title) in zip(axes[:2], (("screening_binary", "roc_auc", "Screening ROC-AUC (정상+비암 vs 암)"), ("three_group", "macro_ovr_roc_auc", "3군 macro OvR ROC-AUC"))):
+    for ax, (task, key, title) in zip(axes[:2], (("screening_binary", "roc_auc", "Screening ROC-AUC (암 vs 정상+조직검사음성)"), ("three_group", "macro_ovr_roc_auc", "3군 macro OvR ROC-AUC"))):
         means = [dist[(task, key, c)]["mean"] for c in conds]
         sds = [dist[(task, key, c)]["sd"] for c in conds]
         ax.bar(range(3), means, color=[COND_COLOR[c] for c in conds], width=.62, yerr=sds, capsize=5, ecolor=INK, error_kw={"lw": 1.2})

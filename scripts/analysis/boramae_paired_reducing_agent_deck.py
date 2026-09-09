@@ -182,7 +182,7 @@ def main() -> None:
         <div class="card" style="margin-top:12px"><p class="kicker">반복 수 통제 — mapping 5점만 쓰면</p><p>Screening AUC {fmt(scr["aug_mapping_5"]["mean"])}±{fmt(scr["aug_mapping_5"]["sd"])} (121점 {fmt(scr["aug_mapping"]["mean"])}, ΔAUC {p_m5["delta_auc_mean"]:+.3f}, 유의 {p_m5["repeats_delong_p_lt_0_05"]}/{reps}회). 즉 mapping 한 점은 7월 1회 측정보다 정보가 적다. 7월은 Ave100 누적이고 8월 mapping의 누적 횟수는 <strong>기록에 없어</strong> 획득 조건 차이는 확인이 필요하다. 비교 단위는 8월 121점 평균 — 이때 <strong>Screening AUC 수준에서만</strong> 7월 5회 평균과 같아진다.</p></div>
       </div>
     </div>
-    <footer class="slide-footer"><span>핵심 메시지: 세 군 모두 같은 방향으로 형태가 바뀐다 — 1000 cm⁻¹ 부근 SNV {rng_txt(b1000["july_liquid"])} → {rng_txt(b1000["aug_mapping"])}, 1450 부근 {rng_txt(b1450["july_liquid"])} → {rng_txt(b1450["aug_mapping"])} 감소, 1600–1700 {rng_txt(b1650["july_liquid"])} → {rng_txt(b1650["aug_mapping"])} 증가(군별 범위). 같은 환자의 두 스펙트럼 상관은 중앙값 {fmt(corr["median"], 2)}. 이 형태 변화와 Control 구분 상실의 연결은 미분석.</span><span>임상군 = DB v7 · 상관은 935점 SNV 스펙트럼 · 띠 평균은 군 평균 스펙트럼</span></footer>
+    <footer class="slide-footer"><span>핵심 메시지: 세 군 모두 같은 방향으로 형태가 바뀐다 — 1000 cm⁻¹(990–1010) 구간 SNV {rng_txt(b1000["july_liquid"])} → {rng_txt(b1000["aug_mapping"])}, 1450(1430–1470) {rng_txt(b1450["july_liquid"])} → {rng_txt(b1450["aug_mapping"])} 감소, 1600–1700 구간 {rng_txt(b1650["july_liquid"])} → {rng_txt(b1650["aug_mapping"])} 증가(군별 범위). 같은 환자의 두 스펙트럼 상관은 중앙값 {fmt(corr["median"], 2)}. 이 형태 변화와 Control 구분 상실의 연결은 미분석.</span><span>임상군 = DB v7 · 상관은 935점 SNV 스펙트럼 · 띠 평균은 군 평균 스펙트럼</span></footer>
   </section>''')
 
     # 6. how to read
@@ -198,7 +198,7 @@ def main() -> None:
   </section>''')
 
     # 7. limits + next actions
-    slides.append('''
+    slides.append(f'''
   <section class="slide" data-title="한계와 다음 행동" aria-labelledby="s7-title">
     <header><h1 id="s7-title">환원제 효과를 분리하려면 — 한계와 다음 행동</h1></header>
     <div class="grid-2 center">
