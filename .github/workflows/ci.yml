@@ -25,7 +25,7 @@ jobs:
         # Several tests shell out to `uv run <script>` for PEP 723 scripts that
         # declare their own (Python 3.13) dependencies; uv fetches that
         # interpreter itself, independent of the matrix Python above.
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1 (no floating v10 tag upstream)
         with:
           enable-cache: true
 
