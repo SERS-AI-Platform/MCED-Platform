@@ -9,7 +9,15 @@ AECD Data API에서 가져온다. **다운스트림 인터페이스는 그대로
     - build_aligned_boramae_subjects() (calibrate_spectrum 적용 버전)
     - group_matrix()                   (그룹별 행렬)
 
-⚠️  '# CONFIRM' 로 표시된 부분은 실제 API 응답 스키마 확인 후 확정 필요.
+API 계약은 `sers.aecd_api` (models.Spectrum / SpectrumPage, X-API-Key 인증,
+limit/offset 페이지네이션)를 그대로 따르며, 응답은 같은 pydantic 모델로 파싱한다.
+2026-09-09 실제 API/DB에 대해 확인.
+
+⚠️  데이터 범위 (2026-09-09 aecd_platform 기준): BORAMAE site에 적재된 clinical
+    스펙트럼은 2026-08-10~14 **mapping 측정(샘플당 121점)** 뿐이다. 논문 원본이
+    쓴 7월 5-replicate 점 측정(BPRO/BNOR *.CSV)은 DB에 없다. 따라서 이 로더로
+    만든 subject 평균은 121점 mapping 평균이며, 원본 논문 수치를 재현하지 않는다.
+    원본 재현이 목적이면 그 replicate 측정을 먼저 적재해야 한다.
 """
 
 from __future__ import annotations
@@ -18,11 +26,13 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Iterator
+from typing import Final, Iterator
 
 import httpx
 import numpy as np
 from scipy.signal import savgol_filter
+
+from sers.aecd_api.models import Spectrum, SpectrumPage
 
 # 로컬 전처리 유틸은 그대로 재사용 (API는 '원본에 가까운' 스펙트럼을 주는 것으로 가정)
 from sers.io import read_spectrum  # noqa: E402
@@ -37,7 +47,8 @@ API_KEY: Final = os.environ.get("AECD_API_KEY")
 DEMO_MODE: Final = os.environ.get("AECD_NOTEBOOK_DEMO", "0") == "1"
 
 # 쿼리 필터 (원하는 코호트를 지정; None이면 전체)
-SITE_CODE: str | None = None
+# aecd_platform master.sites.site_code for this publication's cohort.
+SITE_CODE: str | None = "BORAMAE"
 COHORT_GROUP: str | None = None
 CANCER_TYPE: str | None = None
 PAGE_SIZE: Final = 500
@@ -115,19 +126,27 @@ class CleanProSpectra:
 # API client
 # ------------------------------------------------------------------ #
 class AecdApiClient:
-    """AECD Data API용 얇은 httpx 래퍼 (페이지네이션 포함)."""
+    """AECD Data API용 얇은 httpx 래퍼 (limit/offset 페이지네이션 포함).
+
+    `http`에 기존 `httpx.Client`(예: FastAPI `TestClient`)를 주입하면 그 클라이언트를
+    그대로 쓰고 닫지 않는다 — 계약 테스트에서 실제 서버 없이 앱에 직접 붙이기 위함.
+    """
 
     def __init__(
         self,
         base_url: str = API_BASE_URL,
         api_key: str | None = API_KEY,
         timeout: float = 60.0,
+        *,
+        http: httpx.Client | None = None,
     ) -> None:
         headers: dict[str, str] = {"Accept": "application/json"}
         if api_key:
-            # CONFIRM: 인증 헤더 형식 (Bearer vs x-api-key)
-            headers["Authorization"] = f"Bearer {api_key}"
-        self._client = httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+            headers["X-API-Key"] = api_key  # sers.aecd_api.app: APIKeyHeader(name="X-API-Key")
+        self._owns_http = http is None
+        self._client = http or httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+        if http is not None:
+            self._client.headers.update(headers)
 
     # context manager
     def __enter__(self) -> "AecdApiClient":
@@ -137,34 +156,29 @@ class AecdApiClient:
         self.close()
 
     def close(self) -> None:
-        self._client.close()
+        if self._owns_http:
+            self._client.close()
 
-    def _paginate(self, path: str, params: dict[str, Any] | None) -> Iterator[dict[str, Any]]:
-        """page/page_size 기반 페이지네이션 (CONFIRM: cursor/offset이면 교체)."""
-        page = 1
+    def _paginate(self, path: str, params: dict[str, str]) -> Iterator[Spectrum]:
+        """SpectrumPage(total/limit/offset/items) 기반 offset 페이지네이션."""
+        offset = 0
         fetched = 0
         while True:
-            query = dict(params or {})
-            query.update({"page": page, "page_size": PAGE_SIZE})
+            query: dict[str, str | int] = dict(params)
+            query.update({"limit": PAGE_SIZE, "offset": offset})
             resp = self._client.get(path, params=query)
             resp.raise_for_status()
-            payload = resp.json()
-            # CONFIRM: 응답 envelope 키 ("items" / "results" / "data")
-            items = payload.get("items") or payload.get("results") or []
-            if not items:
-                break
-            for item in items:
+            page = SpectrumPage.model_validate(resp.json())
+            if not page.items:
+                return
+            for item in page.items:
                 yield item
                 fetched += 1
                 if fetched >= MAX_SPECTRA:
                     return
-            # CONFIRM: 다음 페이지 판단 방식
-            has_next = payload.get("has_next")
-            if has_next is None:
-                has_next = len(items) == PAGE_SIZE
-            if not has_next:
-                break
-            page += 1
+            offset += len(page.items)
+            if offset >= page.total:
+                return
 
     def iter_spectra(
         self,
@@ -172,52 +186,46 @@ class AecdApiClient:
         site_code: str | None = None,
         cohort_group: str | None = None,
         cancer_type: str | None = None,
-    ) -> Iterator[dict[str, Any]]:
-        """스펙트럼 레코드 스트림. CONFIRM: 실제 엔드포인트 경로."""
-        params: dict[str, Any] = {}
+    ) -> Iterator[Spectrum]:
+        """GET /v1/spectra 를 SpectrumFilters 이름 그대로 필터링해 스트리밍."""
+        params: dict[str, str] = {}
         if site_code:
             params["site_code"] = site_code
         if cohort_group:
             params["cohort_group"] = cohort_group
         if cancer_type:
             params["cancer_type"] = cancer_type
-        yield from self._paginate("/v1/spectra", params)  # CONFIRM 경로
+        yield from self._paginate("/v1/spectra", params)
 
 
 # ------------------------------------------------------------------ #
 # 레코드 -> 배열/도메인 객체 변환
 # ------------------------------------------------------------------ #
-def _record_arrays(record: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
-    """스펙트럼 레코드에서 (wavenumber, intensity) 추출.
+def _record_arrays(record: Spectrum) -> tuple[np.ndarray, np.ndarray]:
+    """스펙트럼 레코드에서 (wavenumber, intensity) 추출."""
+    return np.asarray(record.wavenumber, dtype=float), np.asarray(record.intensities, dtype=float)
 
-    CONFIRM: 실제 키 이름 (예: 'wavenumbers'/'intensities' 또는
-             'x'/'y' 또는 'raman_shift'/'counts').
+
+def _record_sample(record: Spectrum) -> ClinicalSample:
+    """스펙트럼 레코드에서 ClinicalSample 구성.
+
+    API는 비식별 키(`subject:<id>`)만 주므로 label/sample_no도 그것을 쓴다 — 논문
+    산출물에 원본 검체 코드(BPRO/BNOR n)가 남지 않는다. 제외 판정은 v7 워크북의
+    cohort_group='Drop'으로 적재돼 있어 parse_group()이 "Excluded"로 돌려준다.
     """
-    x = np.asarray(record["wavenumbers"], dtype=float)  # CONFIRM
-    y = np.asarray(record["intensities"], dtype=float)  # CONFIRM
-    return x, y
-
-
-def _record_sample(record: dict[str, Any]) -> ClinicalSample:
-    """스펙트럼/임상 레코드에서 ClinicalSample 구성.
-
-    CONFIRM: 각 필드에 매핑되는 API 키.
-    """
-    label = str(record.get("solum_label") or record.get("subject_label") or record["subject_id"])
-    grade_raw = record.get("grade_group")
+    group = parse_group(record.cohort_group)
     return ClinicalSample(
-        label=label,
-        sample_no=str(record.get("sample_no") or label.split()[-1]),
-        group=parse_group(record.get("cohort_group")),
-        grade_group=int(grade_raw) if isinstance(grade_raw, int) else None,
-        # CONFIRM: API에 'excluded' 플래그가 있는지 (원본은 셀 배경색으로 판단)
-        excluded=bool(record.get("excluded", False)),
+        label=record.subject_key,
+        sample_no=record.subject_key.split(":")[-1],
+        group=group,
+        grade_group=record.grade_group,
+        excluded=group == "Excluded",
     )
 
 
-def _subject_key(record: dict[str, Any]) -> str:
-    """리플리케이트를 묶는 subject 식별자. CONFIRM: 실제 키."""
-    return str(record.get("subject_id") or record.get("solum_label"))
+def _subject_key(record: Spectrum) -> str:
+    """리플리케이트를 묶는 subject 식별자."""
+    return record.subject_key
 
 
 # ------------------------------------------------------------------ #
@@ -257,12 +265,12 @@ def preprocess_file(
     return preprocess_arrays(*read_spectrum(path), grid)
 
 
-def _preprocess_record(record: dict[str, Any], grid: np.ndarray) -> np.ndarray:
+def _preprocess_record(record: Spectrum, grid: np.ndarray) -> np.ndarray:
     return preprocess_arrays(*_record_arrays(record), grid)[1]
 
 
 def _preprocess_aligned_record(
-    record: dict[str, Any], grid: np.ndarray
+    record: Spectrum, grid: np.ndarray
 ) -> tuple[np.ndarray, float]:
     x, y = _record_arrays(record)
     aligned_x, aligned_y, shift = calibrate_spectrum(x, y, window=20.0)
@@ -270,7 +278,7 @@ def _preprocess_aligned_record(
 
 
 # ------------------------------------------------------------------ #
-# Subject 빌더 (기존 build_*_subjects 대응)
+# Subject 빌더 (원본 시그니처 유지: load_clinical_samples() -> build_*_subjects(samples, grid))
 # ------------------------------------------------------------------ #
 def _grouped_records(
     client: AecdApiClient,
@@ -278,8 +286,8 @@ def _grouped_records(
     site_code: str | None,
     cohort_group: str | None,
     cancer_type: str | None,
-) -> dict[str, list[dict[str, Any]]]:
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+) -> dict[str, list[Spectrum]]:
+    grouped: dict[str, list[Spectrum]] = defaultdict(list)
     for record in client.iter_spectra(
         site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
     ):
@@ -287,7 +295,41 @@ def _grouped_records(
     return grouped
 
 
+def _fetch_grouped(
+    client: AecdApiClient | None,
+    site_code: str | None,
+    cohort_group: str | None,
+    cancer_type: str | None,
+) -> dict[str, list[Spectrum]]:
+    owns_client = client is None
+    client = client or AecdApiClient()
+    try:
+        return _grouped_records(
+            client, site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
+        )
+    finally:
+        if owns_client:
+            client.close()
+
+
+def load_clinical_samples(
+    *,
+    client: AecdApiClient | None = None,
+    site_code: str | None = SITE_CODE,
+    cohort_group: str | None = COHORT_GROUP,
+    cancer_type: str | None = CANCER_TYPE,
+) -> list[ClinicalSample]:
+    """API에서 subject 단위 ClinicalSample 목록 (원본 xlsx 로더 대체).
+
+    제외(Drop) subject도 excluded=True로 포함해 돌려준다 — 원본이 셀 배경색으로
+    제외를 표시하되 목록에는 남겨두던 동작과 같다. 빌더가 걸러낸다.
+    """
+    grouped = _fetch_grouped(client, site_code, cohort_group, cancer_type)
+    return [_record_sample(records[0]) for _, records in sorted(grouped.items())]
+
+
 def build_boramae_subjects(
+    samples: list[ClinicalSample],
     grid: np.ndarray,
     *,
     client: AecdApiClient | None = None,
@@ -295,29 +337,25 @@ def build_boramae_subjects(
     cohort_group: str | None = COHORT_GROUP,
     cancer_type: str | None = CANCER_TYPE,
 ) -> list[SubjectSpectrum]:
-    """API에서 subject 단위 평균 스펙트럼 구성 (원본 함수 대체)."""
-    owns_client = client is None
-    client = client or AecdApiClient()
-    try:
-        grouped = _grouped_records(
-            client, site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
+    """subject 단위 평균 스펙트럼. `samples`에 있는 subject만, 제외된 것은 건너뛴다."""
+    grouped = _fetch_grouped(client, site_code, cohort_group, cancer_type)
+    subjects: list[SubjectSpectrum] = []
+    for sample in samples:
+        if sample.excluded or sample.group == "Excluded":
+            continue
+        records = grouped.get(sample.label)
+        if not records:
+            msg = f"No spectra returned by the API for {sample.label}"
+            raise RuntimeError(msg)
+        mat = np.vstack([_preprocess_record(r, grid) for r in records])
+        subjects.append(
+            SubjectSpectrum(sample=sample, mean_spectrum=mat.mean(axis=0), replicate_spectra=mat)
         )
-        subjects: list[SubjectSpectrum] = []
-        for _, records in grouped.items():
-            sample = _record_sample(records[0])
-            if sample.excluded or sample.group == "Excluded":
-                continue
-            mat = np.vstack([_preprocess_record(r, grid) for r in records])
-            subjects.append(
-                SubjectSpectrum(sample=sample, mean_spectrum=mat.mean(axis=0), replicate_spectra=mat)
-            )
-        return subjects
-    finally:
-        if owns_client:
-            client.close()
+    return subjects
 
 
 def build_aligned_boramae_subjects(
+    samples: list[ClinicalSample],
     grid: np.ndarray,
     *,
     client: AecdApiClient | None = None,
@@ -325,31 +363,24 @@ def build_aligned_boramae_subjects(
     cohort_group: str | None = COHORT_GROUP,
     cancer_type: str | None = CANCER_TYPE,
 ) -> tuple[list[SubjectSpectrum], np.ndarray]:
-    """calibrate_spectrum 적용 버전 (원본 aligned 함수 대체)."""
-    owns_client = client is None
-    client = client or AecdApiClient()
-    try:
-        grouped = _grouped_records(
-            client, site_code=site_code, cohort_group=cohort_group, cancer_type=cancer_type
+    """calibrate_spectrum 적용 버전. 반환 shifts는 (subject, replicate) 배열."""
+    grouped = _fetch_grouped(client, site_code, cohort_group, cancer_type)
+    subjects: list[SubjectSpectrum] = []
+    shifts: list[np.ndarray] = []
+    for sample in samples:
+        if sample.excluded or sample.group == "Excluded":
+            continue
+        records = grouped.get(sample.label)
+        if not records:
+            msg = f"No spectra returned by the API for {sample.label}"
+            raise RuntimeError(msg)
+        aligned = [_preprocess_aligned_record(r, grid) for r in records]
+        matrix = np.vstack([item[0] for item in aligned])
+        shifts.append(np.asarray([item[1] for item in aligned], dtype=float))
+        subjects.append(
+            SubjectSpectrum(sample=sample, mean_spectrum=matrix.mean(axis=0), replicate_spectra=matrix)
         )
-        subjects: list[SubjectSpectrum] = []
-        shifts: list[np.ndarray] = []
-        for _, records in grouped.items():
-            sample = _record_sample(records[0])
-            if sample.excluded or sample.group == "Excluded":
-                continue
-            aligned = [_preprocess_aligned_record(r, grid) for r in records]
-            matrix = np.vstack([item[0] for item in aligned])
-            shifts.append(np.asarray([item[1] for item in aligned], dtype=float))
-            subjects.append(
-                SubjectSpectrum(
-                    sample=sample, mean_spectrum=matrix.mean(axis=0), replicate_spectra=matrix
-                )
-            )
-        return subjects, (np.vstack(shifts) if shifts else np.empty((0, 0)))
-    finally:
-        if owns_client:
-            client.close()
+    return subjects, np.vstack(shifts) if shifts else np.empty((0, 0))
 
 
 def group_matrix(subjects: list[SubjectSpectrum], group: str) -> np.ndarray:
