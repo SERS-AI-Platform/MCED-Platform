@@ -14,6 +14,7 @@ from typing import Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
@@ -220,8 +221,19 @@ def plot_confusion_matrix(
         fig, ax = plt.subplots(figsize=FIGSIZE_SINGLE)
     else:
         fig = ax.figure
-    im = ax.imshow(shown, cmap=SEQUENTIAL_CMAP, vmin=0, vmax=(1.0 if normalize == "true" else None))
     k = len(labels)
+    vmax_scale = 1.0 if normalize == "true" else float(shown.max() or 1)
+    palette = {**group_colors(), **CLASS_COLORS}
+    if class_keys:
+        # 행(실제 클래스)마다 그 클래스 색으로 흰색→클래스색 램프. 색이 정체성을 따른다.
+        ax.imshow(np.zeros((k, k)), cmap="Greys", vmin=0, vmax=1, alpha=0)   # 축 범위 고정
+        rgba = np.ones((k, k, 4))
+        for i, key in enumerate(class_keys):
+            ramp = LinearSegmentedColormap.from_list(f"cm_{key}", ["#FFFFFF", palette.get(key, COLOR_TEXT)])
+            rgba[i] = ramp(np.clip(shown[i] / vmax_scale, 0, 1))
+        im = ax.imshow(rgba)
+    else:
+        im = ax.imshow(shown, cmap=SEQUENTIAL_CMAP, vmin=0, vmax=(1.0 if normalize == "true" else None))
     ax.set_xticks(range(k))
     ax.set_yticks(range(k))
     ax.set_xticklabels(classes)
@@ -249,7 +261,6 @@ def plot_confusion_matrix(
                     color=color if dark else COLOR_MUTED)
     # 축 라벨 옆 클래스 색 점 — 다른 그림과 같은 색으로 정체성 연결
     if class_keys:
-        palette = {**group_colors(), **CLASS_COLORS}
         for idx, key in enumerate(class_keys):
             ax.plot(-0.62, idx, marker="s", markersize=8, color=palette.get(key, COLOR_TEXT),
                     clip_on=False, zorder=5)
@@ -260,7 +271,8 @@ def plot_confusion_matrix(
     extra = [f"threshold {threshold:.2f}"] if threshold is not None else []
     set_title(ax, title, subtitle_from(n=n, groups=groups, model=model, evaluation=evaluation,
                                        metric=f"accuracy {acc:.2f}", extra=extra))
-    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03).ax.tick_params(labelsize=SIZE_ANNOTATION)
+    if not class_keys:   # 클래스 색 램프는 행마다 색이 달라 단일 colorbar가 무의미
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03).ax.tick_params(labelsize=SIZE_ANNOTATION)
     if output is not None:
         save_png(fig, output, close=False)
     return fig, ax

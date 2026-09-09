@@ -467,6 +467,22 @@
   - DB: `experiment.runs` #126~#164 갱신 + 신규 9건(run_name `guide_aecd_{조건}_20260907`), `run_metrics`에 task=`prostate_three_class` 행 87건 추가.
   - 산출물: `aecd/{condition}/patient_oof_three_class.csv`, `spectrum_oof_seed42_three_class.csv`, `summary.csv`에 `macro_auc_*`, `d3__*` 컬럼 추가.
 
+- [x] PL-3 보충 (2026-09-09): 암 vs **정상만**(질환대조 제외) 이진 OOF + PR-AUC 정리
+  - 코호트 `aecd_ctrl` = 전립선암 43 / 정상 20 (63명). 같은 환자·같은 전처리, 두 군만으로 학습·OOF. 임계값 0.5.
+
+    | 조건 | AUC [CI] | PR-AUC [CI] | Sens | Spec | PPV | NPV |
+    |---|---|---|---|---|---|---|
+    | production (cal✓ SG5) | 0.755 [0.611, 0.867] | 0.870 [0.718, 0.935] | 0.86 [0.72, 0.95] | 0.45 [0.22, 0.68] | 0.77 | 0.60 |
+    | no_cal_sg11 (PL-1 재현) | 0.705 [0.550, 0.831] | 0.821 [0.624, 0.913] | 0.79 [0.65, 0.90] | 0.50 [0.26, 0.70] | 0.77 | 0.53 |
+
+  - 관찰: 질환대조를 빼면 AUC가 0.82→0.76으로 내려간다(정상 20명뿐이라 CI 폭 ±0.13). 양성 비율이 68%라 PR-AUC는 0.87로 높게 보이지만
+    유병률 기준선이 0.68이므로 그 위의 이득만 의미 있다. 특이도 0.45 [0.22, 0.68]은 정상 20명으로는 판별 불가.
+  - PR-AUC (양성=전립선암, 3군 코호트): production 0.678 [0.493, 0.795] / no_cal_sg11 0.683 [0.484, 0.802] / 매핑 LR-reference 0.577 [0.445, 0.712] /
+    매핑 ResNet 0.348 [0.246, 0.448] / 보라매 109 publication 0.588 [0.408, 0.720]. 유병률(0.38~0.38)이 PR 기준선.
+  - DB: `experiment.runs` #204 (`guide_aecd_ctrl_production_20260907`), #206 (`guide_aecd_ctrl_no_cal_sg11_20260907`). 산출물 `results/preprocessing_lab/guide_pipeline_20260907/aecd_ctrl/`.
+  - 스크립트: `run_guide_pipeline.py --cohort aecd_ctrl` (다른 세션의 PS 보정 조건 추가와 같은 파일에 미커밋 상태 — 해당 세션 커밋 후 반영).
+  - 그림: `src/sers/visualization/performance.py` — 혼동행렬은 행(실제 클래스)마다 클래스 색 램프로 칠한다 (`cbb3f30` 이후 수정).
+
 ## Phase OV — 측정자(operator) 변동성 분석 (2026-09-04)
 
 - [x] OV-1: 측정자에 따른 스펙트럼 변동성 통계 분석
