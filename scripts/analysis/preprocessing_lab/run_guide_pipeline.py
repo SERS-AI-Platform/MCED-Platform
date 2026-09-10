@@ -257,6 +257,12 @@ CONDITIONS["ps_sm_none_bl_none"] = dict(
     calibrate=False, ps_calibrate="linear", method_key=None,
     label="[PS+Si 축보정, urea✗] smoothing 없음 + baseline 없음 (SNV만)",
 )
+# despike 유무 확인 (2026-09-10 사용자 질문 "despike는 의미 없는데 왜 들어가 있나") — SG 없음 조건에서 despike만 끔
+CONDITIONS["ps_sm_none_nodespike"] = dict(
+    overrides=dict(do_despike=False, do_smooth=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=False, ps_calibrate="linear", method_key=None,
+    label="[PS+Si 축보정, urea✗] smoothing 없음 + despike 없음 (rolling_min SNV)",
+)
 PS_LADDER = tuple(k for k in CONDITIONS if k.startswith("ps_"))
 
 
