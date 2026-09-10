@@ -68,6 +68,34 @@ def main() -> None:
     def rng_txt(vals: list[float]) -> str:
         return f"{min(vals):.1f}~{max(vals):.1f}"
 
+    # --- full metric table, per-class breakdown, session/day confound (extended run 2026-09-09 19:57) ---
+    import csv as _csv
+    conds4 = ("july_liquid", "aug_mapping", "aug_mapping_qc", "aug_mapping_5")
+    cond_name = {"july_liquid": "7월 점측정 5회", "aug_mapping": "8월 mapping 121점", "aug_mapping_qc": "8월 mapping QC통과점", "aug_mapping_5": "8월 mapping 5점"}
+    def cell(task: str, metric: str, cond: str) -> str:
+        r = d(task, metric, cond)
+        return f"{r['mean']:.3f} ± {r['sd']:.3f}"
+    def cell1(task: str, metric: str, cond: str) -> str:
+        return f"{d(task, metric, cond)['mean']:.3f}"
+    ovr = {c: {k: d("three_group", f"ovr_auc_{k}", c)["mean"] for k in ("control", "biopsy_neg", "cancer")} for c in conds4}
+    rec = {c: {k: d("three_group", f"recall_{k}", c)["mean"] for k in ("control", "biopsy_neg", "cancer")} for c in conds4}
+    p_mq = pair["aug_mapping -> aug_mapping_qc"]
+    batch = list(_csv.DictReader((RES / "july_session_batch_check.csv").open(encoding="utf-8-sig")))
+    def brow(cond: str, sess: str, cls: str) -> dict | None:
+        return next((r for r in batch if r["condition"] == cond and r["july_session"] == sess and r["class"] == cls), None)
+    jul_sess = s["july_sessions"]  # {session: {label: n}}
+    aug_day = list(_csv.DictReader((RES / "august_day_by_class.csv").open(encoding="utf-8-sig")))
+    aug_by_day: dict[str, dict[str, int]] = {}
+    for r in aug_day:
+        aug_by_day.setdefault(r["measurement_date"][5:], {})[r["cohort_group"]] = int(r["samples"])
+    ctrl_11h = brow("july_liquid", "07-09 11h", "control")
+    ctrl_18h = brow("july_liquid", "07-09 18h", "control")
+    aug_ctrl_11h = brow("aug_mapping", "07-09 11h", "control")
+    aug_ctrl_18h = brow("aug_mapping", "07-09 18h", "control")
+    cancer_days = {day: v.get("prostate", 0) for day, v in aug_by_day.items()}
+    cancer_on_14 = cancer_days.get("08-14", 0)
+    cancer_total = sum(cancer_days.values())
+
     # headline judgement is deliberately descriptive: is the July->August shift larger than the
     # fold-to-fold spread, and do the two ranges overlap at all?
     delta_jm = p_jm["delta_auc_mean"]
@@ -79,7 +107,7 @@ def main() -> None:
     into_ctrl = {c: conf[c][1][0] + conf[c][2][0] for c in conf}    # non-controls predicted Control
     cancer_ok = {c: conf[c][2][2] for c in conf}
     headline = (f"Screening(암 vs 나머지=정상+조직검사음성)은 변경 전후 차이가 없고(ΔAUC {delta_jm:+.3f}, 유의 {p_jm['repeats_delong_p_lt_0_05']}/{reps}회), "
-                f"3군 구분은 {reps}/{reps}회 모두 하락했다(macro AUC {thr['july_liquid']['mean']:.3f} → {thr['aug_mapping']['mean']:.3f}) — 하락은 정상(Control) 군 구분 상실에서 온다.")
+                f"3군 구분은 {reps}/{reps}회 모두 하락했다(macro AUC {thr['july_liquid']['mean']:.3f} → {thr['aug_mapping']['mean']:.3f}) — 정상군 OvR AUC가 {ovr['july_liquid']['control']:.2f} → {ovr['aug_mapping']['control']:.2f}(우연 수준)로 내려간 것이 전부이며, 7월의 정상군 구분은 측정 세션과 얽혀 있다.")
 
     pipeline = ("전처리·모델 동일: trim(400–2,200 cm⁻¹) → Savitzky–Golay(11,3) → rolling-min baseline(101) → SNV → 환자당 평균 → "
                 "StandardScaler + class-weighted LR · nested 5×4-fold OOF · 라벨은 두 조건 모두 aecd_platform clinical v7 cohort_group")
@@ -141,6 +169,34 @@ def main() -> None:
     <footer class="slide-footer"><span>Screening AUC: 7월 {fmt(scr["july_liquid"]["mean"])}±{fmt(scr["july_liquid"]["sd"])} → 8월 {fmt(scr["aug_mapping"]["mean"])}±{fmt(scr["aug_mapping"]["sd"])} (ΔAUC {delta_jm:+.3f}, DeLong p 중앙값 {fmt(p_jm["delong_p_median"], 2)}, 범위 {"겹침" if scr_overlap else "비겹침"}) · 3군 macro AUC: {fmt(thr["july_liquid"]["mean"])}±{fmt(thr["july_liquid"]["sd"])} → {fmt(thr["aug_mapping"]["mean"])}±{fmt(thr["aug_mapping"]["sd"])} (Δ {thr_delta:+.3f}, 범위 {"겹침" if thr_overlap else "비겹침"}) · 막대=평균, 오차=SD, 점=fold 반복 {reps}회 · n={n} · OOF</span><span>bootstrap CI 아님 — fold 반복 SD</span></footer>
   </section>''')
 
+    # 3a. full metric table
+    def trow(label: str, cells: list[str], strong: bool = False) -> str:
+        tag = "strong" if strong else "span"
+        return "<tr><td>" + label + "</td>" + "".join(f"<td><{tag}>{c}</{tag}></td>" for c in cells) + "</tr>"
+    head = "<thead><tr><th>지표 (평균 ± SD, fold 반복 " + str(reps) + "회)</th>" + "".join(f"<th class=\"{'liquid' if c=='july_liquid' else 'powder'}\">{cond_name[c]}</th>" for c in conds4) + "</tr></thead>"
+    scr_rows = "".join([
+        trow("Screening ROC-AUC", [cell("screening_binary", "roc_auc", c) for c in conds4], True),
+        trow("Screening balanced accuracy", [cell("screening_binary", "balanced_accuracy", c) for c in conds4]),
+        trow("Screening sensitivity (암 검출)", [cell("screening_binary", "sensitivity", c) for c in conds4]),
+        trow("Screening specificity", [cell("screening_binary", "specificity", c) for c in conds4]),
+        trow("Screening macro-F1", [cell("screening_binary", "macro_f1", c) for c in conds4]),
+    ])
+    thr_rows = "".join([
+        trow("3군 macro OvR ROC-AUC", [cell("three_group", "macro_ovr_roc_auc", c) for c in conds4], True),
+        trow("3군 balanced accuracy", [cell("three_group", "balanced_accuracy", c) for c in conds4]),
+        trow("3군 macro-F1", [cell("three_group", "macro_f1", c) for c in conds4]),
+        trow("&nbsp;&nbsp;OvR AUC · 정상(Control)", [cell1("three_group", "ovr_auc_control", c) for c in conds4]),
+        trow("&nbsp;&nbsp;OvR AUC · 조직검사 음성", [cell1("three_group", "ovr_auc_biopsy_neg", c) for c in conds4]),
+        trow("&nbsp;&nbsp;OvR AUC · 암", [cell1("three_group", "ovr_auc_cancer", c) for c in conds4]),
+        trow("&nbsp;&nbsp;Recall · 정상 / 조직검사음성 / 암", [f"{rec[c]['control']:.2f} / {rec[c]['biopsy_neg']:.2f} / {rec[c]['cancer']:.2f}" for c in conds4]),
+    ])
+    slides.append(f'''
+  <section class="slide" data-title="지표 전체표" aria-labelledby="s3a-title">
+    <header><h1 id="s3a-title">지표 전체표 — Screening은 QC를 넣어도 같고, 3군은 정상군 AUC가 우연 수준</h1></header>
+    <div class="center" style="overflow:auto"><table class="metrics">{head}<tbody>{scr_rows}<tr class="sep"><td colspan="5"></td></tr>{thr_rows}</tbody></table></div>
+    <footer class="slide-footer"><span>핵심 메시지: 8월 mapping의 정상군 OvR AUC {ovr["aug_mapping"]["control"]:.2f}는 우연(0.5)과 같다 — 3군 하락 전부가 여기서 온다. 암 OvR AUC는 {ovr["july_liquid"]["cancer"]:.2f} → {ovr["aug_mapping"]["cancer"]:.2f}로 거의 그대로. "QC통과점"은 PL-1과 같은 2단계 QC(13,552 → 11,336점)를 거친 평균인데 Screening {cell1("screening_binary","roc_auc","aug_mapping_qc")}로 121점 전체 평균과 차이 없음(ΔAUC {p_mq["delta_auc_mean"]:+.3f}, 유의 {p_mq["repeats_delong_p_lt_0_05"]}/{reps}회).</span><span>n={n} · OOF · 4조건 같은 fold 배정</span></footer>
+  </section>''')
+
     # 3b. where the 3-group drop is
     def conf_table(c: str, title_cls: str, title: str) -> str:
         m = conf[c]
@@ -158,9 +214,38 @@ def main() -> None:
         <div class="card liquid-card"><p class="kicker">Control을 Control로</p><span class="metric">{ctrl_ok["july_liquid"]} → {ctrl_ok["aug_mapping"]}</span><p>/ {lab["Control"]}명</p></div>
         <div class="card powder-card" style="margin-top:10px"><p class="kicker">조직검사 음성·암이 Control로 오인</p><span class="metric">{into_ctrl["july_liquid"]} → {into_ctrl["aug_mapping"]}</span><p>명</p></div>
         <div class="card" style="margin-top:10px"><p class="kicker">Cancer를 Cancer로</p><span class="metric">{cancer_ok["july_liquid"]} → {cancer_ok["aug_mapping"]}</span><p>/ {lab["Prostate cancer"]}명 — 유지</p></div>
+        <div class="card green-card" style="margin-top:10px"><p class="kicker">클래스별 OvR AUC · 전 → 후 ({reps}회 평균)</p><p>정상 <strong>{ovr["july_liquid"]["control"]:.2f} → {ovr["aug_mapping"]["control"]:.2f}</strong> · 조직검사음성 {ovr["july_liquid"]["biopsy_neg"]:.2f} → {ovr["aug_mapping"]["biopsy_neg"]:.2f} · 암 {ovr["july_liquid"]["cancer"]:.2f} → {ovr["aug_mapping"]["cancer"]:.2f}</p></div>
       </div>
     </div>
     <footer class="slide-footer"><span>핵심 메시지: 8월 mapping에서는 정상(Control) 스펙트럼이 조직검사 음성·암과 섞인다. 암 자체의 구분은 유지되므로 Screening AUC는 변하지 않고 3군 AUC만 떨어진다. 원인이 환원제인지 측정 방식인지는 이 자료로 알 수 없다.</span><span>혼동행렬 = OOF, 행=DB 임상군, repeat 0 ({rep0_note})</span></footer>
+  </section>''')
+
+    # 3c. session / day confound
+    def sess_cells(sess: str) -> str:
+        v = jul_sess.get(sess, {})
+        return f"<td>{v.get('Control', 0)}</td><td>{v.get('Biopsy-negative', 0)}</td><td>{v.get('Prostate cancer', 0)}</td>"
+    jul_tbl = "".join(f"<tr><td>{sess}</td>{sess_cells(sess)}</tr>" for sess in sorted(jul_sess))
+    aug_tbl = "".join(f"<tr><td>{day}</td><td>{v.get('control', 0)}</td><td>{v.get('prostate disease control', 0)}</td><td>{v.get('prostate', 0)}</td></tr>" for day, v in sorted(aug_by_day.items()))
+    slides.append(f'''
+  <section class="slide" data-title="세션·측정일 교란" aria-labelledby="s3c-title">
+    <header><h1 id="s3c-title">7월은 정상군이, 8월은 암이 따로 측정됐다 — 두 세트 모두 라벨과 측정 세션이 얽혀 있다</h1></header>
+    <div class="grid-3 center" style="grid-template-columns:1fr 1fr 1.1fr">
+      <div class="card liquid-card"><p class="kicker">7월 · 측정 세션(파일 시각) × 임상군</p>
+        <table class="conf"><thead><tr><th>세션</th><th>정상</th><th>조직검사음성</th><th>암</th></tr></thead><tbody>{jul_tbl}</tbody></table>
+        <p class="muted" style="margin-top:6px">정상 {lab["Control"]}명 중 {jul_sess.get("07-09 11h", {}).get("Control", 0)}명이 <strong>정상만 있는 11시 세션</strong>에서 측정</p></div>
+      <div class="card powder-card"><p class="kicker">8월 · 측정일 × 임상군 (DB runs)</p>
+        <table class="conf"><thead><tr><th>날짜</th><th>정상</th><th>조직검사음성</th><th>암</th></tr></thead><tbody>{aug_tbl}</tbody></table>
+        <p class="muted" style="margin-top:6px">암 {cancer_total}명 중 {cancer_on_14}명이 <strong>암만 있는 08-14</strong>에 측정 · 정상과 조직검사음성은 나흘에 섞여 있음</p></div>
+      <div>
+        <div class="card"><p class="kicker">7월 정상군 recall — 세션별 (3군 모델, {reps}회 평균)</p>
+          <p>정상만 있던 11시 세션 (n={ctrl_11h["n"]}): <strong>{float(ctrl_11h["recall_mean"]):.2f}</strong><br>
+          다른 군과 섞인 18시 세션 (n={ctrl_18h["n"]}): <strong>{float(ctrl_18h["recall_mean"]):.2f}</strong></p>
+          <p class="muted">같은 환자들의 8월 mapping에서는 {float(aug_ctrl_11h["recall_mean"]):.2f} / {float(aug_ctrl_18h["recall_mean"]):.2f}</p></div>
+        <div class="card green-card" style="margin-top:10px"><p class="kicker">읽는 법</p>
+          <p>7월 모델은 "정상"보다 "11시 세션"을 배웠을 수 있다 — 같은 정상군이라도 섞인 세션에서는 절반만 맞힌다. 8월에는 정상·조직검사음성이 같은 날 섞여 있어 그 지름길이 없고, 정상군 AUC가 우연 수준으로 내려간다. 반대로 8월은 암이 08-14에 몰려 있어 <strong>Screening 쪽에 같은 위험</strong>이 있다.</p></div>
+      </div>
+    </div>
+    <footer class="slide-footer"><span>핵심 메시지: "3군 하락"은 환원제 효과라기보다, 7월의 정상군 구분이 측정 세션에 기대고 있었을 가능성이 크다. 어느 세트도 라벨과 측정 세션이 분리돼 있지 않으므로, 두 세트의 성능 수치는 모두 위쪽으로 치우쳐 있을 수 있다.</span><span>7월 세션 = CSV 파일 시각 · 8월 = measurement.runs · 세션별 recall은 전체 모델의 OOF</span></footer>
   </section>''')
 
     # 4. per-patient
@@ -190,7 +275,7 @@ def main() -> None:
   <section class="slide" data-title="해석" aria-labelledby="s6-title">
     <header><h1 id="s6-title">이 수치를 어떻게 읽어야 하나</h1></header>
     <div class="grid-3 center">
-      <div class="card liquid-card"><p class="kicker">1 · 같은 데이터, fold만 바꿔도</p><p>8월 mapping Screening AUC는 fold 배정에 따라 <strong>{fmt(scr["aug_mapping"]["min"])} ~ {fmt(scr["aug_mapping"]["max"])}</strong> 사이를 오간다 (SD {fmt(scr["aug_mapping"]["sd"])}). 단일 fold 배정 값 0.789(AS-11, 2026-09-09)는 이 {reps}회의 최대치보다도 높아 반복에서 재현되지 않았다 — 대표값으로 쓰지 않는다.</p></div>
+      <div class="card liquid-card"><p class="kicker">1 · 같은 데이터, fold만 바꿔도</p><p>8월 mapping Screening AUC는 fold 배정에 따라 <strong>{fmt(scr["aug_mapping"]["min"])} ~ {fmt(scr["aug_mapping"]["max"])}</strong> 사이를 오간다 (SD {fmt(scr["aug_mapping"]["sd"])}). 단일 fold 배정 값 0.789(AS-11)는 이 {reps}회의 최대치보다도 높아 반복에서 재현되지 않았다. 앞서 보고된 <strong>0.79~0.80(PL-1)은 다른 파이프라인</strong>이다 — 개별 스펙트럼 단위 학습 + config 전처리(SG5) + subject-grouped fold. 같은 데이터에 논문 파이프라인(환자 평균 1행)을 쓰면 {fmt(scr["aug_mapping"]["mean"])}이고, PL-1과 같은 QC를 넣어도 {cell1("screening_binary","roc_auc","aug_mapping_qc")}로 변하지 않는다.</p></div>
       <div class="card powder-card"><p class="kicker">2 · Screening 차이는 그 폭 안, 3군 차이는 밖</p><p>Screening ΔAUC {delta_jm:+.3f} (범위 {p_jm["delta_auc_min"]:+.3f} ~ {p_jm["delta_auc_max"]:+.3f}), DeLong p&lt;0.05 <strong>{p_jm["repeats_delong_p_lt_0_05"]}/{reps}회</strong> → 차이 없음. 3군 macro AUC는 7월 최저 {fmt(thr["july_liquid"]["min"])} &gt; 8월 최고 {fmt(thr["aug_mapping"]["max"])} — <strong>{reps}회 어느 반복에서도 겹치지 않는다</strong>.</p></div>
       <div class="card green-card"><p class="kicker">3 · 그래서</p><p><strong>암 검출(Screening)은 변경 전후 같다.</strong> 달라진 것은 정상군을 따로 알아보는 능력이고, 이것은 fold 노이즈가 아니다. 다만 7월 lot·측정일·측정 방식이 함께 바뀌었으므로 <strong>"환원제 때문"이라고는 아직 말할 수 없다</strong>.</p></div>
     </div>
@@ -204,6 +289,7 @@ def main() -> None:
     <div class="grid-2 center">
       <div class="card powder-card"><p class="kicker">이 비교가 분리하지 못한 변수</p>
         <ul>
+          <li><strong>라벨 ↔ 측정 세션 교란</strong> — 7월은 정상군이, 8월은 암이 별도 세션에 몰려 있다(앞 슬라이드). 3군 하락의 상당 부분은 이것으로 설명될 수 있다</li>
           <li><strong>7월 센서/환원제 lot 미기록</strong> — "변경 전"이 정상 lot인지 문제 lot인지 모른다</li>
           <li>측정일 차이 1개월 — 검체 보관, 장비 상태, 측정자</li>
           <li>측정 방식 — 점 측정 5회 vs mapping 121점 (5점 추출로 반복 수는 통제했으나 mapping 위치 효과는 남음)</li>
@@ -212,11 +298,11 @@ def main() -> None:
       <div class="card green-card"><p class="kicker">다음 행동 (권고)</p>
         <ol>
           <li><strong>lot 기록 복원</strong>: 7월 09일 측정에 쓴 센서·환원제 lot을 실험 노트에서 확인 — 이것 하나로 해석이 갈린다</li>
-          <li><strong>한 변수 실험</strong>: 같은 날, 같은 검체 분주를 구·신 환원제 센서로 각각 측정 — 나머지 조건(장비·측정자·누적 횟수·mapping 여부) 고정. 검체 수는 이 자료의 환자별 변동(상관 {fmt(corr["median"], 2)})으로 검정력을 계산해 정한다</li>
+          <li><strong>한 변수 실험</strong>: 같은 날, 같은 검체 분주를 구·신 환원제 센서로 각각 측정 — 나머지 조건(장비·측정자·누적 횟수·mapping 여부) 고정, <strong>임상군을 세션에 섞어서</strong> 배치. 검체 수는 이 자료의 환자별 변동(상관 {fmt(corr["median"], 2)})으로 검정력을 계산해 정한다</li>
           <li>이 짝 비교 코드는 재실행 가능 상태로 유지 — 새 측정이 들어오면 같은 표를 다시 만든다</li>
         </ol></div>
     </div>
-    <footer class="slide-footer"><span>핵심 메시지: 다음 단계는 모델을 더 돌리는 것이 아니라, 환원제만 다른 측정 한 세트를 만드는 것이다.</span><span>스크립트: scripts/analysis/boramae_paired_reducing_agent_comparison.py</span></footer>
+    <footer class="slide-footer"><span>핵심 메시지: 다음 단계는 모델을 더 돌리는 것이 아니라, 환원제만 다르고 임상군이 세션에 섞인 측정 한 세트를 만드는 것이다.</span><span>스크립트: scripts/analysis/boramae_paired_reducing_agent_comparison.py</span></footer>
   </section>''')
 
     css = '''
@@ -263,6 +349,7 @@ def main() -> None:
     .fig { display:block; max-width:100%; max-height:100%; margin:0 auto; object-fit:contain; }
     ul,ol { margin:0; padding-left:1.2em; } li { margin-bottom:6px; }
     .conf td,.conf th { text-align:center; } .conf td:first-child,.conf th:first-child { text-align:left; }
+    .metrics td,.metrics th { text-align:right; font-size:clamp(.74rem,.95vw,.92rem); padding:5px 10px; } .metrics td:first-child,.metrics th:first-child { text-align:left; } .metrics tr.sep td { padding:2px; border-bottom:2px solid var(--ink); }
     .nav { position:fixed; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; gap:14px; padding:12px; background:var(--canvas); border-top:1px solid var(--line); z-index:5; }
     .nav button { padding:7px 14px; border:1px solid var(--line); border-radius:6px; background:var(--surface); cursor:pointer; } .nav button:disabled { opacity:.4; cursor:default; }
     .progress { position:fixed; left:0; top:0; height:3px; width:100%; background:var(--green); transform-origin:left; transform:scaleX(0); z-index:6; }
