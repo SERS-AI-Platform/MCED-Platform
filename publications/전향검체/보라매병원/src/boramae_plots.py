@@ -9,10 +9,8 @@ from boramae_data import (
     OUT,
     ClinicalSample,
     SubjectSpectrum,
-    collect_boramae_files,
     group_matrix,
-    preprocess_file,
-    raw_key,
+    preprocess_arrays,
 )
 from boramae_peak_modes import PeakModeResult
 from scipy.signal import find_peaks
@@ -29,9 +27,11 @@ def plot_preprocessing(subjects: list[SubjectSpectrum], grid: np.ndarray) -> Non
     stages_by_group: dict[str, list[dict[str, tuple[np.ndarray, np.ndarray]]]] = {
         label: [] for label in LABELS
     }
-    files = collect_boramae_files()
     for subject in subjects:
-        stages, _ = preprocess_file(files[raw_key(subject.sample, files)][0], grid)
+        if subject.example_raw is None:
+            msg = f"{subject.sample.label} has no raw example spectrum"
+            raise RuntimeError(msg)
+        stages, _ = preprocess_arrays(*subject.example_raw, grid)
         stages_by_group[subject.sample.group].append(stages)
     stage_names = list(next(iter(stages_by_group[LABELS[0]])).keys())
     fig, axes = plt.subplots(len(stage_names), len(LABELS), figsize=(15, 12), sharex=False)

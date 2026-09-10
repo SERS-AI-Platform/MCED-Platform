@@ -45,6 +45,9 @@ class Spectrum(ApiModel):
     x_max: float
     wavenumber: list[float]
     intensities: list[float]
+    # ISUP grade group (1-5) from the subject's latest diagnosis; None when not
+    # graded (controls, biopsy-negative, sites that do not record it).
+    grade_group: int | None = None
 
 
 class ReferencePeaks(ApiModel):

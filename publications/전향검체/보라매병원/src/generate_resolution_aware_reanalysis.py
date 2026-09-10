@@ -32,12 +32,10 @@ sys.path.insert(0, str(REPO / "src"))
 
 from boramae_data import (
     MODEL_GRID,
-    collect_boramae_files,
     load_clinical_samples,
-    raw_key,
+    load_raw_replicates,
 )
 from prostate_comparison_model import OofResult, build_task, nested_oof
-from sers.io import read_spectrum
 
 RAW_ROOT: Final = REPO / "data" / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100"
 OUT: Final = REPO / "publications" / "전향검체" / "보라매병원" / "resolution_aware_reanalysis"
@@ -135,27 +133,27 @@ def estimate_noise_sigma(values: np.ndarray) -> float:
 
 def load_subject_replicates(
     grid: np.ndarray,
-) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray, dict[str, list[Path]]]:
-    files = collect_boramae_files()
+) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray, dict[str, int]]:
+    """Raw (un-preprocessed) replicates per subject from the AECD API, on the model grid."""
     included = [
         sample
         for sample in load_clinical_samples()
         if not sample.excluded and sample.group in LABELS
     ]
+    raw = load_raw_replicates(included)
     subject_keys: list[str] = []
     subject_labels: list[str] = []
     replicate_rows: list[np.ndarray] = []
     replicate_subjects: list[str] = []
     for sample in included:
-        key = raw_key(sample, files)
-        paths = sorted(files[key])
         subject_keys.append(sample.label)
         subject_labels.append(sample.group)
-        for path in paths:
-            x_values, y_values = read_spectrum(path)
+        for index, (x_values, y_values) in enumerate(raw[sample.label]):
             mask = (x_values >= float(grid[0])) & (x_values <= float(grid[-1]))
             if int(mask.sum()) < 2:
-                raise RuntimeError(f"Spectrum does not cover the model grid: {path.name}")
+                raise RuntimeError(
+                    f"Spectrum does not cover the model grid: {sample.label} replicate {index}"
+                )
             replicate_rows.append(np.interp(grid, x_values[mask], y_values[mask]))
             replicate_subjects.append(sample.label)
     return (
@@ -163,7 +161,7 @@ def load_subject_replicates(
         np.asarray(subject_labels, dtype=str),
         np.vstack(replicate_rows),
         np.asarray(replicate_subjects, dtype=str),
-        files,
+        {label: len(items) for label, items in raw.items()},
     )
 
 

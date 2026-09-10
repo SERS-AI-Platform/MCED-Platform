@@ -41,6 +41,7 @@ SpectrumRow: TypeAlias = tuple[
     float,
     list[float],
     list[float],
+    int | None,
 ]
 COHORT_ROWS: Final = TypeAdapter(list[CohortRow])
 SPECTRUM_ROWS: Final = TypeAdapter(list[SpectrumRow])
@@ -220,7 +221,8 @@ class PostgresAecdRepository:
             sample.sample_id, site.site_code, diagnosis.cohort_group, {study_type},
             {diagnosed_type}, diagnosis.payload->>'case_status', run.measurement_date,
             measurement.point_no, instrument.instrument_name, spectrum.n_points,
-            spectrum.x_min, spectrum.x_max, spectrum.wavenumber, spectrum.intensities
+            spectrum.x_min, spectrum.x_max, spectrum.wavenumber, spectrum.intensities,
+            (diagnosis.payload->>'grade_group')::int
             {from_sql}{where_sql}
             ORDER BY measurement.measurement_id LIMIT %s OFFSET %s"""
         try:
@@ -250,6 +252,7 @@ class PostgresAecdRepository:
                 x_max=row[13],
                 wavenumber=row[14],
                 intensities=row[15],
+                grade_group=row[16],
             )
             for row in rows
         ]

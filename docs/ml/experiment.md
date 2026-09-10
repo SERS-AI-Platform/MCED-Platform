@@ -314,6 +314,58 @@
   - 정규화 기준(총 면적)과 1001.9 cm⁻¹를 PS 잔류 아님으로 취급한 것은 2026-09-02 사용자 확인 사항
   - 해석 한계: fold change는 subject 수준 기술통계이며 판별력 아님. 정상군 n=20이 통계적 제약
   - 구현: scripts/analysis/aecd_peak_group_fold_change.py → notebooks/aecd_api_model_mean_spectrum_outputs/peak_fold_change/
+- [x] Phase AS-11: 보라매 publication 파이프라인을 AECD API(mapping, 환원제 변경 후)로 재실행 ✅ (2026-09-09)
+  - **성격: 조건표(dataset_conditions.md) 8번 세트(mapping, Sigma-Aldrich 226904 Lot BCCP0922)에 대한 결과 1건.** 7월 액상 세트(5번, lot 미확인)로 만든 기존 논문 산출물을 대체하는 것이 아니라 환원제 변경 전·후 비교표의 한 행이다.
+  - 데이터: BORAMAE 112명 (Drop 1 제외) = 정상 20 / 비암(prostate disease control) 49 / 암 43. subject 스펙트럼 = 121 mapping 점 전체 평균. 로더 `publications/전향검체/보라매병원/src/boramae_data.py` (PR #14에서 실제 API 계약으로 정합, `grade_group` API 노출)
+  - 파이프라인: 논문 원본과 동일 — trim(model grid) → SG(11,3) → rolling-min baseline(101) → SNV → 935-pt grid → StandardScaler+LR(class_weight=balanced), StratifiedKFold 5 outer × 4 inner GridSearch (`prostate_comparison_model.py`). ⚠️ 이 파이프라인은 **StratifiedKFold**이며 Phase AS-1~5의 subject-level GroupKFold와 다르다(단, 입력이 subject 평균 1행/명이라 누수는 없음)
+  - 결과 (bootstrap 95% CI):
+
+    | 과제 | 7월 액상 세트 (기존 커밋, n=109) | **8월 mapping (n=112)** |
+    |---|---|---|
+    | Screening (정상+비암 vs 암) ROC-AUC | 0.714 [0.611–0.814] | **0.789 [0.703–0.866]** |
+    | Screening balanced acc / sens / spec | 0.704 / 0.659 / 0.750 | 0.681 / 0.651 / 0.710 |
+    | 3-group macro OvR ROC-AUC | 0.811 [0.748–0.874] | **0.670 [0.592–0.743]** |
+    | 3-group balanced acc / macro-F1 | 0.668 / 0.674 | 0.511 / 0.508 |
+
+    3-group confusion (행=true): Control 7/9/4, Biopsy-neg 14/26/9, Cancer 5/10/28. Screening: Non-cancer 49/20, Cancer 15/28.
+  - 같은 mapping 세트 다른 파이프라인과의 자리: AS-1 baseline 0.629 < AS-5 raw subject-mean 0.7145 < legacy STK-V2 0.7506 < **AS-11 0.789**. 차이는 전처리(SG+rolling-min+SNV)와 CV 설계 차이를 포함하므로 동일 조건 비교가 아니다.
+  - ⚠️ 7월 vs 8월 비교의 해석 한계: (1) 7월 세트는 **파일 라벨(BPRO/BNOR)이 병리 확정 전 번호**라 기존 0.714/0.811 자체의 정답표가 DB v7과 다르다(`project_prospective_label_mismatch`); (2) 7월 센서 lot 미확인; (3) replicate 5 vs mapping 121 차이. **환원제 효과로 귀속하려면 5번↔8번 동일 환자를 DB 라벨로 재짝지어 비교해야 한다.** 2026-09-09 `solum_label` 번호 대조 결과 mapping 113명 **전원**이 7월 액상 세트에 있음(라벨까지 같은 64명 + 7월 BPRO→DB BNOR로 바뀐 49명; 7월에만 있는 7명은 DB 미등록). 즉 짝 비교 가능 n=112(Drop 제외) — AS-12에서 수행.
+  - `generate_final_publication_outputs.py`는 산출물 생성 후 `validate_report_snapshot()`의 `ReportDriftError`로 정지 (손으로 쓴 PROSTATE_COMPARISON.md가 새 값을 포함하지 않음 — 설계된 가드). 재생성된 figures/tables는 **커밋하지 않음** (조건표 완성 후 결정)
+  - 산출물(미커밋, worktree `/home/user/SERS-AI-ci-tiered/publications/전향검체/보라매병원/{figures,tables}`): fig01/02/03/04a/04b/05/06, `prostate_classification_metrics.csv`, `*_oof_predictions.csv`, `*_confusion_matrix.csv`
+  - ⚠️ **정정 (AS-12에서 확인)**: 위 0.789는 단일 fold 배정 값이다. `nested_oof()`가 fold seed를 고정해 subject 순서가 fold를 결정하는데, 같은 데이터·같은 파이프라인에서 순서만 바꿔 10회 반복하면 screening AUC **0.727 ± 0.035 (범위 0.676–0.770)**, 3군 macro AUC **0.604 ± 0.032**이다. 0.789는 그 분포의 최대치 0.770보다도 높아 10회 어느 반복에서도 재현되지 않았다(범위 밖) — 대표값으로 인용하지 말 것.
+- [x] Phase AS-12: 환원제 변경 전(7월 액상) vs 후(8월 mapping) — **동일 환자 112명 짝 비교**, fold 반복 10회 ✅ (2026-09-09)
+  - 설계: 7월 07-09 액상(5회 점 측정, Ave100, 로컬 CSV, lot 미기록) ↔ 8월 mapping(121점, aecd_platform, Sigma-Aldrich 226904 Lot BCCP0922). `solum_label` 번호로 짝지음 — mapping 113명 전원이 7월 세트에 있음(라벨 동일 64 + 7월 BPRO→DB BNOR 49), Drop 1 제외 → **112명**. 7월에만 있는 7명(43·58·65·96·104·111·113)은 DB 미등록으로 제외. **라벨은 세 조건 모두 DB clinical v7 cohort_group** (정상 20 / 비암 49 / 암 43). 반복 수 통제용 3번째 조건: mapping 121점 중 무작위 5점(seed 20260909).
+  - 파이프라인 AS-11과 동일 (trim → SG(11,3) → rolling-min(101) → SNV → 환자 평균 → StandardScaler+LR balanced, nested 5×4 StratifiedKFold). 단 subject 순서를 10회 무작위 치환해 fold 배정을 바꿈; 같은 반복 안에서는 세 조건이 같은 치환을 써 짝 검정(동일 환자 DeLong, `powder_comparison/delong.py`)이 성립.
+  - **결과 (평균 ± SD, 10회; 범위)**
+
+    | 조건 | Screening AUC | 3군 macro OvR AUC | Screening BAcc | 3군 BAcc |
+    |---|---|---|---|---|
+    | 7월 액상 (변경 전) | **0.737 ± 0.022** (0.703–0.771) | **0.806 ± 0.023** (0.776–0.844) | 0.694 | 0.658 |
+    | 8월 mapping 121점 (변경 후) | **0.727 ± 0.035** (0.676–0.770) | **0.604 ± 0.032** (0.561–0.666) | 0.653 | 0.413 |
+    | 8월 mapping 5점 추출 | 0.601 ± 0.041 | 0.550 ± 0.026 | 0.571 | 0.366 |
+
+    짝 검정 (Screening, 동일 환자 DeLong): 7월→8월(121점) ΔAUC **−0.011 ± 0.027** (범위 −0.048~+0.027), p<0.05 **0/10회**, p 중앙값 0.68 → **차이 없음**. 7월→8월(5점) −0.137, 6/10 유의. 8월 121점→5점 −0.126, 7/10 유의.
+  - **3군 하락은 fold 노이즈 밖**: 7월 최저 0.776 > 8월 최고 0.666, 10/10 반복 모두 하락. 혼동행렬(repeat 0, 행=실제): 7월 Control 16/2/2, Biopsy-neg 6/31/12, Cancer 2/18/23 → 8월 Control **7**/10/3, Biopsy-neg **16**/24/9, Cancer **8**/8/27. 즉 **Control 군 구분이 사라짐**(Control 정답 16→7명, 비암·암이 Control로 오인 8→24명). 암→암은 23→27로 유지 → Screening AUC 불변과 정합.
+  - 환자 수준: 같은 환자의 OOF P(암)은 두 조건 사이에서 거의 상관 없음 — 0.5 기준 판정 뒤집힘 **45/112명**, ΔP 중앙값 −0.006 (Wilcoxon p=0.87). 전처리 후 스펙트럼의 환자별 피어슨 상관 중앙값 **0.55** (5–95% 0.42–0.73 — 처음 적은 0.31–0.78은 오기, summary.json 기준 정정; 군별 Control 0.56 / 비암 0.60 / 암 0.51).
+  - **반복 수 통제 결과**: mapping 단일 점 5개 평균은 121점 평균보다 뚜렷이 나쁨(−0.126, 7/10 유의). 7월 "1회"는 Ave100 누적이라 mapping 1점과 품질이 다르다 — 7월 5회 ≈ 8월 121점 수준. 조건 간 비교는 121점 평균 기준이 맞다.
+  - **해석 한계 (환원제 단독 효과로 못 봄)**: 7월 센서/환원제 lot 미기록, 측정일 1개월 차, 점 측정 vs mapping 방식 차, 7명 제외. 결론은 "Screening 불변 / Control 구분 하락"까지이고 원인 귀속은 없음. 다음: 7월 lot 기록 복원, 같은 날 같은 분주를 구·신 환원제로 측정하는 한-변수 실험(07-15 Sigma 1~5 설계 형태).
+  - 스크립트: `scripts/analysis/boramae_paired_reducing_agent_comparison.py`(분석, ~16분) → `_figures.py` → `_deck.py`(대표님 보고 덱, 수치는 summary.json에서 자동 생성). 산출물 `results/boramae_paired_reducing_agent/` (summary.json, repeat_summary.csv, paired_summary.csv, paired_tests.csv, subject_oof.csv, confusion_*.csv, fig_*.png), 덱 `publications/전향검체/보라매병원/slides/환원제 변경전후 동일환자 비교.html`
+  - 조건표 `workspace/_scratch/2026-09-09-performance-recovery-assessment/dataset_conditions.md` 8번 행·C항 갱신 대상
+  - **AS-12 보충 (2026-09-09 19:57 재실행, 4조건)** — 사용자 질문 두 가지("0.80이었는데 왜 0.727인가", "3군은 왜 급락했나")에 대한 확인. 전체 지표:
+
+    | 조건 | Scr AUC | Scr BAcc | Scr Sens | Scr Spec | Scr macro-F1 | 3군 macro AUC | 3군 BAcc | 3군 macro-F1 | OvR AUC 정상/조직검사음성/암 | Recall 정상/조직검사음성/암 |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | 7월 점측정 5회 | 0.737±0.022 | 0.694±0.039 | 0.619±0.060 | 0.770±0.037 | 0.694±0.039 | 0.806±0.023 | 0.658 | 0.658 | **0.913** / 0.748 / 0.757 | 0.69 / 0.68 / 0.60 |
+    | 8월 mapping 121점 | 0.727±0.035 | 0.653±0.030 | 0.584±0.053 | 0.722±0.041 | 0.651±0.029 | 0.604±0.032 | 0.413 | 0.414 | **0.493** / 0.593 / 0.726 | 0.23 / 0.48 / 0.54 |
+    | 8월 mapping QC통과점 (PL-1과 같은 2단계 QC, 13,552→11,336) | 0.726±0.027 | 0.670±0.022 | 0.616±0.057 | 0.725±0.043 | 0.668±0.021 | 0.610 | 0.413 | 0.414 | 0.504 / 0.591 / 0.735 | 0.21 / 0.48 / 0.55 |
+    | 8월 mapping 5점 | 0.601±0.041 | 0.571 | 0.507 | 0.635 | 0.569 | 0.550 | 0.366 | 0.366 | 0.488 / 0.558 / 0.605 | 0.20 / 0.50 / 0.40 |
+
+    짝 검정 추가: 8월 121점 → QC통과점 ΔAUC −0.000±0.021, 유의 0/10 (QC는 아무것도 바꾸지 않음).
+  - **Q1 (0.80 → 0.727)**: 두 층. ① AS-11 0.789는 fold 배정 운 — 같은 행렬에서 subject 정렬을 문자열→숫자로만 바꿔도 0.789→0.698 (직접 재현). ② **PL-1의 0.794±0.011은 다른 파이프라인** — 개별 스펙트럼 단위 LR + config 전처리(SG5) + StratifiedGroupKFold-by-subject. 논문 파이프라인(환자 평균 1행, SG11, StratifiedKFold)은 같은 mapping 데이터에서 0.727이며, PL-1과 같은 QC를 넣어도 0.726으로 불변 → 차이는 QC가 아니라 **학습 단위·전처리·CV 설계**. 두 수치는 같은 데이터의 다른 파이프라인 값이지 데이터가 변한 것이 아님.
+  - **Q2 (3군 급락)**: 클래스별 OvR AUC로 분해하면 **정상(Control) 0.913 → 0.493(우연)**이 전부. 조직검사음성 0.748→0.593, 암 0.757→0.726(유지). 즉 8월 mapping에서 정상군은 나머지와 구분되지 않는다.
+  - **왜 7월 정상군은 구분됐나 — 측정 세션 교란**: 7월 CSV 파일 시각으로 세션을 나누면 07-09 11h = **정상 11명만**, 18h = 정상 9·조직검사음성 5·암 3, 19h·20h·07-10 07h/08h = 조직검사음성·암만. 3군 모델(10회 평균)의 정상군 recall: **11h 세션 0.83 vs 18h(섞인) 세션 0.52** — 같은 환자들이 8월 mapping에서는 0.15/0.32. 7월의 정상군 구분이 "11시 세션" 신호에 기댔을 가능성이 크다(입증 아님 — 세션별 recall은 전체 모델 OOF). 8월은 반대로 **암 43명 중 35명이 08-14 하루(암만 측정)**에 몰려 있고 정상·조직검사음성은 08-10~13에 섞임 → Screening 쪽에 같은 위험. **두 세트 모두 라벨↔세션이 분리돼 있지 않다.** (PL-3가 8월 day effect를 run-level로 확인한 것과 정합.)
+  - 결론 수정: "3군 하락 = 환원제 효과" 아님. 7월 정상군 분리는 세션 아티팩트일 수 있고, 8월 정상군 AUC 0.49는 진짜 무구분이거나 세션 지름길이 없어진 결과. 다음 실험은 **임상군을 세션에 섞어서** 배치해야 한다.
+  - 산출물 추가: `condition_metrics.csv`(4조건×10회×지표), `july_session_batch_check.csv`, `august_day_by_class.csv`, `confusion_*_aug_mapping_qc.csv`. 덱 10장으로 갱신(지표 전체표·세션 교란 슬라이드 추가).
 
 ---
 
