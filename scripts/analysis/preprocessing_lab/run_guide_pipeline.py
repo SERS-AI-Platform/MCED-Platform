@@ -392,7 +392,8 @@ def _load_ps_shifts(key_to_mid: dict) -> dict:
                 "JOIN measurement.runs r ON r.measurement_run_id = m.measurement_run_id "
                 "JOIN measurement.instruments i ON i.instrument_id = r.instrument_id "
                 "WHERE m.measurement_id = ANY(%s)", (mids,))
-            mid_to_run = {int(mid): (d.isoformat(), inst) for mid, d, inst in cur.fetchall()}
+            mid_to_run = {int(mid): (d.isoformat() if d else None, inst)
+                          for mid, d, inst in cur.fetchall()}
     finally:
         conn.close()
     out, out_lin = {}, {}

@@ -188,6 +188,9 @@ class PostgresAecdRepository:
         clauses = [
             "measurement.status = 'acquired'",
             "measurement.measurement_role = 'clinical'",
+            # retrospective runs have no recorded date (2026-09-11); measured_at is required
+            # by the published Spectrum contract, so they stay out of this endpoint for now
+            "run.measurement_date IS NOT NULL",
         ]
         parameters: list[str | int] = []
         for column, value in (
