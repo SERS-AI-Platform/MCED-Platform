@@ -162,7 +162,7 @@ def stage2_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
            f"n={int(target.sum())} ({entered_txt}) · {MODEL} · {EVALUATION}",
            f"평가 대상: 1단계 암 판정({GATE_LABEL}) 실제 암 검체. 제외: 1단계에서 비암 판정된 암 {missed}개(1단계 그림의 위음성), "
            f"암으로 판정된 비암 {false_pos}개(1단계 그림의 위양성).\n"
-           "6개 암종(난소암 없음, 췌장암 = CBNUH + 연세)이라 기존 모델의 7개 암종 macro-F1과 직접 비교할 수 없음.")
+           "6개 암종 기준(난소암 없음, 췌장암 = CBNUH + 연세).")
     save_png(fig, OUT / f"fig{slug}_b_stage2_cancer_type.png")
     return {"s2_n": int(target.sum()), "s2_macro_ovr_auc": float(np.mean(ovr)), "s2_balanced_accuracy": float(np.mean(recalls)),
             "s2_macro_f1": macro_f1, "s1_missed_cancer": missed, "s1_false_positive": false_pos,
