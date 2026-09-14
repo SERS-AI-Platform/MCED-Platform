@@ -157,11 +157,11 @@ def stage2_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
     colors = group_colors()
     relabel_roc(axes[1], [f"{TYPE_KO[t]} — AUC {a:.3f}" for t, a in zip(TYPES, ovr)], [colors.get(t, COLOR_TEXT) for t in TYPES])
     metric_bars(axes[2], ["암종별 AUC 평균", "균형 정확도", "macro-F1"], [float(np.mean(ovr)), float(np.mean(recalls)), macro_f1],
-                BAR_STAGE2, "지표 (6개 암종)", "1단계에서 암으로 판정된 실제 암 검체")
-    header(fig, f"2단계 암종 구분 (6개 암종) — {label}",
+                BAR_STAGE2, "지표 (6개 암종)", "암 vs 비암 판정에서 암으로 판정된 실제 암 검체")
+    header(fig, f"암종 구분 (6개 암종) — {label}",
            f"n={int(target.sum())} ({entered_txt}) · {MODEL} · {EVALUATION}",
-           f"평가 대상: 1단계 암 판정({GATE_LABEL}) 실제 암 검체. 제외: 1단계에서 비암 판정된 암 {missed}개(1단계 그림의 위음성), "
-           f"암으로 판정된 비암 {false_pos}개(1단계 그림의 위양성).\n"
+           f"평가 대상: 암 vs 비암 판정({GATE_LABEL})에서 암으로 판정된 실제 암 검체. 제외: 비암으로 판정된 암 {missed}개, "
+           f"암으로 판정된 비암 {false_pos}개.\n"
            "6개 암종 기준(난소암 없음, 췌장암 = CBNUH + 연세).")
     save_png(fig, OUT / f"fig{slug}_b_stage2_cancer_type.png")
     return {"s2_n": int(target.sum()), "s2_macro_ovr_auc": float(np.mean(ovr)), "s2_balanced_accuracy": float(np.mean(recalls)),
