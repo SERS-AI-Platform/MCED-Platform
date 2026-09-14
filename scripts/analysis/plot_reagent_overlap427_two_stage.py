@@ -125,7 +125,7 @@ def stage1_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
                 CLASS_COLORS["cancer"], "지표", GATE_LABEL)
     header(fig, f"1단계 암 선별 (암 vs 비암) — {label}",
            subtitle_from(n=len(y), n_pos=int(y.sum()), n_neg=int((1 - y).sum()), model=MODEL, evaluation=EVALUATION),
-           "각 군은 한 병원 검체라 AUC에는 병원 차이가 포함됨.")
+           "12개 군은 각각 한 병원 검체라 AUC에는 병원 차이가 포함됨.")
     save_png(fig, OUT / f"fig{slug}_a_stage1_screening.png")
     return {"s1_auc": auc, "s1_sensitivity": sens, "s1_specificity": spec}
 
