@@ -184,8 +184,15 @@ class LabState(TypedDict):
 | `phase="PL-3"`, `baseline="cal_despike"` | `:805-806` | phase·기준 조건이 틀리게 기록됨 |
 | `CONDITIONS` 하드코딩 | `:142~` | 새 방법은 조건 항목 추가 필요 |
 
-제안: 계산 로직은 건드리지 않고 **`--date-tag`, `--phase`, `--notes`, `--baseline-ref` 인자만 추가**한다.
-기본값은 현재 고정값과 같게 둬서 PL-3 재현성을 유지한다. (§13 결정 2)
+**적용 (2026-09-14, 사용자 승인)**: 계산 로직은 건드리지 않고 `--date-tag`, `--phase`, `--notes`,
+`--baseline-ref` 인자만 추가했다 (`RecordTags`).
+- 기본값 = PL-3 고정값. 인자를 생략하면 경로·run_name·notes·phase·baseline이 이전과 같다 (기존 산출물 64개 폴더 확인).
+- 실행 시 태그를 `run_metadata.json`의 `record_tags`에 남기고, 저장된 태그와 다른 인자로 재계산·재적재하면 중단한다.
+  `record_tags`가 없는 PL-3 산출물은 기본 태그로만 적재할 수 있다.
+- `--date-tag`를 바꾸면 cohort_id도 바뀌어 `check_comparable()`이 PL-3 run과의 비교를 거부한다
+  (살아있는 DB에서 다시 로드한 코호트를 같은 코호트로 보지 않는 보수적 선택).
+- `--baseline-ref`는 기록용이다. Δ 계산 기준은 여전히 `DELTA_REFERENCES`(`cal_ps_si` 포함).
+- 테스트: `tests/analysis/test_run_guide_pipeline_record_tags.py` (9개)
 
 ### 5.2 E6 기준 조건과 임계값
 
@@ -345,7 +352,7 @@ M0·M1만으로 E1~E6 전부를 코드 수준에서 막을 수 있다. LLM 없�
    기존 스크립트를 쓴다(PL-1·PL-3도 실제로 이 스크립트로 실행됨). 선택지:
    (a) 그래프를 SKILL의 실행 형태로 정하고 SKILL.md에 그래프 경로와 평가 경로를 반영
    (b) 파일럿 기간은 SKILL과 병행, 결과를 보고 결정
-2. **스크립트 최소 수정** — §5.1의 인자 4개 추가 방식에 동의하는지
+2. ~~**스크립트 최소 수정**~~ — **결정·적용 완료 (2026-09-14)**, §5.1
 3. **API 키·보안정책** — Anthropic API 키 없음. 논문 텍스트·diff·집계 지표 전송 가능 여부 확인
 4. **E6 임계값** — 기준 조건 `cal_ps_si` 대비 환자 수가 몇 명(또는 몇 %) 줄면 비교에서 분리할지
 5. **실행 환경·위치** — 새 conda env(`sers-langgraph`, Python 3.12), 코드 `src/sers/preprocessing_lab/graph/`,

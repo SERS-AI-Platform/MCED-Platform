@@ -65,6 +65,11 @@ Usage:
     python scripts/analysis/preprocessing_lab/run_guide_pipeline.py --cohort aecd
     python scripts/analysis/preprocessing_lab/run_guide_pipeline.py --cohort aecd --load-db
         # 저장된 예측 CSV로부터 CI 표를 만들고 DB에 적재 (재계산 없음)
+    python scripts/analysis/preprocessing_lab/run_guide_pipeline.py --cohort aecd \
+        --conditions <new_condition> --date-tag 20261001 --phase PL-4 \
+        --notes "Preprocessing Lab 그래프 승인 run (audit approved)" --baseline-ref cal_ps_si
+        # 기록용 인자 4개(2026-09-14 추가). 생략하면 PL-3 고정값 그대로 — 계산에는 영향 없음.
+        # 이미 있는 산출물 폴더를 다른 태그로 재적재하려 하면 중단한다.
 """
 
 from __future__ import annotations
@@ -72,6 +77,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import re
 import subprocess
 import sys
 import time
@@ -124,6 +130,29 @@ N_BOOT = 2000
 GRID = np.linspace(402.0, 2198.0, 935)
 DATE_TAG = "20260907"
 OUT_ROOT = REPO / "results" / "preprocessing_lab" / f"guide_pipeline_{DATE_TAG}"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class RecordTags:
+    """산출물·DB에 남기는 기록용 값 (`--date-tag/--phase/--notes/--baseline-ref`).
+
+    기본값은 PL-3 당시 고정값이라 인자 없이 실행하면 이전과 같은 경로·run_name·기록이 나온다.
+    계산(전처리·학습·CI)에는 영향이 없다. date_tag는 산출물 폴더·run_name·cohort_id에 들어가므로
+    다른 date_tag로 실행한 run은 cohort_id가 달라져 check_comparable()이 PL-3 run과의 비교를
+    거부한다 — 살아있는 DB에서 다시 로드한 코호트를 같은 코호트로 간주하지 않기 위한 보수적 선택.
+    """
+
+    date_tag: str = DATE_TAG
+    phase: str = "PL-3"
+    notes: str | None = None  # None이면 PL-3 탐색 실험 문구(감사 게이트 면제 명시)
+    baseline_ref: str = "cal_despike"
+
+    @property
+    def out_root(self) -> Path:
+        return REPO / "results" / "preprocessing_lab" / f"guide_pipeline_{self.date_tag}"
+
+
+DEFAULT_TAGS = RecordTags()
 
 # 코호트를 명시적으로 고정 (aecd_platform은 살아있는 DB — PL-1 주석 참조)
 AECD_COHORTS = ("prostate", "prostate disease control", "control")
@@ -537,15 +566,29 @@ TASK_FILES = {"screening": "patient_oof_predictions.csv",
 # 실행
 # ---------------------------------------------------------------------------
 
-def run_name(cohort: str, cond: str) -> str:
-    return f"guide_{cohort}_{cond}_{DATE_TAG}"
+def run_name(cohort: str, cond: str, date_tag: str = DATE_TAG) -> str:
+    return f"guide_{cohort}_{cond}_{date_tag}"
+
+
+def _check_tags(meta: dict, tags: RecordTags, out_dir: Path) -> None:
+    """저장된 산출물과 이번 실행의 기록 태그가 같은지 확인한다.
+
+    record_tags가 없는 기존 산출물(PL-3)은 기본 태그로 만든 것이므로 기본값만 허용한다 —
+    PL-3 결과가 다른 phase·notes로 DB에 재적재되는 것을 막는다.
+    """
+    saved = meta.get("record_tags") or dataclasses.asdict(DEFAULT_TAGS)
+    if saved != dataclasses.asdict(tags):
+        raise SystemExit(f"{out_dir}: 저장된 record_tags {saved} ≠ 이번 인자 {dataclasses.asdict(tags)}")
 
 
 def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, dry_run: bool,
-            tasks: tuple[str, ...] = ("screening", "three_class"), force: bool = False):
+            tasks: tuple[str, ...] = ("screening", "three_class"), force: bool = False,
+            tags: RecordTags = DEFAULT_TAGS):
     for cond in conditions:
         spec = CONDITIONS[cond]
-        out_dir = OUT_ROOT / cohort.name / cond
+        out_dir = tags.out_root / cohort.name / cond
+        if (out_dir / "run_metadata.json").exists():
+            _check_tags(json.loads((out_dir / "run_metadata.json").read_text()), tags, out_dir)
         todo = [t for t in tasks if force or dry_run or not (out_dir / TASK_FILES[t]).exists()]
         if not todo:
             print(f"\n[{cohort.name}/{cond}] 이미 있음 — 건너뜀 (--force로 재계산)")
@@ -598,7 +641,8 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
         if shift_df is not None:
             shift_df.to_csv(out_dir / "calibration_shifts.csv", index=False, encoding="utf-8-sig")
         meta.update({
-            "run_name": run_name(cohort.name, cond),
+            "run_name": run_name(cohort.name, cond, tags.date_tag),
+            "record_tags": dataclasses.asdict(tags),
             "cohort": cohort.name, "site": cohort.site, "condition": cond,
             "label": spec["label"], "method_key": spec["method_key"],
             "calibrate": spec["calibrate"],
@@ -636,15 +680,16 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
 # CI 표 + DB 적재 (저장된 예측에서만 계산 — 재학습 없음)
 # ---------------------------------------------------------------------------
 
-def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str, task: Task) -> CohortSpec:
+def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str, task: Task,
+                 date_tag: str = DATE_TAG) -> CohortSpec:
     if cohort_key == "aecd_ctrl":
         cancer, control = (AECD_CANCER,), ("control",)
-        cohort_id, site = f"aecd_prostate_vs_control_{DATE_TAG}", "aecd_platform"
+        cohort_id, site = f"aecd_prostate_vs_control_{date_tag}", "aecd_platform"
         note = ("aecd_platform 전립선암 vs 정상(control)만 — 질환대조군 제외. 3군 코호트의 부분집합이며 "
                 "같은 환자·같은 전처리에서 두 군만으로 학습·OOF. 양성=전립선암.")
     elif cohort_key == "aecd":
         cancer, control = (AECD_CANCER,), tuple(c for c in AECD_COHORTS if c != AECD_CANCER)
-        cohort_id, site = f"aecd_prostate3_{DATE_TAG}", "aecd_platform"
+        cohort_id, site = f"aecd_prostate3_{date_tag}", "aecd_platform"
         note = ("aecd_platform 전립선 3군(prostate / prostate disease control / control) = 보라매 "
                 "113검체×121점 매핑 데이터의 DB 사본(2026-09-02 Drop 1명 제외). 양성=전립선암.")
     else:
@@ -684,7 +729,8 @@ def _task_rows(pt: pd.DataFrame, task: Task, rname: str, cohort: CohortSpec) -> 
     return rows
 
 
-def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFrame:
+def build_ci(cohort_key: str, conditions: list[str], load_db: bool,
+             tags: RecordTags = DEFAULT_TAGS) -> pd.DataFrame:
     tracker = None
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
                             text=True).stdout.strip() or None
@@ -694,15 +740,16 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
 
     summary, primary, primary3 = [], {}, {}
     for cond in conditions:
-        out_dir = OUT_ROOT / cohort_key / cond
+        out_dir = tags.out_root / cohort_key / cond
         if not (out_dir / "run_metadata.json").exists():
             print(f"  (skip) {out_dir} 결과 없음")
             continue
         meta = json.loads((out_dir / "run_metadata.json").read_text())
+        _check_tags(meta, tags, out_dir)
         rname = meta["run_name"]
         allp = pd.read_csv(out_dir / TASK_FILES["screening"], encoding="utf-8-sig")
         pt = allp[allp.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
-        cohort = _cohort_spec(meta, pt, cohort_key, Task.CANCER_SCREENING)
+        cohort = _cohort_spec(meta, pt, cohort_key, Task.CANCER_SCREENING, tags.date_tag)
         rows = _task_rows(pt, Task.CANCER_SCREENING, rname, cohort)
         primary[cond] = pt
         auc = rows[0]
@@ -721,7 +768,7 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
         if three.exists():
             all3 = pd.read_csv(three, encoding="utf-8-sig")
             pt3 = all3[all3.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
-            cohort3 = _cohort_spec(meta, pt3, cohort_key, Task.PROSTATE_THREE_CLASS)
+            cohort3 = _cohort_spec(meta, pt3, cohort_key, Task.PROSTATE_THREE_CLASS, tags.date_tag)
             rows3 = _task_rows(pt3, Task.PROSTATE_THREE_CLASS, rname, cohort3)
             rows += rows3
             primary3[cond] = pt3
@@ -740,7 +787,7 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
         print(line)
 
         if tracker is not None:
-            _load_run(tracker, meta, rows, out_dir, commit)
+            _load_run(tracker, meta, rows, out_dir, commit, tags)
 
     # 조건 간 짝지은 차이 — 같은 환자를 함께 재추출. 기준 2개(production, cal_despike)
     for ref in DELTA_REFERENCES:
@@ -772,7 +819,18 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
     return pd.DataFrame(summary)
 
 
-def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit: str | None) -> None:
+def _run_notes(meta: dict, out_dir: Path, tags: RecordTags) -> str:
+    """experiment.runs.notes. tags.notes가 없으면 PL-3 탐색 실험 문구(기존 고정 문구와 동일)."""
+    body = f"[{meta['cohort']}] {meta['label']}. LR C=1.0 고정(PL-1 규약). "
+    if tags.notes is None:
+        return (f"PL-3 설계가이드 요인별 비교 {body}"
+                f"탐색 실험 — audit gate 면제(사용자 결정 2026-09-08), 채택 근거 아님. "
+                f"산출물 {out_dir.relative_to(REPO)}")
+    return f"{tags.notes} {body}산출물 {out_dir.relative_to(REPO)}"
+
+
+def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit: str | None,
+              tags: RecordTags = DEFAULT_TAGS) -> None:
     """runs 행을 method_id·config와 함께 만들고(없을 때만), CI 행과 시드 행을 얹는다."""
     rname = meta["run_name"]
     with tracker._connect() as conn, conn.cursor() as cur:  # noqa: SLF001 — 조회 전용
@@ -791,9 +849,7 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
             n_subjects=meta["qc"]["n_patients"], n_spectra=meta["qc"]["final"],
             qc_passed_n=meta["qc"]["final"], qc_failed_n=meta["qc"]["dropped"],
             started_at=meta.get("started_at", meta["finished_at"]), status="complete",
-            notes=f"PL-3 설계가이드 요인별 비교 [{meta['cohort']}] {meta['label']}. "
-                  f"LR C=1.0 고정(PL-1 규약). 탐색 실험 — audit gate 면제(사용자 결정 2026-09-08), "
-                  f"채택 근거 아님. 산출물 {out_dir.relative_to(REPO)}",
+            notes=_run_notes(meta, out_dir, tags),
         )
         # create_run은 코호트 배열 컬럼을 넣지 않고 load_metric_rows의 ON CONFLICT도
         # 갱신하지 않으므로 여기서 직접 채운다 (01_schema.sql: 비교 가능성 판단 근거).
@@ -802,8 +858,8 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
             cur.execute(
                 "UPDATE experiment.runs SET cancer_types=%s, non_cancer_groups=%s, "
                 "aggregation=%s, phase=%s, variable=%s, baseline=%s WHERE run_id=%s",
-                (list(cohort.cancer_groups), list(cohort.control_groups), "patient", "PL-3",
-                 meta["condition"], "cal_despike", run_id),
+                (list(cohort.cancer_groups), list(cohort.control_groups), "patient", tags.phase,
+                 meta["condition"], tags.baseline_ref, run_id),
             )
             conn.commit()
         ids_path = out_dir / "measurement_ids.npy"
@@ -834,6 +890,18 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
     print(f"    → experiment.runs #{run_id} ({rname})")
 
 
+def record_tags(date_tag: str, phase: str, notes: str | None, baseline_ref: str) -> RecordTags:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", date_tag):
+        raise SystemExit(f"--date-tag는 영문·숫자·_·-만 허용 (폴더명·run_name에 쓰임): {date_tag!r}")
+    if not phase.strip():
+        raise SystemExit("--phase가 비어 있다")
+    if notes is not None and not notes.strip():
+        raise SystemExit("--notes가 비어 있다 (생략하면 PL-3 문구)")
+    if baseline_ref not in CONDITIONS:
+        raise SystemExit(f"--baseline-ref가 CONDITIONS에 없다: {baseline_ref!r}")
+    return RecordTags(date_tag=date_tag, phase=phase, notes=notes, baseline_ref=baseline_ref)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cohort", choices=["aecd", "aecd_ctrl", "mapping", "both"], default="aecd",
@@ -848,7 +916,15 @@ def main() -> None:
                     help="학습 없이 저장된 예측에서 CI 표·summary만 다시 만듦 (DB 미적재)")
     ap.add_argument("--tasks", default="screening,three_class")
     ap.add_argument("--force", action="store_true", help="이미 있는 task 결과도 재계산")
+    ap.add_argument("--date-tag", default=DEFAULT_TAGS.date_tag,
+                    help="산출물 폴더·run_name·cohort_id 태그 (기본 PL-3 값). 바꾸면 PL-3 run과 cohort_id가 달라짐")
+    ap.add_argument("--phase", default=DEFAULT_TAGS.phase, help="experiment.runs.phase (기본 PL-3)")
+    ap.add_argument("--notes", default=None,
+                    help="experiment.runs.notes 머리말. 생략 시 PL-3 탐색 실험(감사 게이트 면제) 문구")
+    ap.add_argument("--baseline-ref", default=DEFAULT_TAGS.baseline_ref,
+                    help="experiment.runs.baseline에 기록할 기준 조건 (CONDITIONS 키)")
     args = ap.parse_args()
+    tags = record_tags(args.date_tag, args.phase, args.notes, args.baseline_ref)
 
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
     if conditions == ["PS_LADDER"]:
@@ -872,16 +948,18 @@ def main() -> None:
             else:
                 cohort = load_mapping()
             compute(cohort, conditions, seeds, cfg, args.dry_run,
-                    tasks=tuple(t.strip() for t in args.tasks.split(",")), force=args.force)
+                    tasks=tuple(t.strip() for t in args.tasks.split(",")), force=args.force,
+                    tags=tags)
         if args.dry_run:
             print("\n(dry-run) 저장·적재 없음")
             return
 
     print("\n=== CI 표 / summary ===")
-    frames = [build_ci(key, conditions, load_db=args.load_db and key.startswith("aecd")) for key in cohorts]
+    frames = [build_ci(key, conditions, load_db=args.load_db and key.startswith("aecd"), tags=tags)
+              for key in cohorts]
     summary = pd.concat([f for f in frames if len(f)], ignore_index=True)
-    OUT_ROOT.mkdir(parents=True, exist_ok=True)
-    path = OUT_ROOT / "summary.csv"
+    tags.out_root.mkdir(parents=True, exist_ok=True)
+    path = tags.out_root / "summary.csv"
     if path.exists():
         old = pd.read_csv(path, encoding="utf-8-sig")
         old = old[~old.set_index(["cohort", "condition"]).index.isin(
