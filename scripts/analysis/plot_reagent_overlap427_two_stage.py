@@ -153,7 +153,7 @@ def stage2_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
     resubtitle(axes[0], "혼동행렬 (암종)", f"n={int(target.sum())} ({entered_txt}) · 정확도 {float((pred == yt).mean()):.3f}")
     curves = [(TYPE_KO[t], (yt == i).astype(int), pt[:, i]) for i, t in zip(idx, TYPES)]
     plot_roc(curves, title="암종별 ROC", ax=axes[1])
-    resubtitle(axes[1], "암종별 ROC (해당 암종 vs 나머지 암종)", f"점수 = 2단계 암종 확률, n={int(target.sum())}")
+    resubtitle(axes[1], "암종별 ROC (해당 암종 vs 나머지 암종)", f"점수 = 암종 확률, n={int(target.sum())}")
     colors = group_colors()
     relabel_roc(axes[1], [f"{TYPE_KO[t]} — AUC {a:.3f}" for t, a in zip(TYPES, ovr)], [colors.get(t, COLOR_TEXT) for t in TYPES])
     metric_bars(axes[2], ["암종별 AUC 평균", "균형 정확도", "macro-F1"], [float(np.mean(ovr)), float(np.mean(recalls)), macro_f1],
