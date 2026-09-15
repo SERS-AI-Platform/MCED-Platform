@@ -9,11 +9,11 @@ drawn only with ``sers.visualization.performance`` / ``sers.visualization.style`
 
 Conditions: ① pre->pre, ② pre->post (pre-change model on post-change samples), ③ post->post.
 Input: sample probabilities averaged over the 25 runs, written by the worktree analysis script
-``SERS-AI-ci-tiered/scripts/analysis/reagent_overlap427_two_stage.py``.
+``SERS-AI-ci-tiered/scripts/analysis/paired_analysis_two_stage.py``.
 
 Run from the repo root:
-    PYTHONPATH=src python scripts/analysis/plot_reagent_overlap427_two_stage.py
-Outputs -> results/reagent_overlap427_two_stage_figures/ (PNG only)
+    PYTHONPATH=src python scripts/analysis/plot_paired_analysis_two_stage.py
+Outputs -> results/paired_analysis_two_stage_figures/ (PNG only)
 """
 
 from __future__ import annotations
@@ -48,8 +48,8 @@ from sers.visualization.style import (  # noqa: E402
 )
 
 REPO: Final = Path(__file__).resolve().parents[2]
-SRC: Final = Path("/home/user/SERS-AI-ci-tiered/results/reagent_overlap427_two_stage/subject_probs_mean.csv")
-OUT: Final = REPO / "results" / "reagent_overlap427_two_stage_figures"
+SRC: Final = Path("/home/user/SERS-AI-ci-tiered/results/paired_analysis_two_stage/subject_probs_mean.csv")
+OUT: Final = REPO / "results" / "paired_analysis_two_stage_figures"
 TYPES: Final = ("PRO", "PAN", "LUN", "BRE", "CRC", "BLC")
 TYPE_KO: Final = {"PRO": "전립선암", "PAN": "췌장암", "LUN": "폐암", "BRE": "유방암", "CRC": "대장암", "BLC": "방광암"}
 CELLS: Final = (
