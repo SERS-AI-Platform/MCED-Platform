@@ -849,3 +849,39 @@
   - 전향 보라매 PRO 43 / 비암 69 (control 20 + PDC 49, Drop 제외 112명, `mean_representative_spectra.csv`) 곡선: n=8→30에서 0.611→0.627로 **거의 평탄**. 외삽 n=450 예측 AUC **0.65** (90% 구간 0.55–0.81). 적합된 c≈0.03이라 AUC 0.80 도달 필요 n은 1만 명 초과(=검체 수로 해결 불가).
   - 결론: 전립선 450명의 예상 AUC는 데이터 조건에 따라 0.65(현재 보라매 전향 측정 조건) ~ 0.99(후향 동일 분포)로 갈린다. 보라매 곡선의 평탄성은 병목이 표본 수가 아니라 신호 대 노이즈·라벨 정의(PDC vs 암)·측정 조건임을 뜻한다 (Phase AS-1 baseline 0.629, legacy STK-V2 feature 0.75와 정합).
   - 참고: aecd_platform DB에 cohort_group=prostate는 이미 453명(CBNUH 400 + BORAMAE 53)이나 스펙트럼 보유는 143명(CBNUH Thermo 100 + BORAMAE 43)뿐 — "450명 목표"는 측정 목표로 읽어야 함.
+
+## Phase FM — 스펙트럼 파운데이션 모델(DSCF) 인코더 표현 probe (2026-09-15~16)
+
+> 질문: "Raman/SERS 사전학습 파운데이션 모델의 표현을 쓰면 우리 데이터에서 LR을 넘을 수 있나?"
+> 대상: Xue B, et al. Nat Mach Intell 2025;7(5):743–57 — Deep Spectral Component Filtering (DSCF).
+> 공개 가중치 `SiT_PPS_tiny.pt`(figshare 28130648, md5 aee403eb46487f12d48f0b1d11ec3e8e, 2.5 GB, CC BY 4.0),
+> 코드 GitHub streamflowmaster/Deep-Spectral-Component-Filtering-DSCF- commit 501fe4d (GPL-3.0, scratch clone, 소스 미수정).
+> 스크립트 `scripts/analysis/dscf_encoder_probe_kao1630.py`, 산출물 `results/dscf_encoder_probe_kao1630_20260915/`
+> (runs.csv / summary.json / run_metadata.json / run.log / run_metadata_stop1.json).
+
+- [x] FM-1: DSCF 인코더 표현 → LR probe, 후향 KAO 코호트 (2026-09-16) ✅
+  - 데이터: `results/kao_20260610_updated_cohort/processed_spectra.csv` 1,630명(암 1,200 / 대조 430), 8,150행(전원 5 replicate),
+    933점 401.89–2198.69 cm⁻¹. subject 평균 1행, subject key = (group, sample_id), CPAN/YPAN→PAN, YNOR→NOR.
+  - 조건 (모두 같은 fold·같은 시드): **A** 원 격자 933점 LR / **B** 512점 선형보간 + 샘플별 min-max LR (C의 주 비교 기준) /
+    **C** DSCF 사전학습 인코더 stage 출력 길이축 평균 pooling → LR (enc1 256 / enc2 512 / enc3 1024 / enc4 2048차원) /
+    **D** 같은 구조 무작위 초기화 인코더(초기화 시드 = CV 시드) → LR — 사전학습 효과 판별용 대조군.
+  - 검증: 환자 단위 StratifiedGroupKFold(5), 시드 42/7/123/2024/31337, StandardScaler+LR(L2),
+    C는 학습 fold 안 3-fold GridSearch {0.01, 0.1, 1}에서 선택. 지표는 시드별 OOF pooled.
+  - **과제 1 암/비암 (AUC)**: A 0.9765±0.0028 · B 0.9737±0.0026 · C_enc1 0.8740 / enc2 0.9168 / enc3 0.9429 / **enc4 0.9535±0.0015** ·
+    D_enc1 0.8731 / enc2 0.9296 / enc3 0.9564 / **enc4 0.9670±0.0026**
+  - **과제 2 암종 7종 (macro-F1)**: A 0.8650±0.0078 · B 0.8711±0.0077 · C_enc1 0.5126 / enc2 0.5998 / enc3 0.6636 / **enc4 0.6916±0.0058** ·
+    D_enc1 0.5014 / enc2 0.6466 / enc3 0.7466 / **enc4 0.7615±0.0145**
+  - **짝 차이 (같은 시드, 평균±sd, C가 이긴 시드 수)**
+    - C−B: 과제1 enc4 −0.0202±0.0036 (0/5), enc3 −0.0308, enc2 −0.0569, enc1 −0.0996 / 과제2 enc4 −0.1795±0.0047 (0/5), enc3 −0.2075, enc2 −0.2713, enc1 −0.3584
+    - C−D: 과제1 enc1 +0.0009±0.0058 (3/5), enc2 −0.0127, enc3 −0.0135, enc4 −0.0135 (0/5) / 과제2 enc1 +0.0112±0.0121 (5/5), enc2 −0.0468, enc3 −0.0830 (0/5), enc4 −0.0699 (0/5)
+    - B−A: 과제1 −0.0028±0.0024 (0/5), 과제2 +0.0061±0.0134 (4/5) → 512점 다운샘플 자체의 손실은 작음
+  - 관측: 모든 stage에서 C < B. enc2 이상에서는 C < D(무작위 초기화)이고 시드 5개 모두 같은 방향. enc1만 C ≳ D.
+  - 가중치 로드: 1차 시도는 공개 finetuning 설정(output_channels=1)으로 만들어 strict 로드 실패(unpatchy.proj 400 vs 4) → 중단 기록 `run_metadata_stop1.json`.
+    사용자 승인 후 체크포인트에 저장된 `model_args`(outplanes=100)로 재구성해 strict 로드 성공(missing 0 / unexpected 0 / shape mismatch 0).
+  - ⚠️ 한계
+    - 체크포인트 기록이 `iter_num=159`, `best_val_loss=1e10` — 사전학습이 끝까지 진행된 가중치인지 불명확.
+    - 사전학습 도메인(혈청 SERS, 638 nm, Ag/Au nanostar + 합성 IR/Raman/UV 혼합)과 우리 데이터(소변 SERS, 785 nm)가 다름.
+    - 입력이 이미 전처리된 스펙트럼(음수 포함)이라 사전학습 전처리(최댓값 나눗셈)와 다른 min-max를 적용.
+    - 인코더 특징 linear probe는 논문이 검증한 경로가 아님(논문은 DSCF를 분류기로 쓰지 않음).
+    - 후향 코호트는 암종별 수집처가 달라 수집처 교란 포함(특히 과제 2). BRE 30명이라 macro-F1 변동 큼.
+    - 탐색적 분석이며 외부 시험셋 없음.
