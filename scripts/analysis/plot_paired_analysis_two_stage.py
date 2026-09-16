@@ -61,6 +61,11 @@ GATE: Final = 0.5
 DEFAULT_GATE_LABEL: Final = "임계값 0.5"
 GATE_LABEL = DEFAULT_GATE_LABEL
 MODEL: Final = "LR, 전처리 ver1"
+DEFAULT_TYPE_NOTE: Final = "6개 암종 기준(난소암 없음, 췌장암 = CBNUH + 연세)."
+TYPE_NOTE = DEFAULT_TYPE_NOTE
+# 군과 병원이 1:1이 아님 — 574 코호트의 폐암은 SNUH + SSMH 두 곳 (2026-09-16 정정)
+DEFAULT_SITE_NOTE: Final = "군마다 병원이 달라(폐암은 SNUH·SSMH 두 곳, 나머지 11개 군은 각각 한 병원) AUC에는 병원 차이가 포함됨."
+SITE_NOTE = DEFAULT_SITE_NOTE
 EVALUATION: Final = "검체 단위 5-fold · 검체당 5점 · 25회 평균 확률"
 BAR_STAGE2: Final = "#455A64"
 
@@ -125,7 +130,7 @@ def stage1_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
                 CLASS_COLORS["cancer"], "지표", GATE_LABEL)
     header(fig, f"1단계 암 선별 (암 vs 비암) — {label}",
            subtitle_from(n=len(y), n_pos=int(y.sum()), n_neg=int((1 - y).sum()), model=MODEL, evaluation=EVALUATION),
-           "12개 군은 각각 한 병원 검체라 AUC에는 병원 차이가 포함됨.")
+           SITE_NOTE)
     save_png(fig, OUT / f"fig{slug}_a_stage1_screening.png")
     return {"s1_auc": auc, "s1_sensitivity": sens, "s1_specificity": spec}
 
@@ -161,8 +166,7 @@ def stage2_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
     header(fig, f"암종 구분 (6개 암종) — {label}",
            f"n={int(target.sum())} ({entered_txt}) · {MODEL} · {EVALUATION}",
            f"평가 대상: 암 vs 비암 판정({GATE_LABEL})에서 암으로 판정된 실제 암 검체. 제외: 비암으로 판정된 암 {missed}개, "
-           f"암으로 판정된 비암 {false_pos}개.\n"
-           "6개 암종 기준(난소암 없음, 췌장암 = CBNUH + 연세).")
+           f"암으로 판정된 비암 {false_pos}개.\n" + TYPE_NOTE)
     save_png(fig, OUT / f"fig{slug}_b_stage2_cancer_type.png")
     return {"s2_n": int(target.sum()), "s2_macro_ovr_auc": float(np.mean(ovr)), "s2_balanced_accuracy": float(np.mean(recalls)),
             "s2_macro_f1": macro_f1, "s1_missed_cancer": missed, "s1_false_positive": false_pos,
@@ -170,21 +174,26 @@ def stage2_figure(df: pd.DataFrame, label: str, slug: str) -> dict[str, float]:
 
 
 def main() -> None:
-    global OUT, MODEL, EVALUATION, GATE_LABEL
+    global OUT, MODEL, EVALUATION, GATE_LABEL, TYPE_NOTE, SITE_NOTE
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=SRC, help="subject_probs_mean.csv from the analysis script")
     parser.add_argument("--out", type=Path, default=OUT)
     parser.add_argument("--model-label", default=MODEL)
     parser.add_argument("--evaluation", default=EVALUATION)
     parser.add_argument("--gate-label", default=DEFAULT_GATE_LABEL, help="how the stage-1 threshold is described in the figures")
+    parser.add_argument("--type-note", default=DEFAULT_TYPE_NOTE, help="cancer-type footnote (hospitals per type differ by cohort)")
+    parser.add_argument("--site-note", default=DEFAULT_SITE_NOTE, help="stage-1 footnote about group x hospital overlap")
     args = parser.parse_args()
     OUT, MODEL, EVALUATION, GATE_LABEL = args.out, args.model_label, args.evaluation, args.gate_label
+    TYPE_NOTE, SITE_NOTE = args.type_note, args.site_note
     apply_style()
     OUT.mkdir(parents=True, exist_ok=True)
     probs = pd.read_csv(args.source, encoding="utf-8-sig")
     rows = []
     for cell, label, slug in CELLS:
         df = probs[probs.cell == cell].reset_index(drop=True)
+        if df.empty:      # post-change-only runs (AS-PA768b) carry the post->post cell alone
+            continue
         r1 = stage1_figure(df, label, slug)
         r2 = stage2_figure(df, label, slug)
         rows.append({"cell": cell, "n": len(df), **r1, **r2})
