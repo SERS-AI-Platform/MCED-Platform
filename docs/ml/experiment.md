@@ -885,3 +885,25 @@
     - 인코더 특징 linear probe는 논문이 검증한 경로가 아님(논문은 DSCF를 분류기로 쓰지 않음).
     - 후향 코호트는 암종별 수집처가 달라 수집처 교란 포함(특히 과제 2). BRE 30명이라 macro-F1 변동 큼.
     - 탐색적 분석이며 외부 시험셋 없음.
+
+## Phase DN — Denoising autoencoder 잡음 제거 후 분류 (2026-09-17)
+
+> 질문: "반복 측정 짝으로 학습한 denoising AE로 잡음을 걸러내면 LR 분류가 오르는가?" (사용자 요청, Han 2024 CDAE의 짝 학습을 우리 실제 반복 측정 짝으로 대체)
+> 스크립트 `scripts/analysis/denoising_ae_probe_kao1630.py`, 산출물 `results/denoising_ae_probe_kao1630_20260917/`
+> (runs.csv / summary.json / run_metadata.json / run.log / ae_diagnostics.csv / ae_fit_info.csv / ae_training_curves.csv / residual_by_wavenumber.csv).
+
+- [x] DN-1: 반복 측정 짝 denoising AE → subject 평균 → LR, 후향 KAO 코호트 (2026-09-17) ✅
+  - 데이터: FM-1과 동일 (`results/kao_20260610_updated_cohort/processed_spectra.csv`, 1,630명 암 1,200 / 대조 430, 8,150행, 933점).
+  - AE: 1D conv denoising AE, 채널 [16, 32, 32, 32], kernel 7, stride 2, 잠재 48, 파라미터 219,441. 입력 = replicate 1개, 목표 = 같은 subject의 **나머지 4개 replicate 평균(leave-one-out)**.
+    MSE, Adam lr 1e-3, batch 128, 최대 100 epoch, 학습 fold subject 10%를 검증으로 떼어 patience 10 early stopping(평균 45.7 epoch, best 35.7, fold당 4.7 s, GPU 144 MB).
+    스케일: 학습 fold replicate 전체의 평균·SD 스칼라 표준화, 출력은 원 스케일로 복원. 구조·하이퍼파라미터 고정(미튜닝).
+  - **누수 방지**: AE는 각 (시드, fold)의 학습 fold subject replicate로만 학습(25회). 테스트 fold subject는 AE 학습에 미포함.
+  - 조건 (같은 fold·같은 시드 42/7/123/2024/31337, 환자 단위 StratifiedGroupKFold 5, StandardScaler+LR, C∈{0.01,0.1,1} 학습 fold 안 3-fold 선택):
+    **A** 원 replicate subject 평균 → LR / **B** replicate별 AE 복원 → subject 평균 → LR / **C** A의 subject 평균을 AE 1회 통과 → LR
+  - **잡음 추정 진단 (테스트 fold subject, 시드 평균 ± SD)**: within-subject RMSE(replicate vs LOO 평균) 0.2292 → 0.1837, **−19.9% ± 0.1%** (replicate의 85.8%에서 감소).
+    between-subject 분산(subject 평균 스펙트럼의 파장별 분산 평균) 유지율 **B 0.879 ± 0.009, C 0.895 ± 0.009** — 검체 간 차이의 약 11~12%도 함께 제거됨. subject 평균의 평균 절대 이동 0.099.
+  - **과제 1 암/비암 (AUC)**: A 0.9781 ± 0.0019 · B 0.9594 ± 0.0023 · C 0.9583 ± 0.0020 → B−A **−0.0187 ± 0.0041 (0/5)**, C−A −0.0198 ± 0.0037 (0/5)
+  - **과제 2 암종 7종 (macro-F1)**: A 0.8737 ± 0.0087 · B 0.6824 ± 0.0126 · C 0.6757 ± 0.0117 → B−A **−0.1912 ± 0.0103 (0/5)**, C−A −0.1980 ± 0.0104 (0/5)
+  - 관측: 잡음(반복 편차)은 20% 줄었으나 두 과제 모두 시드 5개 전부에서 AE 복원 조건이 원 스펙트럼보다 낮음. 암종 구분 하락 폭(−0.19)이 암/비암(−0.02)보다 훨씬 큼. B와 C의 차이는 작음(평균 절대 차 0.013).
+  - 참고: 기준 A(0.9781 / 0.8737)가 FM-1의 A(0.9765 / 0.8650)와 소폭 다름 — 같은 데이터·시드·규약이나 구현이 별도 스크립트라 fold 구성 또는 LR 세부가 다를 수 있음(미확인). 각 실험 안에서의 짝 비교에는 영향 없음.
+  - ⚠️ 한계: 후향 코호트 수집처 교란(특히 과제 2) · 이미 전처리된 입력 · AE 구조 1개 고정(미튜닝, 잠재 차원·손실·목표 정의에 따라 달라질 수 있음) · 5회 반복 평균 자체가 이미 잡음을 상당히 제거하는 조건이라 AE의 추가 여지가 작았을 가능성 · 외부 시험셋 없음.
