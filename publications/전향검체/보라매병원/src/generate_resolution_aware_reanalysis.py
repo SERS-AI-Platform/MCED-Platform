@@ -454,7 +454,7 @@ def write_manifest(
 ) -> None:
     rows = [
         ("input_raw_root", str(RAW_ROOT)),
-        ("clinical_label_source", "data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx via existing documented parser"),
+        ("clinical_label_source", "data/01_clinical_metadata/01_raw_hospital/보라매 병원 임상정보.xlsx via existing documented parser"),
         ("included_subjects", int(len(labels))),
         ("control_subjects", int(np.sum(labels == "Control"))),
         ("biopsy_negative_subjects", int(np.sum(labels == "Biopsy-negative"))),

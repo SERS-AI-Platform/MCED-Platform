@@ -26,7 +26,7 @@ sers data inventory --db data/06_supporting_or_previous_outputs/sers_master_sqli
 
 sers data ingest-clinical \
   --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
-  --source data/01_clinical_metadata/hospital_clinical_tables/source.xlsx \
+  --source data/01_clinical_metadata/01_raw_hospital/source.xlsx \
   --site-code SITE-A \
   --protocol-code PROTOCOL-V1 \
   --source-group PRO \
@@ -34,11 +34,11 @@ sers data ingest-clinical \
   --raw-store data/06_supporting_or_previous_outputs/raw_store
 
 sers data ingest-clinical-registry \
-  --clinical-root data/01_clinical_metadata/hospital_clinical_tables \
+  --clinical-root data/01_clinical_metadata/01_raw_hospital \
   --validate-only
 
 sers data ingest-clinical-registry \
-  --clinical-root data/01_clinical_metadata/hospital_clinical_tables \
+  --clinical-root data/01_clinical_metadata/01_raw_hospital \
   --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
   --raw-store data/06_supporting_or_previous_outputs/raw_store
 

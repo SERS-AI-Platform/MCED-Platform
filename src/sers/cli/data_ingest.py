@@ -92,7 +92,7 @@ def inventory_command(
     source_kind: str,
 ) -> None:
     clinical = inventory_clinical_sources(
-        clinical_root or repo_root / "data" / "01_clinical_metadata" / "hospital_clinical_tables"
+        clinical_root or repo_root / "data" / "01_clinical_metadata" / "01_raw_hospital"
     )
     roots = (
         tuple(

@@ -24,7 +24,7 @@ with open(AACR_DIR / 'settings.json') as f:
 COLORS = settings['colors']
 
 # ── Load data ──
-clinical = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/hospital_clinical_tables/standardized/all_clinical_standardized.csv')
+clinical = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/all_clinical_standardized.csv')
 pan_staged = pd.read_csv(AACR_DIR / 'data' / 'PAN_with_ajcc_stage.csv')
 pro_staged = pd.read_csv(AACR_DIR / 'data' / 'PRO_with_staging.csv')
 crc_staged = pd.read_csv(AACR_DIR / 'data' / 'CRC_with_ajcc_stage.csv')

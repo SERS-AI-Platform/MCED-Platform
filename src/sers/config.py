@@ -185,7 +185,7 @@ SERS_EQUIPMENT_TEST_DATA_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_EQUIPMENT_TEST_DATA_DIR", str(DATA_ROOT / "04_machine_repeatability_tests" / "equipment_comparison_NOR_5devices_undated"))
 ))
 CLINICAL_DATA_DIR: Path = Path(_normalize_path(
-    os.environ.get("SERS_CLINICAL_DATA_DIR", str(DATA_ROOT / "01_clinical_metadata" / "hospital_clinical_tables"))
+    os.environ.get("SERS_CLINICAL_DATA_DIR", str(DATA_ROOT / "01_clinical_metadata" / "01_raw_hospital"))
 ))
 PROCESSED_DIR: Path = Path(_normalize_path(
     os.environ.get("SERS_PROCESSED_DIR", str(DATA_ROOT / "06_supporting_or_previous_outputs" / "processed"))

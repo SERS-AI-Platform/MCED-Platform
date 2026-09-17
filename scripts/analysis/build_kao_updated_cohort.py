@@ -25,9 +25,9 @@ from src.sers.io import read_spectrum  # noqa: E402
 
 DEFAULT_INPUT = PROJECT_ROOT / "results" / "processed_spectra.csv"
 DEFAULT_OUT = PROJECT_ROOT / "results" / "kao_20260610_updated_cohort"
-DEFAULT_CLINICAL = PROJECT_ROOT / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "전체환자_임상정보_정규화.xlsx"
+DEFAULT_CLINICAL = PROJECT_ROOT / "data" / "01_clinical_metadata" / "00_master_normalized_workbook" / "전체환자_임상정보_정규화_v8.xlsx"
 FALLBACK_CLINICAL = (
-    PROJECT_ROOT / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "standardized" / "all_clinical_standardized.csv"
+    PROJECT_ROOT / "data" / "01_clinical_metadata" / "02_standardized_1782" / "standardized" / "all_clinical_standardized.csv"
 )
 
 TARGET_SOURCE_GROUPS = (

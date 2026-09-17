@@ -98,7 +98,7 @@ text='''# 전립선암 3개 코호트 스펙트럼: 95% CI 및 그룹 차이 분
 - 공유 ZIP은 aggregate 파일만 포함. subject_spectra.npz는 연구용 개별자료로 제외했다.
 '''
 (OUT/'README.md').write_text(text,encoding='utf-8')
-files=[ROOT/'notebooks/audit_three_cohort_ci.py',ROOT/'notebooks/analyze_three_cohort_ci.py',Path(__file__),ROOT/'publications/전향검체/보라매병원/src/three_cohort_spectra.py',ROOT/'artifacts/usersnet/v1.0.0/common_grid.npy',ROOT/'data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/clinical_df.xlsx',ROOT/'data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx',ROOT/'results/clean_cohort_20260605/clean_cohort_manifest.csv']
+files=[ROOT/'notebooks/audit_three_cohort_ci.py',ROOT/'notebooks/analyze_three_cohort_ci.py',Path(__file__),ROOT/'publications/전향검체/보라매병원/src/three_cohort_spectra.py',ROOT/'artifacts/usersnet/v1.0.0/common_grid.npy',ROOT/'data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/clinical_df.xlsx',ROOT/'data/01_clinical_metadata/01_raw_hospital/보라매 병원 임상정보.xlsx',ROOT/'results/clean_cohort_20260605/clean_cohort_manifest.csv']
 (OUT/'source_hashes.json').write_text(json.dumps({str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},ensure_ascii=False,indent=2))
 for p in files[:3]:shutil.copy2(p,OUT/p.name)
 with zipfile.ZipFile(OUT/'three_cohort_ci_statistics.zip','w',zipfile.ZIP_DEFLATED) as z:

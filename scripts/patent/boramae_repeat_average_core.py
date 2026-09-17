@@ -9,7 +9,7 @@ import openpyxl
 
 REPO = Path("/home/user/SERS-AI")
 RAW_ROOT = REPO / "data/03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710"
-CLINICAL = REPO / "data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx"
+CLINICAL = REPO / "data/01_clinical_metadata/01_raw_hospital/보라매 병원 임상정보.xlsx"
 GRID_PATH = REPO / "artifacts/usersnet/v1.0.0/common_grid.npy"
 GROUP_ORDER = ("Control", "Biopsy-negative", "Prostate cancer")
 GROUP_MAP = {

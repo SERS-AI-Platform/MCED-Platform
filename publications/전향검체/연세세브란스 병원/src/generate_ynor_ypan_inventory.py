@@ -18,7 +18,7 @@ REPO: Final = Path(__file__).resolve().parents[4]
 OUT: Final = REPO / "publications" / "전향검체" / "연세세브란스 병원"
 TABLES: Final = OUT / "tables"
 MAPPING: Final = TABLES / "yonsei_clinical_data_mapping.csv"
-CLINICAL: Final = REPO / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "standardized"
+CLINICAL: Final = REPO / "data" / "01_clinical_metadata" / "02_standardized_1782" / "standardized"
 PRIMARY_ROOTS: Final = {
     "YNOR": REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "12. Y-Normal (YNOR)",
     "YPAN": REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "10-3. Y-Pancreatic cancer (YPAN)",

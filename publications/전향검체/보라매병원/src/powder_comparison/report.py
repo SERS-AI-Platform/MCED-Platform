@@ -307,7 +307,7 @@ Important peak는 Cancer Screening LR의 표준화 계수 절댓값에서 18 cm^
 - 기존 액상: `data/03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710`
 - 신규 powder: `data/05_not_yet_analyzed/thermo_powder_BNOR-BPRO_20260716`
 - Powder 5-lot 재현성: `data/04_machine_repeatability_tests/thermo_powder_reproducibility_BPRO_20260715`
-- Reference label: `data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx`
+- Reference label: `data/01_clinical_metadata/01_raw_hospital/보라매 병원 임상정보.xlsx`
 - `_1.._5` replicate를 전처리 후 환자 평균으로 집계했고 `_ave` 및 Zone.Identifier는 제외했다.
 - AUROC와 성능 차이의 95% CI는 임상군 층화 subject bootstrap 10,000회로 계산하고, binary AUROC는 correlated DeLong 검정을 보조적으로 제시했다.
 - 민감도·특이도 변화는 동일 환자의 discordant pair를 대상으로 exact McNemar 검정을 사용했다.

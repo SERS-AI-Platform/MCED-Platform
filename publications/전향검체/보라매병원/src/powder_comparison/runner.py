@@ -71,7 +71,7 @@ def default_sources(repo: Path) -> SourcePaths:
         legacy_root=repo / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710",
         powder_root=repo / "data" / "05_not_yet_analyzed" / "thermo_powder_BNOR-BPRO_20260716",
         powder_lot_root=repo / "data" / "04_machine_repeatability_tests" / "thermo_powder_reproducibility_BPRO_20260715",
-        clinical_path=repo / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "보라매 병원 임상정보.xlsx",
+        clinical_path=repo / "data" / "01_clinical_metadata" / "01_raw_hospital" / "보라매 병원 임상정보.xlsx",
         artifact_dir=repo / "artifacts" / "usersnet" / "v1.0.0",
         output_dir=repo / "publications" / "전향검체" / "보라매병원",
     )

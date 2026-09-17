@@ -48,7 +48,7 @@ def data(ctx):
     "-o",
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Output directory [data/01_clinical_metadata/hospital_clinical_tables/standardized].",
+    help="Output directory [data/01_clinical_metadata/02_standardized_1782/standardized].",
 )
 @click.option("--dry-run", is_flag=True, default=False,
               help="List files without writing.")

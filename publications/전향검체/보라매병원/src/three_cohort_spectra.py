@@ -83,7 +83,7 @@ def _clean_pro_spectra(repo: Path, grid: np.ndarray) -> tuple[np.ndarray, np.nda
 
 
 def _boramae_cancer_ids(repo: Path) -> set[int]:
-    path = repo / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "보라매 병원 임상정보.xlsx"
+    path = repo / "data" / "01_clinical_metadata" / "01_raw_hospital" / "보라매 병원 임상정보.xlsx"
     with closing(openpyxl.load_workbook(path, data_only=True)) as workbook:
         sheet = workbook.active
         if sheet is None:

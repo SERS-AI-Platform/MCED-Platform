@@ -2,16 +2,16 @@
 data/*
 !data/01_clinical_metadata/
 data/01_clinical_metadata/*
-!data/01_clinical_metadata/hospital_clinical_tables/
-data/01_clinical_metadata/hospital_clinical_tables/*
-!data/01_clinical_metadata/hospital_clinical_tables/standardize_clinical.py
-!data/01_clinical_metadata/hospital_clinical_tables/link_sers_clinical.py
-!data/01_clinical_metadata/hospital_clinical_tables/normalize_excel_files.py
-!data/01_clinical_metadata/hospital_clinical_tables/apply_column_mappings.py
-!data/01_clinical_metadata/hospital_clinical_tables/standardized/
-data/01_clinical_metadata/hospital_clinical_tables/standardized/*
-!data/01_clinical_metadata/hospital_clinical_tables/standardized/clinical_data_report_draft.md
-!data/01_clinical_metadata/hospital_clinical_tables/standardized/figures/
+!data/01_clinical_metadata/07_scripts_and_sql/
+!data/01_clinical_metadata/06_sers_linkage/
+data/01_clinical_metadata/07_scripts_and_sql/*
+data/01_clinical_metadata/06_sers_linkage/*
+!data/01_clinical_metadata/07_scripts_and_sql/standardize_clinical.py
+!data/01_clinical_metadata/07_scripts_and_sql/link_sers_clinical.py
+!data/01_clinical_metadata/07_scripts_and_sql/normalize_excel_files.py
+!data/01_clinical_metadata/07_scripts_and_sql/apply_column_mappings.py
+!data/01_clinical_metadata/06_sers_linkage/clinical_data_report_draft.md
+!data/01_clinical_metadata/06_sers_linkage/figures/
 
 # Results & model outputs
 results/
