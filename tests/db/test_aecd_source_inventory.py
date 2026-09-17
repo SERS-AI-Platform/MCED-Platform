@@ -92,8 +92,8 @@ def test_powder_reproducibility_condition_stays_in_measurement_key() -> None:
 
 def test_discovered_specs_include_mapping_and_historical_phase(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
-    (repo / "data" / "mapping").mkdir(parents=True)
-    (repo / "data" / "raw_data").mkdir(parents=True)
+    (repo / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814").mkdir(parents=True)
+    (repo / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated").mkdir(parents=True)
 
     specs = discover_source_specs(repo)
     mapping = next(spec for spec in specs if spec.source_kind == "mapping_clinical")

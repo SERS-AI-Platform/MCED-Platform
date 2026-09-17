@@ -3,23 +3,23 @@
 Dated sources:
     mbsu       Thermo Reference/MB&SU (100 uM MB, simulated urine). Date = file-name date,
                corroborated by file mtime. Folder = preparation batch.
-    april      임상데이터/2026MMDD_Urine test (4월 재측정) CSV. Date = file mtime date — mtimes are
+    april      03_sers_date_lot_balanced_acquisition/thermo_retest_12groups_20260416-20260519/2026MMDD_Urine test (4월 재측정) CSV. Date = file mtime date — mtimes are
                acquisition times here (hours of spread, ~90 s per spectrum) and match the folder
                dates except files measured on a later day (4/17, 4/27, 5/19), which get their own run.
-    april_spa  the .SPA files of 임상데이터 (0. MB, 0. Reference). Date = acquisition time stored in
+    april_spa  the .SPA files of thermo_retest_12groups_20260416-20260519 (0. MB, 0. Reference). Date = acquisition time stored in
                the SPA file; rows attach to the existing april_YYYYMMDD run.
-    raw_dated  raw_data/11 BLC (3/19-20), raw_data/20260407_Bladder (4/7-9),
-               raw_data/20260709_BPRO,BNOR (7/9-10). Date = file mtime (acquisition spread).
+    raw_dated  thermo_retro_12groups_undated/BLC_1st_20260319-20260320 (3/19-20), thermo_retro_12groups_undated/BLC_2nd_20260407-20260409 (4/7-9),
+               03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710 (7/9-10). Date = file mtime (acquisition spread).
     july       20260715 powder reproducibility (one run per Sigma batch), 20260716 powder,
                20260720 YPAN (operator 엄찬호 from its 라만 분석 txt). Date = folder/log date.
-    handheld   equipment_test_data/handheld, Metrohm Mira P. Date = CreatedDate in each export.
+    handheld   equipment_comparison_NOR_5devices_undated/handheld, Metrohm Mira P. Date = CreatedDate in each export.
     metabolite metabolite reference standards; date = original share folder (name + size match).
 
 Undated sources (measurement_date NULL, notes carry measurement_date=unknown; needs
 scripts/db/migrations/20260911_runs_measurement_date_nullable.sql):
-    thermo_retro  raw_data main groups; run = x-axis grid session.
-    medical       raw_data_medical (NanoScope Ramcheck A1); run = delivered folder, Background = blank.
-    metrohm       data/Metrohm_share wide CSVs (Mira P); run = delivered folder, one row per column.
+    thermo_retro  thermo_retro_12groups_undated main groups; run = x-axis grid session.
+    medical       ramcheck_retro_12groups_undated (NanoScope Ramcheck A1); run = delivered folder, Background = blank.
+    metrohm       data/02_sers_primary_pooled_acquisition/metrohm_retro_NOR-PRO_undated wide CSVs (Mira P); run = delivered folder, one row per column.
 
 Common rules: operator 'unrecorded' unless a log names one; reagent lot, strip lot, and
 conditions NULL unless the folder name states them (1mW_0.05s); _ave and "Averaged data" are
@@ -142,7 +142,7 @@ def clinical_label(stem: str) -> str | None:
 # ───────────────────────── source adapters ─────────────────────────
 
 def src_mbsu() -> tuple[dict[str, Run], list[File]]:
-    root = DATA / "Thermo" / "Thermo Reference" / "MB&SU"
+    root = DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260819-20260908" / "Thermo Reference" / "MB&SU"
     runs: dict[str, Run] = {}
     files: list[File] = []
     for p in csvs(root):
@@ -162,7 +162,7 @@ def src_mbsu() -> tuple[dict[str, Run], list[File]]:
             raise ValueError(f"unknown control material: {p}")
         key = f"mbsu_{day:%Y%m%d}"
         run = runs.setdefault(key, Run(key, day, notes=[
-            "control-only run", "source_root=data/Thermo/Thermo Reference/MB&SU",
+            "control-only run", "source_root=data/03_sers_date_lot_balanced_acquisition/thermo_mapping_multi_20260819-20260908/Thermo Reference/MB&SU",
             "material lot label B1 (strip/solution batch, not resolved to a strip lot)"]))
         batch = f"prep_folder={p.parent.name}"
         if batch not in run.notes:
@@ -176,7 +176,7 @@ APRIL_CONTROL = {"PS": ("PS", "calibration"), "Si": ("Si", "calibration"),
 
 
 def src_april() -> tuple[dict[str, Run], list[File]]:
-    root = DATA / "임상데이터"
+    root = DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
     runs: dict[str, Run] = {}
     files: list[File] = []
     for session in sorted(root.glob("2026*_Urine test")):
@@ -188,10 +188,10 @@ def src_april() -> tuple[dict[str, Run], list[File]]:
             key = f"april_{day:%Y%m%d}"
             runs.setdefault(key, Run(key, day, notes=[
                 "4월 재측정 (pre reducing-agent change; reagent identity not recorded)",
-                f"source_root=data/임상데이터/{session.name}",
+                f"source_root=data/03_sers_date_lot_balanced_acquisition/thermo_retest_12groups_20260416-20260519/{session.name}",
                 "lot/paper layout: Downloads/검체 측정 Lot 정리.xlsx"]))
-            if f"source_root=data/임상데이터/{session.name}" not in runs[key].notes:
-                runs[key].notes.append(f"source_root=data/임상데이터/{session.name}")
+            if f"source_root=data/03_sers_date_lot_balanced_acquisition/thermo_retest_12groups_20260416-20260519/{session.name}" not in runs[key].notes:
+                runs[key].notes.append(f"source_root=data/03_sers_date_lot_balanced_acquisition/thermo_retest_12groups_20260416-20260519/{session.name}")
             folder = p.parent.name
             if folder == "0. Blank":
                 files.append(File(p, key, "blank", control_type="strip_blank"))
@@ -208,9 +208,9 @@ def src_raw_dated() -> tuple[dict[str, Run], list[File]]:
     runs: dict[str, Run] = {}
     files: list[File] = []
     sets = (
-        ("rawblc", DATA / "raw_data" / "11 BLC (299개)", None, None),
-        ("rawblc0407", DATA / "raw_data" / "20260407_Bladder_1mW_0.05s_Ave 100", 1.0, 0.05),
-        ("boramae0709", DATA / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100", 1.0, 0.05),
+        ("rawblc", DATA / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "BLC_1st_20260319-20260320", None, None),
+        ("rawblc0407", DATA / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "BLC_2nd_20260407-20260409", 1.0, 0.05),
+        ("boramae0709", DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710", 1.0, 0.05),
     )
     for prefix, root, power, exposure in sets:
         for p in csvs(root):
@@ -240,7 +240,7 @@ def src_raw_dated() -> tuple[dict[str, Run], list[File]]:
 def src_july() -> tuple[dict[str, Run], list[File]]:
     runs: dict[str, Run] = {}
     files: list[File] = []
-    root = DATA / "20260715_Powder_Reproducibility test"
+    root = DATA / "04_machine_repeatability_tests" / "thermo_powder_reproducibility_BPRO_20260715"
     for p in csvs(root):
         stem, rep, ave = split_rep(p)
         if ave:
@@ -251,7 +251,7 @@ def src_july() -> tuple[dict[str, Run], list[File]]:
             "preparation=powder", f"reagent_batch=Sigma {m.group(1)} (powder reproducibility)",
             f"source_root={root.relative_to(REPO)}", "date from folder name; mtime is copy time"]))
         files.append(File(p, key, "clinical", label=clinical_label(m.group(2)), rep=rep))
-    root = DATA / "20260716_Urine test (Powder_BNOR, BPRO)"
+    root = DATA / "05_not_yet_analyzed" / "thermo_powder_BNOR-BPRO_20260716"
     for p in csvs(root):
         stem, rep, ave = split_rep(p)
         if ave:
@@ -260,7 +260,7 @@ def src_july() -> tuple[dict[str, Run], list[File]]:
             "preparation=powder", f"source_root={root.relative_to(REPO)}",
             "date from folder name; mtime is copy time", "Boramae file prefixes remapped by number"]))
         files.append(File(p, "powder0716", "clinical", label=clinical_label(stem), rep=rep))
-    root = (DATA / "OneDrive_2026-07-21 (2)" / "10-3. Y-Pancreatic cancer (추가)_20260721"
+    root = (DATA / "05_not_yet_analyzed" / "thermo_YPAN_addition_undated" / "10-3. Y-Pancreatic cancer (추가)_20260721"
             / "20260720_Urine test_엄찬호_Thermo(YPAN)")
     run = runs.setdefault("ypan0720", Run("ypan0720", date(2026, 7, 20), operator="엄찬호", notes=[
         f"source_root={root.relative_to(REPO)}", "log: 20260720_라만 분석(YPAN).txt",
@@ -313,11 +313,11 @@ def handheld_meta(path: Path) -> dict[str, str]:
 
 
 def src_april_spa() -> tuple[dict[str, Run], list[File]]:
-    """.SPA files of 임상데이터 (0. MB of 4/16 session, 0. Reference of 5/06). Date is the
+    """.SPA files of thermo_retest_12groups_20260416-20260519 (0. MB of 4/16 session, 0. Reference of 5/06). Date is the
     acquisition time stored in the file; rows attach to the existing april_YYYYMMDD run."""
     runs: dict[str, Run] = {}
     files: list[File] = []
-    for p in sorted((DATA / "임상데이터").rglob("*.SPA")):
+    for p in sorted((DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519").rglob("*.SPA")):
         stem, rep, ave = split_rep(p)
         if ave:
             continue
@@ -335,8 +335,8 @@ def src_april_spa() -> tuple[dict[str, Run], list[File]]:
 
 
 def src_handheld() -> tuple[dict[str, Run], list[File]]:
-    """equipment_test_data/handheld: Metrohm Mira P exports; date = CreatedDate in the file."""
-    root = DATA / "equipment_test_data" / "handheld"
+    """equipment_comparison_NOR_5devices_undated/handheld: Metrohm Mira P exports; date = CreatedDate in the file."""
+    root = DATA / "04_machine_repeatability_tests" / "equipment_comparison_NOR_5devices_undated" / "handheld"
     runs: dict[str, Run] = {}
     files: list[File] = []
     for p in csvs(root):
@@ -370,7 +370,7 @@ def src_metabolite() -> tuple[dict[str, Run], list[File]]:
     each file is assigned to the share folder whose same-named file has the same size (share
     files are online-only, so content cannot be compared). Date/conditions = folder name.
     Un-suffixed files equal the mean of _1.._5 (checked on 69 sets) and are skipped like _ave."""
-    root = DATA / "Metabolite analysis_Thermo" / "Metabolite analysis_Thermo"
+    root = DATA / "06_supporting_or_previous_outputs" / "thermo_metabolite_standards_20250828-20251203" / "Metabolite analysis_Thermo"
     share = {d: {f: (d / f).stat().st_size for f in os.listdir(d)}
              for d in METABOLITE_SHARE.iterdir() if d.is_dir()}
     runs: dict[str, Run] = {}
@@ -396,7 +396,7 @@ def src_metabolite() -> tuple[dict[str, Run], list[File]]:
 
 
 UNKNOWN_DATE = "measurement_date=unknown (no surviving acquisition timestamp; file times are copy/sync times)"
-RAW_DATED_FOLDERS = ("11 BLC", "20260407_", "20260709_")
+RAW_DATED_FOLDERS = ("BLC_1st_", "BLC_2nd_")  # 20260709 Boramae liquid moved to 03_ (2026-09-15)
 
 
 def x_grid(path: Path, delimiter: str | None) -> tuple[int, float, float]:
@@ -405,13 +405,13 @@ def x_grid(path: Path, delimiter: str | None) -> tuple[int, float, float]:
 
 
 def src_thermo_retro() -> tuple[dict[str, Run], list[File]]:
-    """raw_data main groups (retrospective Thermo). No date survives, so runs are the x-axis
+    """thermo_retro_12groups_undated main groups (retrospective Thermo). No date survives, so runs are the x-axis
     grid sessions (n_points, first x, last x): one grid = one instrument calibration state,
     which can span several days and cancer groups. No sample straddles two grids."""
     runs: dict[str, Run] = {}
     files: list[File] = []
     groups: dict[str, set[str]] = defaultdict(set)
-    for folder in sorted((DATA / "raw_data").iterdir()):
+    for folder in sorted((DATA / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated").iterdir()):
         if not folder.is_dir() or folder.name.startswith(RAW_DATED_FOLDERS):
             continue
         for p in csvs(folder):
@@ -422,7 +422,7 @@ def src_thermo_retro() -> tuple[dict[str, Run], list[File]]:
             key = f"thermo_retro_grid_{grid[1]:.4f}"
             runs.setdefault(key, Run(key, None, notes=[
                 UNKNOWN_DATE, f"x_grid_session=n{grid[0]}_{grid[1]:.4f}_{grid[2]:.4f}",
-                "retrospective Thermo main set (raw_data); conditions not recorded"]))
+                "retrospective Thermo main set (02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated); conditions not recorded"]))
             groups[key].add(folder.name)
             files.append(File(p, key, "clinical", label=clinical_label(stem), rep=rep))
     for key, names in groups.items():
@@ -431,13 +431,13 @@ def src_thermo_retro() -> tuple[dict[str, Run], list[File]]:
 
 
 def src_medical() -> tuple[dict[str, Run], list[File]]:
-    """raw_data_medical (NanoScope Ramcheck A1). Every file shares one grid (2001 pts,
+    """ramcheck_retro_12groups_undated (NanoScope Ramcheck A1). Every file shares one grid (2001 pts,
     100-3200 cm-1), so runs follow the 13 delivered folders. Background/ files are role
     'blank' (sensor_background); their pairing with the sample spectrum survives only in the
     file name and the /Background/ path. No wavenumber shift is applied at ingest."""
     runs: dict[str, Run] = {}
     files: list[File] = []
-    root = DATA / "raw_data_medical"
+    root = DATA / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
     for folder in sorted(p for p in root.iterdir() if p.is_dir()):
         key = "medical_" + re.sub(r"[^0-9A-Za-z]+", "_", folder.name.split(" (")[0]).strip("_")
         runs[key] = Run(key, None, instrument=RAMCHECK, notes=[
@@ -458,12 +458,12 @@ def src_medical() -> tuple[dict[str, Run], list[File]]:
 
 def src_metrohm() -> tuple[dict[str, Run], list[File]]:
     """Metrohm (Mira P) retrospective NOR/PRO set, copied from the OneDrive share into
-    data/Metrohm_share (see SOURCE.txt). Wide CSV: one file per sample, columns
+    data/02_sers_primary_pooled_acquisition/metrohm_retro_NOR-PRO_undated (see SOURCE.txt). Wide CSV: one file per sample, columns
     '<label>_1_5.00_<rep>' + '<label>_Average'; the replicate number is read from the column
     name (two files have shuffled column order). Average columns and 'Baseline corrected
     data' are not loaded. No timestamp survives, so date is NULL; run = delivered folder."""
     import csv
-    root = DATA / "Metrohm_share"
+    root = DATA / "02_sers_primary_pooled_acquisition" / "metrohm_retro_NOR-PRO_undated"
     runs: dict[str, Run] = {}
     files: list[File] = []
     for group in ("Normal", "Prostate"):
@@ -472,7 +472,7 @@ def src_metrohm() -> tuple[dict[str, Run], list[File]]:
         runs[key] = Run(key, None, instrument=MIRA_P, notes=[
             UNKNOWN_DATE, f"source_root={folder.relative_to(REPO)}",
             "copied from OneDrive 헬스케어-R BD - RnBD-DESKTOP-8VL414N/퇴사자/▷보티낫린/3. Urine/"
-            "1. Raman analysis/3. Metrohm data (see data/Metrohm_share/SOURCE.txt)",
+            "1. Raman analysis/3. Metrohm data (see data/02_sers_primary_pooled_acquisition/metrohm_retro_NOR-PRO_undated/SOURCE.txt)",
             "wide CSV, one column per replicate; column tag '5.00' kept in raw_filename (meaning not recorded)",
             "source_sha256 = sha256 of the extracted column",
             "instrument assumed Mira P (only Metrohm device on record; export has no device field)"])

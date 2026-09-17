@@ -48,7 +48,7 @@ def data(ctx):
     "-o",
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Output directory [data/clinical_data/standardized].",
+    help="Output directory [data/01_clinical_metadata/hospital_clinical_tables/standardized].",
 )
 @click.option("--dry-run", is_flag=True, default=False,
               help="List files without writing.")
@@ -84,7 +84,7 @@ def validate(input_dir: Path | None) -> None:
     \b
     Examples:
         sers data validate
-        sers data validate -i ./data/raw_data
+        sers data validate -i ./data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated
     """
     from ..config import DATA_ROOT
     from ..io import find_spectra, parse_filename, read_spectrum

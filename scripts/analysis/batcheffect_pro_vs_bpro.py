@@ -33,7 +33,7 @@ from scipy.signal import find_peaks  # noqa: E402
 DATA_BPRO = Path(
     os.environ.get(
         "SERS_BORAMAE_BPRO_DIR",
-        REPO / "data" / "Thermo" / "20260602_Urine test" / "BPRO",
+        REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260819-20260908" / "20260602_Urine test" / "BPRO",
     )
 )
 MODEL_DIR = REPO / "artifacts" / "usersnet" / "v1.0.0"
@@ -70,11 +70,11 @@ def collect(files):
     return np.array(raw), np.array(model), len(files)
 
 
-pro_files = glob.glob(str(REPO / "data" / "raw_data" / "**" / "PRO *.CSV"), recursive=True)
+pro_files = glob.glob(str(REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "**" / "PRO *.CSV"), recursive=True)
 bpro_files = glob.glob(os.path.join(DATA_BPRO, "*.CSV"))
 pro_raw, pro_mod, n_pro = collect(pro_files)
 bpro_raw, bpro_mod, n_bpro = collect(bpro_files)
-nor_files = glob.glob(str(REPO / "data" / "raw_data" / "**" / "NOR *.CSV"), recursive=True)
+nor_files = glob.glob(str(REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "**" / "NOR *.CSV"), recursive=True)
 _, nor_mod, n_nor = collect(nor_files)
 print(
     f"PRO(train): {n_pro} | BPRO(new): {n_bpro} | NOR(train): {n_nor} spectra | grid {grid.min():.0f}-{grid.max():.0f} cm-1 ({len(grid)} pts)"

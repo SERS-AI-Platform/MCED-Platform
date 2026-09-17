@@ -70,7 +70,7 @@ def discover_source_specs(repo_root: Path) -> tuple[SourceSpec, ...]:
             reagent_evidence=pre_change_evidence,
         ),
     ]
-    equipment_root = repo_root / "data" / "equipment_test_data"
+    equipment_root = repo_root / "data" / "04_machine_repeatability_tests" / "equipment_comparison_NOR_5devices_undated"
     instruments = {"handheld": "Handheld", "medical_raw": "Medical Raman", "medical_removed": "Medical Raman", "nanoscope": "NanoScope", "thermo": "Thermo"}
     for child in sorted(equipment_root.iterdir()) if equipment_root.is_dir() else ():
         if child.is_dir():
@@ -85,7 +85,7 @@ def discover_source_specs(repo_root: Path) -> tuple[SourceSpec, ...]:
                 )
             )
     data_root = repo_root / "data"
-    mapping_root = data_root / "mapping"
+    mapping_root = data_root / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814"
     if mapping_root.is_dir():
         specs.append(
             SourceSpec(
@@ -114,11 +114,12 @@ def discover_source_specs(repo_root: Path) -> tuple[SourceSpec, ...]:
                 )
             )
     extra_specs = (
-        ("20260715_Powder_Reproducibility test", "thermo", "Thermo", "powder", "powder_reproducibility", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
-        ("20260716_Urine test (Powder_BNOR, BPRO)", "thermo", "Thermo", "powder", "boramae_powder", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
-        ("Metabolite analysis_Thermo", "metabolite", "Thermo", "liquid", "metabolite_reference", REAGENT_PHASE_NOT_APPLICABLE, None, "metabolite reference material; not a clinical reducing-agent cohort"),
-        ("OneDrive_2026-07-21 (2)", "thermo", "Thermo", "liquid", "thermo_onedrive_20260721_2", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
-        ("OneDrive_2026-07-21 (3)", "thermo", "Thermo", "liquid", "thermo_onedrive_20260721_3", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
+        ("04_machine_repeatability_tests/thermo_powder_reproducibility_BPRO_20260715", "thermo", "Thermo", "powder", "powder_reproducibility", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
+        ("05_not_yet_analyzed/thermo_powder_BNOR-BPRO_20260716", "thermo", "Thermo", "powder", "boramae_powder", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
+        ("06_supporting_or_previous_outputs/thermo_metabolite_standards_20250828-20251203", "metabolite", "Thermo", "liquid", "metabolite_reference", REAGENT_PHASE_NOT_APPLICABLE, None, "metabolite reference material; not a clinical reducing-agent cohort"),
+        ("05_not_yet_analyzed/thermo_YPAN_addition_undated", "thermo", "Thermo", "liquid", "thermo_onedrive_20260721_2", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
+        ("05_not_yet_analyzed/thermo_YNOR_addition_undated", "thermo", "Thermo", "liquid", "thermo_onedrive_20260721_3", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
+        ("03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710", "thermo", "Thermo", "liquid", "boramae_liquid", REAGENT_PHASE_PRE_CHANGE_UNVERIFIED, None, pre_change_evidence),
     )
     for directory, domain, instrument, preparation, kind, phase, name, evidence in extra_specs:
         input_root = data_root / directory
@@ -130,8 +131,8 @@ def discover_source_specs(repo_root: Path) -> tuple[SourceSpec, ...]:
 def _spec_root(repo_root: Path, spec: SourceSpec) -> Path:
     if spec.input_root is not None:
         return spec.input_root
-    roots = {"thermo": repo_root / "data" / "raw_data", "medical": repo_root / "data" / "raw_data_medical", "remeasurement": repo_root / "data" / "임상데이터"}
-    return roots.get(spec.source_domain, repo_root / "data" / "equipment_test_data" / spec.source_kind)
+    roots = {"thermo": repo_root / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated", "medical": repo_root / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated", "remeasurement": repo_root / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"}
+    return roots.get(spec.source_domain, repo_root / "data" / "04_machine_repeatability_tests" / "equipment_comparison_NOR_5devices_undated" / spec.source_kind)
 
 
 def _rejection(path: Path, spec: SourceSpec, exc: Exception) -> RejectedFile:

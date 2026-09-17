@@ -1,7 +1,7 @@
 """Load Thermo mapping runs 2026-09-11 ~ 2026-09-15 into aecd_platform measurement.*.
 
 Source (copied by the lab, 2026-09-15):
-    data/Thermo 260911~260915/    9/11, 9/14, 9/15 mapping + Reference (Si/PS calibration files)
+    data/03_sers_date_lot_balanced_acquisition/thermo_mapping_multi_20260911-20260915/    9/11, 9/14, 9/15 mapping + Reference (Si/PS calibration files)
 
 Rules: same as scripts/db/aecd_mapping_batch_20260819_0910_load.py (confirmed with the user on
 2026-09-11; the user asked on 2026-09-15 to load this batch "by the previous rules"):
@@ -43,7 +43,7 @@ from psycopg2.extras import execute_values
 
 REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data"
-BATCH_ROOT = DATA / "Thermo 260911~260915"
+BATCH_ROOT = DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260911-20260915"
 SOURCE_ROOTS = (BATCH_ROOT,)
 REFERENCE_DIRS = (BATCH_ROOT / "Reference",)
 DATE_RANGE = (date(2026, 9, 11), date(2026, 9, 15))
@@ -377,6 +377,9 @@ def main() -> None:
     ap.add_argument("--mode", choices=["plan", "dry-run", "commit"], default="plan")
     args = ap.parse_args()
 
+    missing = [str(r) for r in SOURCE_ROOTS if not r.is_dir()]
+    if missing:
+        raise SystemExit(f"source root not found (data folder renamed?): {missing}")
     files, runs, averages = discover()
     points = assign_points(files)
     cals = {day: si_calibration(day) for day in sorted({k[0] for k in runs})}

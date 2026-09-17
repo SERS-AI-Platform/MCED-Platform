@@ -196,9 +196,9 @@ def test_powder_native_figures_match_binary_and_three_group_layout(tmp_path: Pat
 def test_actual_powder_inventory_has_109_paired_subjects() -> None:
     # Given: the reviewed liquid, powder, and Boramae clinical sources.
     repo = Path(__file__).resolve().parents[2]
-    legacy_root = repo / "data" / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100"
-    powder_root = repo / "data" / "20260716_Urine test (Powder_BNOR, BPRO)"
-    clinical_path = repo / "data" / "clinical_data" / "보라매 병원 임상정보.xlsx"
+    legacy_root = repo / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710"
+    powder_root = repo / "data" / "05_not_yet_analyzed" / "thermo_powder_BNOR-BPRO_20260716"
+    clinical_path = repo / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "보라매 병원 임상정보.xlsx"
 
     # When: the eligible paired cohort is assembled.
     pairs = pair_subjects(

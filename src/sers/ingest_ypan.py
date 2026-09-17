@@ -212,12 +212,12 @@ for col in numeric_cols:
 # Save individual group files
 for g in ypan_df['disease_group'].unique():
     sub = ypan_df[ypan_df['disease_group'] == g]
-    sub.to_csv(f'data/clinical_data/standardized/{g}_clinical_standardized.csv',
+    sub.to_csv(f'data/01_clinical_metadata/hospital_clinical_tables/standardized/{g}_clinical_standardized.csv',
                index=False, encoding='utf-8-sig')
     print(f"  Saved {g}: {len(sub)} rows")
 
 # Append to all_clinical_standardized
-all_clin = pd.read_csv('data/clinical_data/standardized/all_clinical_standardized.csv', encoding='utf-8-sig')
+all_clin = pd.read_csv('data/01_clinical_metadata/hospital_clinical_tables/standardized/all_clinical_standardized.csv', encoding='utf-8-sig')
 print(f"\nBefore: {len(all_clin)} rows, groups: {all_clin['disease_group'].nunique()}")
 
 # Remove existing YPAN groups if any
@@ -225,7 +225,7 @@ ypan_groups = ypan_df['disease_group'].unique()
 all_clin = all_clin[~all_clin['disease_group'].isin(ypan_groups)]
 
 all_clin = pd.concat([all_clin, ypan_df], ignore_index=True)
-all_clin.to_csv('data/clinical_data/standardized/all_clinical_standardized.csv',
+all_clin.to_csv('data/01_clinical_metadata/hospital_clinical_tables/standardized/all_clinical_standardized.csv',
                 index=False, encoding='utf-8-sig')
 print(f"After: {len(all_clin)} rows, groups: {all_clin['disease_group'].nunique()}")
 for g in sorted(all_clin['disease_group'].unique()):
@@ -234,7 +234,7 @@ for g in sorted(all_clin['disease_group'].unique()):
 # ============================================================
 # 3. Copy SERS dataset and CRF to SERS-AI
 # ============================================================
-dest_dir = 'data/clinical_data/10. 췌장암/YPAN'
+dest_dir = 'data/01_clinical_metadata/hospital_clinical_tables/10. 췌장암/YPAN'
 shutil.copy2('/home/user/workspace/SMCXD04/SMCXD04_CRF_data.xlsx', dest_dir)
 shutil.copy2('/home/user/workspace/SMCXD04/SMCXD04_SERS_dataset.csv', dest_dir)
 print(f"\nCopied CRF + SERS dataset to {dest_dir}")

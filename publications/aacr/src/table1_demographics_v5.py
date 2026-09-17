@@ -12,7 +12,7 @@ from scipy import stats
 matplotlib.rcParams['font.family'] = 'DejaVu Sans'
 
 # Load data
-clinical = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/all_clinical_standardized.csv')
+clinical = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/hospital_clinical_tables/standardized/all_clinical_standardized.csv')
 pan_staged = pd.read_csv('/home/user/SERS-AI/AACR/PAN_with_ajcc_stage.csv')
 pro_staged = pd.read_csv('/home/user/SERS-AI/AACR/PRO_with_staging.csv')
 crc_staged = pd.read_csv('/home/user/SERS-AI/AACR/CRC_with_ajcc_stage.csv')

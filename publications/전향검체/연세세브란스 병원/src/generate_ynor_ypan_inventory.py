@@ -18,12 +18,12 @@ REPO: Final = Path(__file__).resolve().parents[4]
 OUT: Final = REPO / "publications" / "전향검체" / "연세세브란스 병원"
 TABLES: Final = OUT / "tables"
 MAPPING: Final = TABLES / "yonsei_clinical_data_mapping.csv"
-CLINICAL: Final = REPO / "data" / "clinical_data" / "standardized"
+CLINICAL: Final = REPO / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "standardized"
 PRIMARY_ROOTS: Final = {
-    "YNOR": REPO / "data" / "raw_data" / "12. Y-Normal (YNOR)",
-    "YPAN": REPO / "data" / "raw_data" / "10-3. Y-Pancreatic cancer (YPAN)",
+    "YNOR": REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "12. Y-Normal (YNOR)",
+    "YPAN": REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "10-3. Y-Pancreatic cancer (YPAN)",
 }
-REACQUIRED_ROOT: Final = REPO / "data" / "임상데이터"
+REACQUIRED_ROOT: Final = REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
 FILE_RE: Final = re.compile(r"^(YNOR|YPAN)\s+(\d+)_([1-5]|ave)\.CSV$", re.IGNORECASE)
 REPEAT_SUBJECT: Final = "YNOR_21"
 REPEAT_PRIMARY: Final = "YNOR_48"

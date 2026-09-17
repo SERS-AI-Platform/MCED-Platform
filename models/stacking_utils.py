@@ -450,8 +450,8 @@ def main():
     logger.info("  Stacking Ensemble — Multi-View SERS Classification")
     logger.info("=" * 64)
 
-    THERMO_DIR = PROJECT_ROOT / "data" / "raw_data"
-    MEDICAL_DIR = PROJECT_ROOT / "data" / "raw_data_medical"
+    THERMO_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
+    MEDICAL_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
 
     THERMO_MAP = {
         "1. Prostate cancer (100개)": "PRO", "2. Breast cancer (30개)": "BRE",
@@ -462,7 +462,7 @@ def main():
         "9. Colorectal cancer (300개)": "CRC",
         "10-1. C-Pancreatic cancer (70개)": "CPAN",
         "10-3. Y-Pancreatic cancer (YPAN)": "YPAN",
-        "11 BLC (299개)": "BLC", "12. Y-Normal (YNOR)": "YNOR",
+        "BLC_1st_20260319-20260320": "BLC", "12. Y-Normal (YNOR)": "YNOR",
     }
     MEDICAL_MAP = {
         "1. Prostate cancer (100개)": "PRO", "2. Breast cancer (30개)": "BRE",

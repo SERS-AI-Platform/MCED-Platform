@@ -233,7 +233,7 @@ metabolite_profiling/
     └── fig17_per_cancer_difference.png              # Per-cancer difference spectra
 ```
 
-Raw Thermo Raman data: `data/Metabolite analysis_Thermo/`
+Raw Thermo Raman data: `data/06_supporting_or_previous_outputs/thermo_metabolite_standards_20250828-20251203/`
 
 ---
 

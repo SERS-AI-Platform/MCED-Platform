@@ -19,7 +19,7 @@ import pandas as pd
 from openpyxl import load_workbook
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CLINICAL = PROJECT_ROOT / "data" / "clinical_data" / "전체환자_임상정보_정규화.xlsx"
+DEFAULT_CLINICAL = PROJECT_ROOT / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "전체환자_임상정보_정규화.xlsx"
 DEFAULT_SPECTRA = PROJECT_ROOT / "results" / "processed_spectra.csv"
 DEFAULT_OUT = PROJECT_ROOT / "results" / "clean_cohort_20260605"
 

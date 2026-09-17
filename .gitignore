@@ -1,15 +1,17 @@
 # Data files — ignore raw data but allow scripts and reports
 data/*
-!data/clinical_data/
-data/clinical_data/*
-!data/clinical_data/standardize_clinical.py
-!data/clinical_data/link_sers_clinical.py
-!data/clinical_data/normalize_excel_files.py
-!data/clinical_data/apply_column_mappings.py
-!data/clinical_data/standardized/
-data/clinical_data/standardized/*
-!data/clinical_data/standardized/clinical_data_report_draft.md
-!data/clinical_data/standardized/figures/
+!data/01_clinical_metadata/
+data/01_clinical_metadata/*
+!data/01_clinical_metadata/hospital_clinical_tables/
+data/01_clinical_metadata/hospital_clinical_tables/*
+!data/01_clinical_metadata/hospital_clinical_tables/standardize_clinical.py
+!data/01_clinical_metadata/hospital_clinical_tables/link_sers_clinical.py
+!data/01_clinical_metadata/hospital_clinical_tables/normalize_excel_files.py
+!data/01_clinical_metadata/hospital_clinical_tables/apply_column_mappings.py
+!data/01_clinical_metadata/hospital_clinical_tables/standardized/
+data/01_clinical_metadata/hospital_clinical_tables/standardized/*
+!data/01_clinical_metadata/hospital_clinical_tables/standardized/clinical_data_report_draft.md
+!data/01_clinical_metadata/hospital_clinical_tables/standardized/figures/
 
 # Results & model outputs
 results/

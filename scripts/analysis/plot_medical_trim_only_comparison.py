@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_PRIMARY_ROOT = PROJECT_ROOT / "data" / "raw_data_medical"
+DEFAULT_PRIMARY_ROOT = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
 DEFAULT_MEDICAL_ROOT = PROJECT_ROOT / "data" / "Medical"
 DEFAULT_OUT_DIR = PROJECT_ROOT / "results" / "medical_vs_raw_data_medical" / "trim_only"
 

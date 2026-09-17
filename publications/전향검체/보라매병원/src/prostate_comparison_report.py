@@ -139,10 +139,10 @@ def write_report(
             "- Figure: `figures/fig07_legacy_vs_prospective_peak_alignment.png` / `.pdf`\n\n"
         )
         handle.write("## 사용한 파일\n\n")
-        handle.write("- `data/clinical_data/보라매 병원 임상정보.xlsx`\n")
+        handle.write("- `data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx`\n")
         handle.write("- `results/clean_cohort_20260605/clean_cohort_manifest.csv`\n")
-        handle.write("- `data/raw_data/1. Prostate cancer (100개)/PRO *_1..5.CSV`\n")
-        handle.write("- `data/raw_data/20260709_BPRO,BNOR_1mW_0.05s_Ave100/*_1..5.CSV`\n")
+        handle.write("- `data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated/1. Prostate cancer (100개)/PRO *_1..5.CSV`\n")
+        handle.write("- `data/03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710/*_1..5.CSV`\n")
         handle.write("- `artifacts/usersnet/v1.0.0/common_grid.npy`\n\n")
         handle.write("## 해석 주의\n\n")
         handle.write("- 결과는 exploratory nested OOF 성능이며 외부검증 성능이 아니다.\n")

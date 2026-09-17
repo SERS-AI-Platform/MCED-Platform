@@ -8,8 +8,8 @@ import numpy as np
 import openpyxl
 
 REPO = Path("/home/user/SERS-AI")
-RAW_ROOT = REPO / "data/raw_data/20260709_BPRO,BNOR_1mW_0.05s_Ave100"
-CLINICAL = REPO / "data/clinical_data/보라매 병원 임상정보.xlsx"
+RAW_ROOT = REPO / "data/03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710"
+CLINICAL = REPO / "data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx"
 GRID_PATH = REPO / "artifacts/usersnet/v1.0.0/common_grid.npy"
 GROUP_ORDER = ("Control", "Biopsy-negative", "Prostate cancer")
 GROUP_MAP = {

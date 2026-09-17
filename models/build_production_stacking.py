@@ -45,7 +45,7 @@ warnings.filterwarnings("ignore")
 # Global paths (will be set in main())
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = _DEFAULT_PROJECT_ROOT
-DATA_DIR = _DEFAULT_PROJECT_ROOT / "data" / "raw_data"
+DATA_DIR = _DEFAULT_PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
 DATA_TYPE = "raw_spectrum"  # or "processed_csv"
 ARTIFACT_DIR = _DEFAULT_PROJECT_ROOT / "artifacts" / "usersnet" / "v1.0.0"
 
@@ -80,7 +80,7 @@ THERMO_MAP = {
     "9. Colorectal cancer (300개)": "CRC",
     "10-1. C-Pancreatic cancer (70개)": "CPAN",
     "10-3. Y-Pancreatic cancer (YPAN)": "YPAN",
-    "11 BLC (299개)": "BLC",
+    "BLC_1st_20260319-20260320": "BLC",
     "12. Y-Normal (YNOR)": "YNOR",
 }
 
@@ -194,7 +194,7 @@ def main():
     parser.add_argument("--project-root", type=Path, default=None,
                         help="Project root directory (default: auto-detect from script location)")
     parser.add_argument("--data-dir", type=Path, default=None,
-                        help="Data directory with raw spectra (default: <project-root>/data/raw_data)")
+                        help="Data directory with raw spectra (default: <project-root>/data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated)")
     parser.add_argument("--data-type", choices=["raw_spectrum", "processed_csv"], default="raw_spectrum",
                         help="Data format: 'raw_spectrum' or 'processed_csv'")
     parser.add_argument("--artifact-name", type=str, default="v1.0.0",
@@ -210,7 +210,7 @@ def main():
         PROJECT_ROOT = args.project_root.expanduser().resolve()
     
     if args.data_dir is None:
-        DATA_DIR = PROJECT_ROOT / "data" / "raw_data"
+        DATA_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
     else:
         DATA_DIR = args.data_dir.expanduser().resolve()
     

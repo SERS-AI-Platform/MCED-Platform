@@ -97,7 +97,7 @@ experiments = {
 > `scripts/db/experiment_tracking/01_schema.sql`, 쓰기는
 > `src/sers/preprocessing_lab/db.py`의 `ExperimentTracker`.
 
-논문에서 가져온 전처리 방법을 비교할 때는 로컬 `data/raw_data/` 대신
+논문에서 가져온 전처리 방법을 비교할 때는 로컬 `data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated/` 대신
 `aecd_platform`에서 직접 읽는다:
 
 1. 데이터를 가져오기 전에 **`@aecd-data-ops`로 `status`를 먼저 확인** — 지금
@@ -132,7 +132,7 @@ results/training/{experiment_id}/
 ```
 
 ## 금지 사항
-- **원본 데이터(`data/raw_data/`)를 절대 수정하지 마** — 항상 복사본에서 작업
+- **원본 데이터(`data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated/`)를 절대 수정하지 마** — 항상 복사본에서 작업
 - 전처리 파라미터를 기록하지 않고 실행하지 마
 - 기존 전처리 함수(`src/sers/preprocessing.py`)가 있으면 새로 만들지 마
 - 결과를 `results/`에 저장하지 않고 stdout으로만 출력하지 마

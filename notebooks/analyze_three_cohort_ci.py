@@ -17,8 +17,8 @@ COLORS=['#4D4D4D','#D95F02','#2C7FB8'];STYLES=['-','--','-.']
 def read_rows(path):
  w=openpyxl.load_workbook(path,read_only=True,data_only=True);it=w.active.iter_rows(values_only=True);h=next(it);rows=[dict(zip(h,r)) for r in it];w.close();return rows
 def norm(v):return str(v).strip().replace('_',' ')
-liquid={norm(r['solum_label']):r for r in read_rows(ROOT/'data/clinical_data/보라매 병원 임상정보.xlsx')}
-powder={norm(r['solum_label']):r for r in read_rows(ROOT/'data/mapping/clinical_df.xlsx') if r['cohort_group']=='prostate'}
+liquid={norm(r['solum_label']):r for r in read_rows(ROOT/'data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx')}
+powder={norm(r['solum_label']):r for r in read_rows(ROOT/'data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/clinical_df.xlsx') if r['cohort_group']=='prostate'}
 link={}
 common=[k for k in powder if k in liquid and int(k.split()[-1]) in D['liquid_codes']]
 assert len(common)==41

@@ -21,7 +21,7 @@ import openpyxl
 REPO: Final = Path(__file__).resolve().parents[4]
 OUT: Final = REPO / "publications" / "전향검체" / "보라매병원"
 TABLE_DIR: Final = OUT / "tables"
-CLINICAL_XLSX: Final = REPO / "data" / "clinical_data" / "보라매 병원 임상정보.xlsx"
+CLINICAL_XLSX: Final = REPO / "data" / "01_clinical_metadata" / "hospital_clinical_tables" / "보라매 병원 임상정보.xlsx"
 PREDICTION_FILES: Final = {
     "three_group": TABLE_DIR / "three_group_oof_predictions.csv",
     "screening_binary": TABLE_DIR / "screening_binary_oof_predictions.csv",

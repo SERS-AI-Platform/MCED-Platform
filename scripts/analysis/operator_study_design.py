@@ -12,7 +12,7 @@
 
   A. QC 표준물질(폴리스티렌) 교차 측정 -- 매일 두 측정자가 PS를 각 n회 측정.
      검체 소모가 없어 일상 업무와 병행 가능. 반복성은 실측값을 쓴다
-     (data/mapping/Thermo Reference, 2026-08-04~14, 9일 60개 스펙트럼).
+     (data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/Thermo Reference, 2026-08-04~14, 9일 60개 스펙트럼).
 
   B. 임상 검체 분주(split-aliquot) 교차 측정 -- 같은 소변을 둘로 나눠 두 측정자가
      각각 준비·측정. 시료 전처리까지 포함한 측정자 효과를 잡는다. 다만 이 설계의
@@ -43,7 +43,7 @@ from sers.signal import baseline_correction, resample, smooth  # noqa: E402
 
 ALPHA = 0.05
 POWER = 0.80
-REFERENCE_DIR = ROOT / "data" / "mapping" / "Thermo Reference"
+REFERENCE_DIR = ROOT / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814" / "Thermo Reference"
 SAMPLE_METRICS = ROOT / "results" / "operator_variability" / "sample_metrics.csv"
 
 
@@ -148,7 +148,7 @@ def main() -> int:
     argparse.ArgumentParser(description=__doc__).parse_args()
     cfg = load_config(ROOT / "config" / "config.yaml").preprocessing
 
-    print("=== PS 표준물질 반복성 (실측, data/mapping/Thermo Reference) ===")
+    print("=== PS 표준물질 반복성 (실측, data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/Thermo Reference) ===")
     rep = ps_repeatability(cfg)
     print(rep.round(2).to_string(index=False))
     print("\n일간 CV가 일내 CV보다 2~3배 크다 -- 고정된 물질인데도 날짜가 바뀌면 변한다.")

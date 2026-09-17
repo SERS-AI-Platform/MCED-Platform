@@ -166,13 +166,13 @@ cutover 전후에는 환자 값을 출력하지 않는 다음 명령으로 계�
 
 ```bash
 sers data ingest-clinical-registry \
-  --clinical-root data/clinical_data \
+  --clinical-root data/01_clinical_metadata/hospital_clinical_tables \
   --validate-only
 
 sers data ingest-clinical-registry \
-  --clinical-root data/clinical_data \
-  --db data/sers_master.db \
-  --raw-store data/raw_store
+  --clinical-root data/01_clinical_metadata/hospital_clinical_tables \
+  --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
+  --raw-store data/06_supporting_or_previous_outputs/raw_store
 ```
 
 첫 명령은 `sources`, `sheets`, `rows`, `issues` 집계만 출력하며 `issues=0`이어야 한다. 두 번째 명령을 연속 두 번 실행한 뒤 `source_assets`, `clinical_events`, `clinical_observations` 집계가 동일해야 한다. 기존 generic site migration 후에는 다음 집계가 0이어야 한다.

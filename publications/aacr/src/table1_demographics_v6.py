@@ -27,7 +27,7 @@ GROUP_TOTALS = settings['group_totals']
 internal_groups = ['NOR', 'DIA', 'HBP', 'H.D.', 'PRO', 'OVA', 'LUN', 'CPAN', 'CRC']
 
 # ── Load data ──
-clinical = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/all_clinical_standardized.csv')
+clinical = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/hospital_clinical_tables/standardized/all_clinical_standardized.csv')
 pan_staged = pd.read_csv(AACR_DIR / 'data' / 'PAN_with_ajcc_stage.csv')
 pro_staged = pd.read_csv(AACR_DIR / 'data' / 'PRO_with_staging.csv')
 crc_staged = pd.read_csv(AACR_DIR / 'data' / 'CRC_with_ajcc_stage.csv')

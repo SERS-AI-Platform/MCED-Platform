@@ -45,7 +45,7 @@ run(측정일+장비) 단위 global_shift를 x축에서 빼는 것(x − shift)�
 결정했다. 감사 완료는 whitaker_hayes·airpls 2건뿐이며 audit_status는 건드리지
 않는다. 결과는 채택 근거가 아니라 탐색 기록이다.
 
-데이터: aecd_platform 전립선 3군만 쓴다. 매핑 폴더(data/mapping)는 같은 보라매
+데이터: aecd_platform 전립선 3군만 쓴다. 매핑 폴더(data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814)는 같은 보라매
 113검체×121점의 파일 사본이라 독립 재현이 아니고, xlsx 라벨은 DB에서 철회된
 구 라벨(2026-09-02 'Drop' 1명)을 포함하므로 쓰지 않는다. `--cohort mapping`은
 로더 일치 확인용으로만 남겨 두며 DB에는 적재하지 않는다.
@@ -458,7 +458,7 @@ def load_mapping() -> Cohort:
         cancer_group=MAPPING_CANCER,
         control_groups=tuple(g for g in GROUP_ORDER if g != MAPPING_CANCER),
         measurement_ids=None,
-        data_query_filters={"source": "data/mapping/2026*_mapping + clinical_df.xlsx",
+        data_query_filters={"source": "data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/2026*_mapping + clinical_df.xlsx",
                             "raw_axis": json.loads(json.dumps(raw_axis, default=float)),
                             "group_counts": counts},
     )

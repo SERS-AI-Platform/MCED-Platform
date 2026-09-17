@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from site_map import site_for_label  # noqa: E402
 
 DEFAULT_WORKBOOK = Path("/mnt/c/Users/user/Downloads/전체환자_임상정보_정규화_v7.xlsx")
-DEFAULT_OUTPUT_DIR = Path("/home/user/SERS-AI/data/processed/aecd_platform_ingest")
+DEFAULT_OUTPUT_DIR = Path("/home/user/SERS-AI/data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest")
 DEFAULT_SHEET = "table"
 DEFAULT_SOURCE_MAPPING = "clinical_v7_20260902"
 

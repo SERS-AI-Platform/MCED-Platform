@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_PRIMARY_ROOT = PROJECT_ROOT / "data" / "raw_data"
-DEFAULT_CLINICAL_ROOT = PROJECT_ROOT / "data" / "임상데이터"
+DEFAULT_PRIMARY_ROOT = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
+DEFAULT_CLINICAL_ROOT = PROJECT_ROOT / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
 DATE_RE = re.compile(r"^20\d{6}")
 
 SAMPLE_RE = re.compile(

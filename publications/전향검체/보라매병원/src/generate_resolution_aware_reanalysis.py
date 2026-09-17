@@ -39,7 +39,7 @@ from boramae_data import (
 from prostate_comparison_model import OofResult, build_task, nested_oof
 from sers.io import read_spectrum
 
-RAW_ROOT: Final = REPO / "data" / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100"
+RAW_ROOT: Final = REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710"
 OUT: Final = REPO / "publications" / "전향검체" / "보라매병원" / "resolution_aware_reanalysis"
 FIG_DIR: Final = OUT / "figures"
 TABLE_DIR: Final = OUT / "tables"
@@ -454,7 +454,7 @@ def write_manifest(
 ) -> None:
     rows = [
         ("input_raw_root", str(RAW_ROOT)),
-        ("clinical_label_source", "data/clinical_data/보라매 병원 임상정보.xlsx via existing documented parser"),
+        ("clinical_label_source", "data/01_clinical_metadata/hospital_clinical_tables/보라매 병원 임상정보.xlsx via existing documented parser"),
         ("included_subjects", int(len(labels))),
         ("control_subjects", int(np.sum(labels == "Control"))),
         ("biopsy_negative_subjects", int(np.sum(labels == "Biopsy-negative"))),

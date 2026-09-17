@@ -25,7 +25,7 @@ CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 RAW_STATS_PATH = PROJECT_ROOT / "results" / "preprocessing" / "grid_analysis" / "raw_grid_stats.csv"
 OUT_DIR = PROJECT_ROOT / "results" / "figures"
 OUT_PATH = OUT_DIR / "preprocessing_grid_visualization.png"
-SAMPLE_PATH = PROJECT_ROOT / "data" / "raw_data" / "5. Normal (100개)" / "NOR 1_1.CSV"
+SAMPLE_PATH = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "5. Normal (100개)" / "NOR 1_1.CSV"
 
 
 def _group_code(filename: str) -> str:
@@ -92,7 +92,7 @@ def main() -> None:
     sample_path = (
         SAMPLE_PATH
         if SAMPLE_PATH.exists()
-        else next((PROJECT_ROOT / "data" / "raw_data").rglob("*.CSV"))
+        else next((PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated").rglob("*.CSV"))
     )
     x_raw, y_raw = read_spectrum(sample_path)
     y_on_grid = np.interp(fixed_grid, x_raw, y_raw)

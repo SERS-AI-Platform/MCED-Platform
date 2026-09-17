@@ -1,8 +1,8 @@
 """Load Thermo mapping runs 2026-08-19 ~ 2026-09-10 into aecd_platform measurement.*.
 
 Sources (unzipped by the lab, 2026-09-11):
-    data/Thermo/                  8/19 ~ 9/8 mapping + Thermo Reference (Thermo.zip)
-    data/Thermo 1/Thermo/         9/9 ~ 9/10 mapping + Reference            (Thermo 1.zip)
+    data/03_sers_date_lot_balanced_acquisition/thermo_mapping_multi_20260819-20260908/                  8/19 ~ 9/8 mapping + Thermo Reference (Thermo.zip)
+    data/03_sers_date_lot_balanced_acquisition/thermo_mapping_multi_20260909-20260910/         9/9 ~ 9/10 mapping + Reference            (Thermo 1.zip)
 
 Decisions (confirmed with the user on 2026-09-11):
     * run = measurement date x strip lot. 8/28 and 9/10 used two lots, so they become two
@@ -46,8 +46,8 @@ from psycopg2.extras import execute_values
 
 REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data"
-SOURCE_ROOTS = (DATA / "Thermo", DATA / "Thermo 1" / "Thermo")
-REFERENCE_DIRS = (DATA / "Thermo" / "Thermo Reference", DATA / "Thermo 1" / "Thermo" / "Reference")
+SOURCE_ROOTS = (DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260819-20260908", DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260909-20260910")
+REFERENCE_DIRS = (SOURCE_ROOTS[0] / "Thermo Reference", SOURCE_ROOTS[1] / "Reference")
 
 INSTRUMENT_NAME = "Thermofisher DXR3xi"
 REAGENT_LOT = "BCCP0922"
@@ -385,6 +385,9 @@ def main() -> None:
     ap.add_argument("--mode", choices=["plan", "dry-run", "commit"], default="plan")
     args = ap.parse_args()
 
+    missing = [str(r) for r in SOURCE_ROOTS if not r.is_dir()]
+    if missing:
+        raise SystemExit(f"source root not found (data folder renamed?): {missing}")
     files, runs, averages = discover()
     points = assign_points(files)
     cals = {day: si_calibration(day) for day in sorted({k[0] for k in runs})}

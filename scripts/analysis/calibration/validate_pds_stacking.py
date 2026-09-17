@@ -48,8 +48,8 @@ logging.basicConfig(level=logging.WARNING,
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-THERMO_DIR = PROJECT_ROOT / "data" / "raw_data"
-MEDICAL_DIR = PROJECT_ROOT / "data" / "raw_data_medical"
+THERMO_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
+MEDICAL_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
 OUT_DIR = PROJECT_ROOT / "results" / "cross_instrument" / "calibration" / "stacking_validation"
 
 
