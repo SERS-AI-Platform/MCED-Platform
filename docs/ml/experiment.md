@@ -988,3 +988,15 @@
   - **BE-2 보충 (2026-09-18): 기준 물질이 플레이트 상태를 반영하는가** — 사용자 질문("QC를 인공소변으로 하면 어떤가"). 플레이트(strip unit)별 control 기준 피크 중앙값 vs 같은 플레이트 임상 검체의 정규화 전 신호(N2 양수 면적, 검체별 점 중앙값 → 플레이트 중앙값). **모사 소변: Spearman +0.65 (p=6e-7, 48 플레이트, 690검체), log-Pearson +0.70** / 메틸렌블루: +0.29 (p=0.49, 8 플레이트, 137검체). 같은 플레이트들에서 검체 신호 CV 0.15(SU 기간)·0.18(MB 기간)인데 control CV는 SU 0.19 / MB 0.66. 산출물 `results/standard_material_norm_postchange_20260918/control_vs_unit_sample_signal.csv`(덱 그림 스크립트 `workspace/_scratch/2026-09-18-batch-effect-deck/make_figs.py`가 생성). 한계: control은 플레이트당 1회(SU 5점), 두 물질의 측정 기간·측정자·lot·검체 구성이 달라 물질 간 직접 비교는 교락.
   - **BE-1 보충 (2026-09-18): 스펙트럼 없이 측정 조건만으로 암/비암을 맞출 수 있는가** — 사용자 질문("조건만으로 군을 분류한다는 뜻인가"). 측정일·strip lot·측정자 one-hot만 입력한 LR, 검체 StratifiedKFold(5), 시드 5개: 측정일만 **AUC 0.571 ± 0.004**, strip lot만 0.578 ± 0.002, 측정자만 0.539 ± 0.007, 셋 다 0.566 ± 0.005 (스펙트럼 입력은 0.838). 0.50이 아닌 이유: 날짜별 암 비율이 다름(8월 0.43~0.62, 9/8~9/11 0.75~0.78, 이후 0.58~0.68). 산출물 `results/batch_effect_postchange_926_20260918/metadata_only_cancer_auc.csv`, `cancer_fraction_by_date.csv`.
   - **BE-3 보충 (2026-09-18)**: 폐암 site 매핑(LUN 1~30·201~300 = SNUH, 31~200 = SSMH; `scripts/db/aecd_clinical_v7/site_map.py`, `docs/ml/MLOPS_MASTER_DATA.md`)이 맞다고 사용자 확인. BE-3의 폐암 두 병원 비교는 유효하되 공유 측정일 0일이라 날짜와 분리 불가라는 결론 유지.
+
+### 보충 (2026-09-18): 8월 초 기준측정(MB·모의소변·PS/Si) 분리
+
+- 8/19~9/08 mapping 데이터셋 안 `Thermo Reference/`에 8/05~9/08 교정파일 288개와 `MB&SU/`(표준물질 72파일)가 섞여 있었다.
+  이 중 **8/05~8/14 교정파일 144개는 8/10~8/14 mapping 데이터셋 사본과 바이트 동일**(해시 확인)이었다.
+- 정리: 새 데이터셋 `03_sers_date_lot_balanced_acquisition/thermo_standard_MB-SU_20260805-20260810/`
+  (`MB&SU/` 72파일 + `Reference/` 8/05~8/07 교정파일 72개). 8/19~9/08 데이터셋은 자기 날짜(8/19~9/08) 교정파일만 남기고 중복 144개 삭제.
+- DB: MB&SU 스펙트럼 60행(run 82~84, 8/06·8/07·8/10 control-only)의 `source_uri`와 run 3건의 `source_root`를 새 경로로 UPDATE(트랜잭션, 잔존 0, 파일 실존 확인).
+  교정 CSV 자체는 `raw_spectra`에 없고 `calibrations.report_filename`은 파일명만 저장하므로 영향 없음.
+- 데이터셋별 수치 갱신: mapping 8/19~9/08 32,063파일·31,568행(8/19~9/08), mapping 8/10~8/14 13,865파일·13,673행, 기준측정 144파일·60행. 합계 112,557행 유지.
+- 코드: `scripts/db/aecd_historical_measurement_load.py`(mbsu 경로·note 문자열), `scripts/analysis/operator_study_design.py`(PS 교정파일이 두 데이터셋에 나뉘므로 두 폴더를 함께 읽도록 변경 — 재실행 결과 9일 60스펙트럼으로 분리 전과 동일).
+- 확인 필요: `MB&SU/` 하위 폴더명은 **교정일**, 파일명 날짜는 **측정일**이다(예: `20260805 cali/100 uM MB_20260806_B1_*`). DB run 날짜는 측정일 기준. `_ave` 12개는 규칙대로 미적재.

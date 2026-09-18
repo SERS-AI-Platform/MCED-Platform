@@ -1,7 +1,7 @@
 """Load historical measurement sets into aecd_platform measurement.* (2026-09-11 decisions).
 
 Dated sources:
-    mbsu       Thermo Reference/MB&SU (100 uM MB, simulated urine). Date = file-name date,
+    mbsu       thermo_standard_MB-SU_20260805-20260810/MB&SU (100 uM MB, simulated urine). Date = file-name date,
                corroborated by file mtime. Folder = preparation batch.
     april      03_sers_date_lot_balanced_acquisition/thermo_retest_12groups_20260416-20260519/2026MMDD_Urine test (4월 재측정) CSV. Date = file mtime date — mtimes are
                acquisition times here (hours of spread, ~90 s per spectrum) and match the folder
@@ -142,7 +142,7 @@ def clinical_label(stem: str) -> str | None:
 # ───────────────────────── source adapters ─────────────────────────
 
 def src_mbsu() -> tuple[dict[str, Run], list[File]]:
-    root = DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260819-20260908" / "Thermo Reference" / "MB&SU"
+    root = DATA / "03_sers_date_lot_balanced_acquisition" / "thermo_standard_MB-SU_20260805-20260810" / "MB&SU"
     runs: dict[str, Run] = {}
     files: list[File] = []
     for p in csvs(root):
@@ -162,7 +162,7 @@ def src_mbsu() -> tuple[dict[str, Run], list[File]]:
             raise ValueError(f"unknown control material: {p}")
         key = f"mbsu_{day:%Y%m%d}"
         run = runs.setdefault(key, Run(key, day, notes=[
-            "control-only run", "source_root=data/03_sers_date_lot_balanced_acquisition/thermo_mapping_multi_20260819-20260908/Thermo Reference/MB&SU",
+            "control-only run", "source_root=data/03_sers_date_lot_balanced_acquisition/thermo_standard_MB-SU_20260805-20260810/MB&SU",
             "material lot label B1 (strip/solution batch, not resolved to a strip lot)"]))
         batch = f"prep_folder={p.parent.name}"
         if batch not in run.notes:
