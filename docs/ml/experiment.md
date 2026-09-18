@@ -933,3 +933,16 @@
 - **9/16~9/17 Thermo mapping 배치 적재 확인 (2026-09-18)**: run 192(9/16 SK20260806B01)·193(9/17 SK20260806C01)·194(9/17 SK20260810A01),
   임상 5,688 + control 60 = 5,748 스펙트럼, 158검체×36점, Si 교정 양일 pass. `measurement.raw_spectra` 합계 112,557.
   로더 `scripts/db/aecd_mapping_batch_20260916_0917_load.py`(commit 1c74eec, 이전 배치와 같은 규칙, 재적재 방지 가드 포함).
+
+- [x] DN-2: 같은 denoising AE를 **조건 변경 후 전립선 112명(121점 mapping)**에 적용 (2026-09-18) ✅
+  - 데이터: DB `measurement.raw_spectra` 변경 후 팔(frozen 13,552 id, 7월 측정분 제외 로더 = AS-25e), ver2 전처리(WH despike → trim 600–1800 → SG(5,3) → rolling-min(101) → SNV, 625점), 2단계 QC 후 **10,517점**(AS-13 보충 1의 "개선 8월 10,517"과 일치). 112명 = 암 43 / PDC 49 / 대조 20, subject당 QC 후 측정점 중앙값 96(51~117).
+  - 학습 짝: 측정점 1개 → 같은 subject 나머지 측정점의 LOO 평균. AE 구조·HP DN-1과 동일(encoder 길이만 625 적응, 파라미터 160,465). (시드, fold)별 학습 fold subject로만 25회 학습(평균 22.8 epoch, fold당 12 s).
+  - 조건·규약 DN-1과 동일(A 원 측정점 subject 평균 LR / B 측정점별 AE 복원 → 평균 / C 평균 → AE 1회). fold는 환자 단위 StratifiedGroupKFold(5), 3군 라벨 층화, 시드 42/7/123/2024/31337.
+  - **진단 (테스트 fold, 시드 평균 ± SD)**: within-subject RMSE 0.2646 → 0.1848 (**−30.2% ± 0.9%**, 25/25 fold 감소, 측정점의 90%에서 감소). between-subject 분산 유지율 **B 0.641 ± 0.005 / C 0.670 ± 0.005** (DN-1 후향은 0.879 / 0.895). 파장별 잔차 RMS 후/전 비 중앙값 0.675, 비>1인 점 6/625(최대 1.68 @1031 cm⁻¹).
+  - **과제 1 암 vs 비암 (AUC)**: A 0.772 ± 0.035 · B 0.616 ± 0.031 · C 0.597 ± 0.025 → B−A **−0.156 ± 0.032 (0/5)**, C−A −0.175 ± 0.027 (0/5). bal.acc A 0.695 / B 0.573 / C 0.548.
+  - **과제 2 3군 (macro-F1)**: A 0.431 ± 0.026 · B 0.382 ± 0.026 · C 0.370 ± 0.015 → B−A **−0.049 ± 0.024 (0/5)**, C−A −0.061 ± 0.037 (0/5).
+  - 관측: 반복 짝이 많아(5 → 약 94) 잡음 감소율은 커졌으나(20% → 30%) 검체 간 분산도 더 많이 제거됐고(유지율 0.88 → 0.64), 분류 하락 폭도 커짐(암/비암 −0.019 → −0.156). 시드 5개 모두 하락.
+  - **A 정합성 (AS-25e ver2/deck 5시드 0.815, 20시드 0.804 ± 0.024)**: 본 A 0.772 ± 0.035. 시드 42(0.805)·123(0.771)은 AS-25e와 0.001 이내 일치, 시드 7(0.721)·2024·31337은 낮음. 같은 행렬로 분해: LR만 AS-25e 규약(스펙트럼 단위 C=1 balanced, 환자 = 점 확률 평균)으로 바꾸면 **0.810**, 층화만 2군으로 바꾸면 0.786, 둘 다 바꾸면 0.832 → 차이의 주원인은 **LR 규약(subject 평균 입력 vs 스펙트럼 단위 학습)**이고 fold 배정이 나머지. DN-1·DN-2의 A는 같은 규약이라 두 실험 간 비교 가능, AS-25e 값과는 직접 비교 금지.
+  - 환경 메모: `sers-analysis`에 pydantic이 없어 로더(`sers.aecd_api`)는 base python 서브프로세스로 실행해 `data_cache.npz`에 저장, AE/LR은 `sers-analysis`. 로더 모듈의 JULY_DIR(9/17 폴더 개명으로 부재)은 런타임에 `data/03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710`로 덮어씀(모듈 미수정). 7월 파일에만 있고 DB 미포함 8명(43, 58, 65, 96, 104, 110, 111, 113).
+  - 스크립트: `/home/user/SERS-AI-merge/scripts/analysis/denoising_ae_probe_boramae112.py` (로더가 feat/boramae-api-contract worktree에만 있어 그곳에 둠, **미커밋**). 산출물 `results/denoising_ae_probe_boramae112_20260918/` (runs.csv, summary.json[A_consistency_vs_AS25e 포함], run_metadata.json, ae_diagnostics.csv, ae_fit_info.csv, ae_training_curves.csv, residual_by_wavenumber.csv, fold_assignment.csv, data_cache.npz).
+  - ⚠️ 한계: 112명(fold 배정만으로 시드 SD 0.035, fold별 A AUC 0.56~0.95) · 단일 수집처·단일 측정 기간 · 전처리·QC 후 입력 · AE 구조 미튜닝 · 과제 2 대조 20명(fold당 4명) · 외부 시험셋 없음.
