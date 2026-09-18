@@ -963,3 +963,25 @@
   - 관측: 측정 요인은 스펙트럼에서 식별될 만큼 흔적을 남기지만(AUC 0.86~0.92) 설명 분산은 군의 절반 수준이고, 날짜·lot을 학습에서 제외해도 암/비암 AUC 변화가 시드 SD 이내.
   - ⚠️ 한계: strip lot·측정자는 측정일에 nested라 날짜 효과와 분리 불가 · 날짜 효과에 군 구성 변화(9/8 이후) 포함 · 군 η²에 수집처 교란(군 = 수집처 1:1) 포함 · η²는 일원(미조정), 순차 R²만 조정 · 날짜/lot 단위 fold는 테스트 군 구성이 무작위 fold와 다름 · 시약 lot 단일 수준(검정 안 됨) · 이 926검체는 후향 검체 재측정이라 AUC 0.84는 전향 성능 아님.
   - 덱: `/home/user/workspace/_scratch/2026-09-18-batch-effect-deck/2026-09-18_측정조건_변동_분석_대표님보고.pptx` (3장, 대표님 보고).
+
+- [x] BE-2: 표준물질 보정·정규화 방식이 측정일 효과와 분류에 미치는 영향 (2026-09-18) ✅
+  - 스크립트 `/home/user/SERS-AI-ci-tiered/scripts/analysis/standard_material_norm_postchange.py`(미커밋), 산출물 `results/standard_material_norm_postchange_20260918/` (condition_metric_table.csv, variance/predictability/classification_by_condition.csv, si_shift_by_run.csv, control_by_strip_unit.csv, control_by_date.csv, sample_strip_unit.csv, summary.json, run_metadata.json).
+  - 설계: BE-1과 같은 926검체·같은 QC 통과 점(27,025)·같은 시드. 전처리 앞단(despike → 600–1800 → SG → rolling-min) 공통, **마지막 정규화만 교체**. N0 SNV(BE-1 재현: η² 측정일 0.0709, 무작위 AUC 0.838±0.005) / N1 Si 축 보정+SNV / N2 없음 / N3 같은 strip unit의 MB_40uM 1621 cm⁻¹ 피크로 나눔 / N4 같은 strip unit의 모사 소변(N4p 1000 cm⁻¹ 피크, N4a 면적) / N5 PQN. urea 기준 축 보정은 사용 안 함.
+  - **control 측정 실태**: control은 날짜가 아니라 **strip unit(플레이트) 단위**로 측정됨. MB_40uM 8/19~8/26(8 unit, unit당 121점), **8/27~9/7 control 없음(디스크에도 없음)**, 모사 소변 9/8~9/17(48 unit, unit당 5점). DB에 measurement→strip_unit 키가 없어 `raw_spectra.source_uri` 폴더명으로 unit 매칭(926검체 전부, 62 unit). `Thermo Reference/MB&SU/2026080x cali`(lot 제조일 기준 측정)는 미사용.
+  - **Si shift**: 23 run 전부 기록, observed−520.7 = 0.31~0.59 cm⁻¹(중앙 0.43), 격자 간격 1.92 cm⁻¹ → N1은 N0와 사실상 동일(η² 측정일 0.0710, AUC 0.838).
+  - **control 세기 재현성**: MB 1621 피크 unit 간 CV **0.66**(최대/최소 14.8배), 날짜 간 0.53, unit 내부 0.15. 모사 소변 1000 피크 unit 간 CV 0.19, 날짜 간 0.13, unit 내부 0.09.
+  - **전체 926**: η² 측정일 N0 0.071 / N2 0.115 / N5 0.077; η² 군 0.118 / 0.046 / 0.106; 암·비암 AUC 무작위 0.838 / 0.821 / 0.837, 측정일 단위 0.832 / 0.812 / 0.828.
+  - **MB unit 부분집합(137검체, 8 unit, lot 1개)**: η² 측정일 N0 0.063 / N2 0.195 / **N3 0.475** / N5 0.067; AUC 무작위 0.887 / 0.873 / 0.862 / 0.899; 측정일 단위 0.902 / 0.868 / 0.845±0.058 / 0.901.
+  - **모사 소변 unit 부분집합(690검체, 48 unit)**: η² 측정일 N0 0.0386 / N2 0.0505 / **N4p 0.0257** / N4a 0.0341 / N5 0.0412; η² 군 0.124 / 0.054 / 0.048 / 0.053 / 0.111; AUC 무작위 0.798 / 0.783 / 0.777 / 0.777 / 0.796.
+  - 관측: (i) Si 축 보정은 효과 없음(shift < 격자). (ii) 정규화를 빼면 측정일 효과가 커짐 — 날짜 변동의 상당 부분이 세기. (iii) MB로 나누면 측정일 효과가 7배로 커짐 — MB 자체의 unit 간 세기 변동(CV 0.66)이 검체에 주입됨. (iv) 모사 소변으로 나누면 측정일 η²는 1/3 줄지만 군·암/비암 η²와 AUC도 함께 낮아짐. (v) PQN ≈ SNV.
+  - ⚠️ 한계: control은 unit당 1회 측정이라 unit 고유 차이와 control 재현성 분리 불가 · N3/N4는 기간·군·lot이 달라 서로 비교 불가 · N2~N4는 절대 세기 유지 조건 · `paired_analysis_data.build_arm`이 같은 날 15:48경 stage-2b(최소 25점)로 변경돼 BE-1 당시 QC 규칙을 스크립트 안에 고정해 재현(현재 BE-1 스크립트 재실행 불가).
+
+- [x] BE-3: 같은 라벨·다른 병원의 스펙트럼 차이 (2026-09-18) ✅
+  - 스크립트 `/home/user/SERS-AI-ci-tiered/scripts/analysis/same_label_hospital_effect_postchange.py`(미커밋), 산출물 `results/same_label_hospital_effect_postchange_20260918/` (cohort_site.csv, confound_*.csv, shared_dates_by_site_pair.csv, distance_between_sites.csv, distance_within_site.csv, site_predictability.csv, site_eta2_summary.csv, site_eta2_by_wavenumber.csv).
+  - 대상(DB site): LUN 2개 site(30/59), NOR 3개 site(100/77/14), PAN 4개 site(66/55/30/27). 나머지 7군은 site 1개.
+  - **교락**: LUN 두 site와 NOR site2–site3는 같은 날 측정 0일 → 날짜·lot과 분리 불가. NOR site3–site1 11일 겹침, PAN 쌍 1~5일 겹침.
+  - **site 예측 AUC (N0, 5시드; 전체 / 공유 날짜만 / 측정일 단위 분할)**: LUN 0.971 / — / 0.971 · NOR site1–site2 0.931 / 0.862(n=14) / 0.891 · NOR site3–site1 0.680 / 0.699(n=70, CI 0.49–0.87) / 0.680 · PAN site2–site4 0.875 / 0.824(n=81) / 0.831 · PAN site4–site1' 0.925 / 0.913 / **0.599** · PAN site2–site3 0.702 / **0.460**(n=61) / 0.704. permuted 0.42~0.60.
+  - **거리(RMSE)**: LUN site 간 0.574(같은 site 날짜 간 0.17~0.19) — 단 공유일 0. NOR site3–site1 같은 날 0.184(반분 0.24/0.06). PAN 쌍 같은 날 0.10~0.24(반분 0.11~0.34).
+  - **파장별 site η²**: LUN 0.253(대조 0.012), NOR 0.042(0.011), PAN 0.047(0.017). 군 η² 곡선과 상관: LUN 0.63, NOR 0.09, PAN −0.19.
+  - 관측: 날짜를 통제해도 site가 식별되는 쌍(NOR site1–site2, PAN site2–site4)과 식별되지 않는 쌍(PAN site2–site3 0.46, NOR site3–site1 CI가 0.5 포함)이 공존. LUN은 차이가 가장 크지만 날짜와 완전 교락.
+  - ⚠️ 한계: site가 원래 라벨(YNOR·YPAN·KPAN)에 묶여 모집·보관 차이와 분리 불가 · 소수 site n=14(fold당 양성 2~3) · 공유일 1~3일인 쌍은 CI 무의미 · 비교한 군 η² 곡선 자체가 site와 교락.
