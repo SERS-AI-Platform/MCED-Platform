@@ -1,6 +1,6 @@
 # 환자별 Peak/Spectrum 기반 Explainability — 설계안
 
-- 상태: 설계 문서 (코드 미구현)
+- 상태: **§5 피크 가림 방식으로 구현 (2026-09-18, 검증 전 — `explainer.validated=false`)**. §2 선형 계수 방식은 채택하지 않음(§3-3 이유)
 - 관련: IFU/사양서 1.5.1 "Explainability (Contributed Peak or Spectrum Difference)"
 - 전제: [[threshold 단일화]] 완료(threshold=0.60, artifacts/usersnet/current→v1.0.0), [[SSI risk stratification]] 완료(3단계 LOW/MODERATE/HIGH)
 
@@ -70,3 +70,33 @@ contribution_i(patient) = coef_i × (x_i(patient) − x̄_i(predicted_type_cohor
 - 암종별 코호트 평균 스펙트럼 (오프라인 계산, `artifacts/usersnet/v1.0.0/`에 신규 파일로 저장)
 - `sers_predict.py`에 `explain_patient()` 메서드 추가 (predict_patient 이후 선택적 호출)
 - 리포트 템플릿에 Top-N 피크 표 + 스펙트럼 diff 플롯 추가
+
+## 5. 채택한 구현 (2026-09-18): 피크 가림(occlusion) 기여도
+
+§3-3의 정합성 문제(운영 모델은 10 base + meta 스택이고 xgb·rf 는 비선형)를 피하려고 선형 계수 대신 **모델 무관
+가림 방식**을 채택했다. 배포된 스택 전체를 그대로 쓰므로 근사가 없다.
+
+```
+contribution_k = logit P(cancer | x)  −  logit P(cancer | x with peak window k replaced by x̄_noncancer)
+```
+
+- `x`: 환자 대표 스펙트럼(QC 통과 반복측정 평균, 3채널 raw·d1·d2) — 운영 판정에 쓰는 것과 같은 입력
+- 창 k: `peak_config.json` 17개 피크의 중심 ± 반폭×1.5 (피크 특징 추출과 같은 창). 세 채널 모두 바꾼다
+- `x̄_noncancer`: 운영 모델 v1.0.0 학습 데이터의 비암 코호트(NOR·DIA·HBP·H.D., n=400) 평균 스펙트럼 — `scripts/training/build_usersnet_explainer.py` 가 만들어 `artifacts/usersnet/v1.0.0/explainer/` 에 저장 (암 평균·암종별 평균은 검증용으로 함께 저장)
+- 피크 특징(Voigt 면적 등)도 가려진 스펙트럼에서 다시 뽑는다 (창과 겹치는 피크만 재적합, 결과는 전체 재적합과 동일)
+- 부호: + 관측 피크가 판정을 암 쪽으로 밈 / − 비암 쪽. 확률 차이는 `delta_probability`, 비암 평균 대비 면적 차이는 `delta_pct` 로 같이 기록
+- 로그오즈를 쓰는 이유: 확실한 판정(P≈0.998)에서는 확률 차이가 0.01 수준으로 눌려 순위가 불안정하다
+- 비용: 피크당 base 10개 + meta 1회 → 환자당 약 3~4초 추가 (Windows 앱 기준 재측정 필요)
+
+**출력 계약** (앱 `clinical_explanation.py` 가 읽는 형식): `peak_contributions = [{wavenumber, peak_name, contribution,
+delta_probability, probability_without_peak, delta_pct}, …]` 17개, |contribution| 내림차순. `explainer = {method,
+version, background, reference, validated}` — `validated` 는 아티팩트 `explainer.json` 값 그대로이며 앱이 올리지 않는다.
+
+**코드 위치**: 계산은 앱의 운영 추론기 옆(`SERS-Clinical-App/app/sers_explain.py`, `StackingPredictor._peak_contributions`)
+— 운영 추론 구현이 앱에만 있기 때문. 방법 판·참조 스펙트럼은 이 저장소의 아티팩트가 가진다.
+
+### 5.1 검증 계획 (validated=true 로 올리기 전)
+1. **방향 일치**: heldout 암 환자에서 상위 5 피크의 부호가 코호트 수준(암 평균 − 비암 평균, AACR SHAP 방향)과 일치하는 비율
+2. **안정성**: 같은 환자의 반복측정 5개를 4개로 줄여도(leave-one-out) 상위 3 피크가 유지되는 비율
+3. **가림 총합과 판정의 관계**: Σcontribution 의 부호가 판정(positive/negative)과 일치하는 비율
+4. 결과는 `docs/ml/experiment.md` 에 Phase 코드로 기록하고, 규제 영향(판정 설명 기능) 검토 후 `build_usersnet_explainer.py --validated` 로 재생성

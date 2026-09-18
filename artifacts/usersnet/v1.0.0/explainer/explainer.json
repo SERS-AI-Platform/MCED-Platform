@@ -1,0 +1,37 @@
+{
+  "method": "peak-occlusion",
+  "version": "0.1",
+  "method_text": "환자 대표 스펙트럼에서 알려진 피크 창(중심 ± 반폭×1.5)을 비암 학습 코호트 평균으로 바꿔 넣고 배포 모델 전체를 다시 실행해 logit P(암)의 변화(로그오즈 차이)를 기여도로 삼는다. 양수: 관측 피크가 판정을 암 쪽으로 밈. 확률 차이(delta_probability)와 비암 평균 대비 피크 면적 차이(delta_pct)를 함께 기록한다.",
+  "background": "비암 학습 코호트 평균 스펙트럼 (NOR·DIA·HBP·H.D., n=400), 운영 모델 v1.0.0 학습 데이터",
+  "reference_id": "usersnet-v1.0.0-noncancer-mean-2026-09-18",
+  "reference_file": "reference_noncancer_mean.npy",
+  "channels": [
+    "raw",
+    "1st_derivative",
+    "2nd_derivative"
+  ],
+  "grid_points": 935,
+  "window_factor": 1.5,
+  "n_samples": {
+    "non_cancer": 400,
+    "cancer": 1169,
+    "by_group": {
+      "BLC": 299,
+      "BRE": 30,
+      "CRC": 300,
+      "DIA": 100,
+      "H.D.": 100,
+      "HBP": 100,
+      "LUN": 300,
+      "NOR": 100,
+      "OVA": 70,
+      "PAN": 70,
+      "PRO": 100
+    }
+  },
+  "validated": false,
+  "validation_note": "검증 전 — 앱은 값을 저장만 하고 화면·보고서에 표시하지 않는다.",
+  "created": "2026-09-18T02:09:08+00:00",
+  "source_commit": "2911987772f4dd22d5ba3111056debd915f2a0ce",
+  "design_doc": "docs/ml/explainability_design_peak_attribution.md"
+}
