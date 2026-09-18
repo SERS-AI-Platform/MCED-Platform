@@ -908,3 +908,28 @@
   - 참고: 기준 A(0.9781 / 0.8737)가 FM-1의 A(0.9765 / 0.8650)와 소폭 다름 — 같은 데이터·시드·규약이나 구현이 별도 스크립트라 fold 구성 또는 LR 세부가 다를 수 있음(미확인). 각 실험 안에서의 짝 비교에는 영향 없음.
   - ⚠️ 한계: 후향 코호트 수집처 교란(특히 과제 2) · 이미 전처리된 입력 · AE 구조 1개 고정(미튜닝, 잠재 차원·손실·목표 정의에 따라 달라질 수 있음) · 5회 반복 평균 자체가 이미 잡음을 상당히 제거하는 조건이라 AE의 추가 여지가 작았을 가능성 · 외부 시험셋 없음.
   - **DN-1 보충 (2026-09-17)**: 기준 A가 FM-1의 A와 다른 원인 확인 — DN-1은 두 과제가 같은 fold를 쓰도록 **11개 model_group으로 층화**(FM-1은 과제별 label로 층화). 같은 시드라도 fold 구성이 다르므로 실험 간 A 직접 비교는 하지 말 것. 각 실험 안의 짝 비교(B−A 등)에는 영향 없음. 파장별 잔차 RMS 비(후/전) 중앙값 0.756, 933점 모두 <1, 1900–2200 cm⁻¹ 대역에서 가장 큰 감소(0.692).
+
+## 데이터 정리 기록 — data/ 폴더 이름 통일·임상 테이블 분리 (2026-09-15 ~ 09-18)
+
+> 실험이 아니라 데이터 위치 변경 기록. **이 문서의 이전 기록에 나오는 data/ 경로는 모두 옛 경로다.**
+> 옛 경로 → 새 경로 대응표: `data/99_manifests/path_rename_map.csv`, 폴더별 내용: `data/00_README/DATASET_INVENTORY.md`.
+> 계획·실행 기록: `/home/user/workspace/_scratch/2026-09-15-data-folder-rename/README.md` (되돌리기 파일은 9/24~10/1 삭제 예정).
+
+- **폴더 이름 통일 (2026-09-17 실행, commit 07d634e)**: `data/` 30개 항목을 sers_transfer 연구설계 분류(00~06, 99) 아래
+  `{장비}_{측정종류}_{군}_{기간|undated}`로 이동. 기간은 DB `measurement.runs.measurement_date`로 확정된 경우만 표기.
+  주요 대응: `raw_data`→`02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated`,
+  `raw_data_medical`→`02_.../ramcheck_retro_12groups_undated`, `임상데이터`→`03_sers_date_lot_balanced_acquisition/thermo_retest_12groups_20260416-20260519`,
+  `mapping`→`03_.../thermo_mapping_BNOR-BPRO_20260810-20260814`, `Thermo`·`Thermo 1`·`Thermo 260911~260915`→`03_.../thermo_mapping_multi_*`.
+  - **BLC 두 폴더 구분**: 같은 충북대 299명(#241 결측)을 두 번 측정한 것으로 확인. `BLC_1st_20260319-20260320`(옛 `11 BLC (299개)`, 3~4월 초 모델이 사용),
+    `BLC_2nd_20260407-20260409`(옛 `20260407_Bladder_…`, 현재 config `folder_to_group` BLC). 파일명은 같고 내용은 전부 다름.
+  - **후향 본세트 로드 범위 변화 1건**: 보라매 0709 액체 세트가 후향 본세트 밖으로 분리되어, 기본 로더의 thermo 후향 로드가 8,605→8,500 스펙트럼(BNOR 105, 21명 제외). 다른 군 수는 동일.
+  - DB: `measurement.raw_spectra.source_uri` 106,809행·`measurement.runs.notes` 82행을 새 경로로 UPDATE(사용자 1회 예외 승인, 트랜잭션+검증, 백업 `pg_dump` 보관). 검증: 파일 누락 0, 옛 경로 잔존 0.
+  - 중복 삭제(해시 검증): `Thermo (2)`(1.5GB), 풀려 있던 zip 6개. 기록 `data/99_manifests/deleted_duplicates_hash_check_20260915.json`.
+- **임상 테이블 분리 (2026-09-17, commit 2911987)**: `data/clinical_data`(→`01_clinical_metadata/hospital_clinical_tables`) 202MB가 같은 1,782명의 파생본 8종+복사된 Python 환경이라
+  역할별로 분리: `00_master_normalized_workbook`(기준 표 = `전체환자_임상정보_정규화_v8.xlsx` 2,899행 + 과거 버전 19개),
+  `01_raw_hospital`, `02_standardized_1782`, `03_exclusion_and_clean`, `04_stage_lifestyle_overrides`(clinical_unified — 병기·흡연·음주 정답, 5개 암종 840명),
+  `05_dictionaries_and_governance`, `06_sers_linkage`, `07_scripts_and_sql`, `_archive`. 20MB로 축소(.venv·PowerBI 파생본 삭제).
+  `sample_exclusions/phase_x_exclusions.csv`(99건)는 사용자 실수 삭제 후 2026-09-18 재생성, `phase_x_plus_hs_exclusions.csv`는 생성 근거가 없어 복구 불가.
+- **9/16~9/17 Thermo mapping 배치 적재 확인 (2026-09-18)**: run 192(9/16 SK20260806B01)·193(9/17 SK20260806C01)·194(9/17 SK20260810A01),
+  임상 5,688 + control 60 = 5,748 스펙트럼, 158검체×36점, Si 교정 양일 pass. `measurement.raw_spectra` 합계 112,557.
+  로더 `scripts/db/aecd_mapping_batch_20260916_0917_load.py`(commit 1c74eec, 이전 배치와 같은 규칙, 재적재 방지 가드 포함).
