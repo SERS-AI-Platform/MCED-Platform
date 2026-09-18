@@ -946,3 +946,20 @@
   - 환경 메모: `sers-analysis`에 pydantic이 없어 로더(`sers.aecd_api`)는 base python 서브프로세스로 실행해 `data_cache.npz`에 저장, AE/LR은 `sers-analysis`. 로더 모듈의 JULY_DIR(9/17 폴더 개명으로 부재)은 런타임에 `data/03_sers_date_lot_balanced_acquisition/thermo_boramae_liquid_BNOR-BPRO_20260709-20260710`로 덮어씀(모듈 미수정). 7월 파일에만 있고 DB 미포함 8명(43, 58, 65, 96, 104, 110, 111, 113).
   - 스크립트: `/home/user/SERS-AI-merge/scripts/analysis/denoising_ae_probe_boramae112.py` (로더가 feat/boramae-api-contract worktree에만 있어 그곳에 둠, **미커밋**). 산출물 `results/denoising_ae_probe_boramae112_20260918/` (runs.csv, summary.json[A_consistency_vs_AS25e 포함], run_metadata.json, ae_diagnostics.csv, ae_fit_info.csv, ae_training_curves.csv, residual_by_wavenumber.csv, fold_assignment.csv, data_cache.npz).
   - ⚠️ 한계: 112명(fold 배정만으로 시드 SD 0.035, fold별 A AUC 0.56~0.95) · 단일 수집처·단일 측정 기간 · 전처리·QC 후 입력 · AE 구조 미튜닝 · 과제 2 대조 20명(fold당 4명) · 외부 시험셋 없음.
+
+## Phase BE — 변경 후 측정 조건(측정일·스트립 lot·측정자) 배치 효과 분석 (2026-09-18)
+
+> 질문: "시약 lot을 통일한 뒤 남은 측정 메타데이터가 스펙트럼 변동과 분류 성능에 얼마나 기여하나?" (사용자 요청)
+> 스크립트 `/home/user/SERS-AI-ci-tiered/scripts/analysis/batch_effect_postchange_926.py` (로더가 있는 worktree, 미커밋), 산출물 `results/batch_effect_postchange_926_20260918/`
+> (cohort.csv / design_table.csv / variance_decomposition.csv / variance_decomposition_pc.csv / day_eta2_by_wavenumber.csv / predictability.csv / effect_size_day_vs_group.csv / classification_by_split.csv / summary.json / run_metadata.json / run.log).
+
+- [x] BE-1: 변경 후 임상 측정 926검체 배치 효과 (2026-09-18) ✅
+  - 데이터: DB `measurement.measurements`(role=clinical) ⋈ `runs`, measurement_date ≥ 2026-08-19. 926검체(암 612 / 비암 314; NOR 191·PAN 178·PRO 149·LUN 89·CRC 85·BLC 56·BRE 55·HBP 43·DIA 41·H.D. 39), 19 측정일, **reagent_lot 1개(검정 불가)**, strip_lot 7종(날짜에 nested), operator 2명(8/27 교체, 날짜에 nested), 기기 1대. 121점 측정분은 36점 무작위 추출(seed 고정) → raw 33,336 → stage-1 33,333 → corr QC 27,025점, 검체 평균 1행. ver2 전처리(despike → 600–1800 → SG(5,3) → rolling-min(101) → SNV, 625점).
+  - 설계: 매일 여러 군 혼합 측정(8월: NOR·BRE·PRO·PAN·대조군, 9/8부터 LUN·CRC·BLC 추가) → 군과 날짜 완전 교락 아님. 같은 검체가 두 날짜에 측정된 경우 0.
+  - **분산 분해 (일원 η², 파장별 평균)**: 군 0.118 · 측정일 0.071 · strip lot 0.054 · 암/비암 0.024 · 측정자 0.017. 순차 OLS: 군 R² 0.118 → 군+측정일 0.181 (**측정일 증분 0.064**), 측정일 R² 0.071 → +군 증분 0.111. PCA 90%(14 PC) 가중도 같은 순서(군 0.158 / 측정일 0.073).
+  - **예측 가능성 (검체 StratifiedKFold 5, StandardScaler+LR, C∈{0.01,0.1,1} 내부 3-fold, 시드 5개, 실제 vs 라벨 permuted)**: 측정자 AUC 0.915 ± 0.008 (perm 0.498) · strip lot macro-OvR AUC 0.878 ± 0.005 (0.501) · 측정일(검체 ≥20인 12일, 809검체) 0.858 ± 0.003 (0.501) · 암/비암 AUC 0.838 ± 0.005 (0.496) · 군 macro-F1 0.350 ± 0.007 (0.102).
+  - **효과 크기 (검체 평균 스펙트럼 RMSE)**: 같은 군·날짜 간 0.224(중앙값 0.197, 549쌍) · 같은 날·군 간 0.265(0.217, 274쌍) · 같은 군·같은 날 반분 0.191(0.169, 53).
+  - **분할 방식별 암/비암 AUC (같은 시드 5개, 검체 OOF)**: 무작위 0.838 ± 0.005 · **측정일 GroupKFold 0.832 ± 0.004 (−0.006)** · strip lot GroupKFold 0.830 ± 0.005 (−0.008) · 무작위+날짜 보정(학습 fold 날짜 평균 중심화 + one-hot) 0.840 ± 0.004 (+0.002).
+  - 관측: 측정 요인은 스펙트럼에서 식별될 만큼 흔적을 남기지만(AUC 0.86~0.92) 설명 분산은 군의 절반 수준이고, 날짜·lot을 학습에서 제외해도 암/비암 AUC 변화가 시드 SD 이내.
+  - ⚠️ 한계: strip lot·측정자는 측정일에 nested라 날짜 효과와 분리 불가 · 날짜 효과에 군 구성 변화(9/8 이후) 포함 · 군 η²에 수집처 교란(군 = 수집처 1:1) 포함 · η²는 일원(미조정), 순차 R²만 조정 · 날짜/lot 단위 fold는 테스트 군 구성이 무작위 fold와 다름 · 시약 lot 단일 수준(검정 안 됨) · 이 926검체는 후향 검체 재측정이라 AUC 0.84는 전향 성능 아님.
+  - 덱: `/home/user/workspace/_scratch/2026-09-18-batch-effect-deck/2026-09-18_측정조건_변동_분석_대표님보고.pptx` (3장, 대표님 보고).
