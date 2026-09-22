@@ -1214,7 +1214,7 @@
 
 #### 덱 표기 정리 (2026-09-22, 사용자 지시): 병원 코드·군 통합
 
-- **BORAMAE → SBRMH** (Seoul National University Boramae Hospital). 덱 표시용 매핑만 바꿨고 DB `master.sites.site_code`는 그대로 `BORAMAE`.
+- **BORAMAE → SBRMH** (서울보라매병원), **YONSEI → YSSH** (연세신촌 세브란스병원). 덱 표시용 매핑만 바꿨고 DB `master.sites.site_code`는 그대로 `BORAMAE`·`YONSEI`. 부록 A에 병원 약어표를 넣었다(SBRMH 서울보라매 · YSSH 연세신촌 세브란스 · CBNUH 충북대 · YPNUH 양산부산대 · SNUH 서울대 · SSMH 서울성모 · IJBPH 인제대 부산백).
 - **KIMS는 병원이 아니라 재료연구원**(Korea Institute of Materials Science, 췌장암 55검체)이라는 사실을 07·09·10장과 부록 A에 명시. 분석에서 제외하는 기준은 그대로.
 - **표시용 군 통합**: 보라매 113검체를 `clinical.diagnoses.cohort_group`으로 쪼개어
   정상 20 → **정상군**, 조직검사 음성 49 → **질환대조군**(기존 고혈압·당뇨·고혈압+당뇨와 합침), 전립선암 43 → **전립선암**.
