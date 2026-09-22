@@ -1221,3 +1221,34 @@
   연세 YNOR도 정상군에, YPAN·KPAN은 췌장암에 합쳐 8개 군으로 정리(정상 211 · 전립선암 192 · 질환대조군 172 · 췌장암 123 · 폐암 89 · 대장암 85 · 방광암 56 · 유방암 55 = 983).
 - ⚠️ **"BPH"라고 부르지 않는다.** 보라매 `prostate disease control` 54명의 `diagnosis_name`을 보면 BPH는 8명뿐(양성전립선비대증 7 + 합병증 동반 1)이고 만성 전립선염 5, 전립선 낭종 1, 기타 양성질환 2, 나머지 38명은 진단명 공란이다. 따라서 **전립선 양성질환(조직검사 음성)**으로 표기한다.
 - 덱 수치 재점검: 14개 항목 대조 불일치 0건(구성 합계 983·909 포함).
+
+## Phase DL — STK-V2를 딥러닝으로 대체하는 연구 (2026-09-22~)
+
+> 질문: "STK-V2(10 base model + ElasticNet meta)를 단일 딥러닝 모델로 완전 대체할 수 있는가?" (사용자 지시 2026-09-22).
+> 대상 코호트는 현행 측정 조건 = 환원제 lot BCCP0922(보라매 포함, KIMS·Drop 제외 983검체 → 2단계 QC·최소 25점 후 **914검체**: 비암 366 / PRO 183 / PAN 116 / CRC 80 / LUN 67 / BRE 55 / BLC 47, OVA 없음).
+> 입력 단위는 subject 평균과 replicate 개별 두 조건 모두. 1차 구조는 3채널(raw/d1/d2) 1D-ResNet 멀티태스크.
+> 스크립트 `SERS-AI-ci-tiered/scripts/analysis/postchange_dl_two_stage.py` (worktree 커밋 21fbecf), 산출물 `SERS-AI-ci-tiered/results/postchange_983_dl_two_stage/`
+> (runs.csv / table.csv / paired_vs_stk.csv / subject_probs_mean.csv / oof_*.npz / fit_*.csv / summary.json / run_*.log).
+
+- [x] DL-1: 3채널 1D-ResNet 멀티태스크 vs STK-V2 두 단계 재학습, lot 코호트 914검체 (2026-09-22) ✅
+  - 공통 규약(모든 조건 같은 fold): 검체 단위 StratifiedGroupKFold(5, y7 층화) × 시드 42/7/123/2024/31337, `postchange_all_two_stage_stk.py`와 동일 캐시(STK-V2 3채널 935점, QC 후 replicate 28,569행 = 검체당 25~36점).
+    지표 `paired_analysis_two_stage.metrics` — stage 1 AUC/민감도/특이도(게이트 0.5), cascade macro-F1(6종), cancer-only macro-F1·OvR AUC. 짝 차이 = 조건 − STK-V2 (시드별, 이긴 시드 수).
+  - 조건: **stk** STK-V2 fold 안 재학습(10 base + ElasticNet meta, inner 5-fold, `paired_analysis_two_stage_stk.fold_job`) / **lr** subject 평균 ch0 StandardScaler+balanced LR 두 단계 /
+    **dl_mean** subject 평균 3채널(914행) → ResNet18-1D 인코더(`models/legacy/model.py`, 3.85M 파라미터) + 헤드 2개(암 1 logit, 암종 6 logit), 손실 BCE(pos_weight)+CE(클래스 가중, 암 행만) /
+    **dl_rep** replicate 개별(28,569행, 같은 914검체) → 같은 네트워크, 검체 점수 = replicate 확률 평균.
+  - DL 학습(고정, 미튜닝): AdamW lr 3e-4, wd 1e-2, dropout 0.3(uSERS-Net 2026-04-01 설정), batch 32(mean)/128(rep), bf16 autocast, 증강 없음.
+    조기 종료 = 학습 fold 검체의 20%를 검증으로 떼어 **순위 점수(stage 1 AUC + cancer-only macro OvR AUC 평균)** 기준 patience 40, 최대 300 epoch, best epoch 가중치 복원.
+  - **Stage 1 암/비암 (AUC, 평균±SD)**: stk **0.7915±0.0054** · lr 0.7466±0.0099 · dl_mean 0.6472±0.0209 · dl_rep 0.7390±0.0202
+    (민감도/특이도 @0.5: stk 0.735/0.688 · lr 0.701/0.661 · dl_mean 0.742/0.440 · dl_rep 0.728/0.606)
+  - **암종 6종 (cascade macro-F1 / cancer-only macro-F1 / cancer-only OvR AUC)**: stk 0.3429±0.0147 / 0.4479±0.0138 / 0.7787 · lr 0.3629±0.0112 / 0.4604±0.0076 / 0.7865 ·
+    dl_mean 0.2381±0.0186 / 0.3129±0.0134 / 0.6647 · dl_rep 0.3131±0.0294 / 0.3932±0.0287 / 0.7593
+  - **짝 차이 vs STK-V2 (평균±SD, 이긴 시드/5)**: dl_rep AUC **−0.0525±0.0206 (0/5)**, BA −0.0451 (0/5), cascade mF1 −0.0298±0.0402 (2/5), cancer-only mF1 −0.0547±0.0349 (0/5), OvR AUC −0.0238±0.0124 (0/5) ·
+    dl_mean AUC −0.1442±0.0175 (0/5), cascade mF1 −0.1048 (0/5), cancer-only mF1 −0.1351 (0/5) · lr AUC −0.0448±0.0081 (0/5), cascade mF1 +0.0200±0.0187 (4/5), cancer-only mF1 +0.0124±0.0148 (4/5).
+  - 암종별 cascade recall(5시드 평균): PRO stk 0.18 / lr 0.26 / dl_rep 0.45 · PAN 0.31 / 0.35 / 0.32 · LUN 0.65 / 0.62 / 0.55 · BRE 0.56 / 0.38 / 0.16 · CRC 0.20 / 0.26 / 0.20 · BLC 0.35 / 0.27 / 0.08 — DL은 다수 클래스(PRO)로 쏠리고 소수 클래스(BRE·BLC)를 거의 못 맞힘.
+  - 학습 진단: dl_mean best epoch 평균 35(584 학습 검체, fold당 46 s), dl_rep 35(18,269 학습 행, fold당 118 s), 상한 300 도달 0회. stk fold당 2,754 s(12 병렬, 총 6,586 s), lr 37 s.
+  - 관측: 1차 구조는 두 입력 단위 모두 STK-V2보다 낮고 시드 5개 모두 같은 방향. replicate 개별 학습이 subject 평균보다 AUC +0.09 높아 **데이터 양이 병목**임을 시사하나, replicate 단위로도 LR(0.747)에 못 미침(dl_rep − lr −0.0076, 2/5 시드 우세). 이 코호트에서는 LR·STK-V2가 여전히 상한.
+  - 실행 중 규약 변경 기록(정직 보고): (1) 스모크 테스트에서 검증 손실 기준 조기 종료가 epoch 1~3에서 멈춤(과신으로 손실은 오르는데 AUC는 계속 오름, seed 42 fold 0 진단: 60 epoch에서 val AUC 0.60→0.70) → 순위 점수 기준으로 변경.
+    (2) patience 20이 3/5 fold를 epoch 3~4에 멈춰 40으로. (3) dl_rep seed 42 fold 0이 상한 150에서도 개선 중이라 상한 300 + bf16으로 재실행. 재실행 전 dl_mean(상한 150, fp32) AUC 0.629/0.641/0.622/0.649/0.645 — 재실행과 같은 수준(`run_gpu_cap150.log`).
+  - ⚠️ 한계: 구조 1개·하이퍼파라미터 고정·증강 없음(튜닝하면 달라질 수 있음) · 20% 검증 분리로 dl_mean 학습 검체 584 · replicate 행은 검체 안에서 강하게 상관돼 유효 표본은 검체 수에 가까움 ·
+    암종이 수집 병원과 중첩된 코호트(암종 구분 = 병원 구분 가능) · BRE 55·BLC 47 소수 · 외부 시험셋 없음 · 사전학습 없음(FM-1과 별개).
+  - 다음: DL-2 스펙트럼 → 이미지 변환(replicate 스택 이미지·선 그래프 렌더) + 2D ResNet18(ImageNet 사전학습 vs 무작위 초기화 대조군), 같은 fold·같은 지표.
