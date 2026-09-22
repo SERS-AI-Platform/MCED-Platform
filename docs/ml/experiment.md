@@ -1192,3 +1192,22 @@
 
 - **가짜 lot 블록은 plain을 그대로 재현한다(0.796 vs 0.798).** 따라서 0.135 하락은 fold 크기·구성 불균형이 아니라 **평가 lot을 학습에서 보지 못했다는 사실 자체**에서 나온다. BM-7의 결론은 그대로 유지된다.
 - 실제 분할 구성(참고): fold1 SK20260805A01 167검체(암 89/비암 78) · fold2 SK20260805B01+SK20260810A01 159(99/60) · fold3 SK20260804C01+SK20260806A01 167(134/33) · fold4 SK20260804B01+SK20260805C01 188(89/99) · fold5 SK20260806B01+SK20260806C01 228(134/94).
+
+### BM-8: 보라매 포함 lot 기준 983검체 전체 재분석 + 덱 (2026-09-22) ✅
+
+`postchange_all_two_stage_stk.py`에 `TYPE_ALIASES` 항목 **BPRO → PRO** 추가(보라매 전립선암). 보라매 BNOR은 cohort_group 기준으로 전부 비암이라 별칭 불필요.
+
+코호트 983검체(암 600 / 비암 383) — QC 후 ver1 909 · ver2 821 · STK 914.
+
+| 지표 | 983 코호트 | 직전 871 코호트 |
+|---|---|---|
+| 암 vs 비암 LR (ver1) | **0.798 ± 0.006** (민감도 0.728 / 특이도 0.701) | 0.798 |
+| 암 vs 비암 LR (ver2) | 0.785 ± 0.002 | — |
+| STK-V2 1단계 AUC | **0.799** (민감도 0.741 / 특이도 0.680) | — |
+| 암종 구분 macro-F1 | **0.458** (대상 406명) | — |
+| 학습곡선 | 200개 0.753 → 909개 0.798 | — |
+
+- 산출물: `results/postchange_983_cross/`, `postchange_983_two_stage_stk/`, `postchange_learning_curve_983/`, `postchange_repeat_cv_983/`, `postchange_site_signal_983/`, `postchange_year_signal_983/`, `postchange_band_983/`. 그림 `/home/user/SERS-AI/results/postchange_983_two_stage_stk_figures/`.
+- 덱: `docs/presentation/2026-09-22_분석 보고.pptx` (21장). 07장 코호트를 983으로 교체하고 **09장(같은 군인데 스펙트럼이 갈리는 이유 = 스트립 lot)·10장(스트립 lot을 보정하면)** 신설, 결론장 갱신. 빌드 `workspace/_scratch/2026-09-14-paired-analysis/deck/build36.js` + `export_p36.py`.
+- 덱 수치 자체 점검: data_p36.json과 결과 CSV 12개 항목 대조 **불일치 0건**.
+- ⚠️ 보라매 편입 시 병원·대조군 종류(조직검사음성)·측정일이 동시에 바뀌므로 871 대비 차이를 검체 수 효과로 읽으면 안 된다. 보라매 비암군 = 정상 20 + 조직검사음성 49.
