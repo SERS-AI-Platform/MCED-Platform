@@ -1280,3 +1280,32 @@
 - 덱 표시: KIMS 췌장암 55는 **췌장암군에 합쳐** 표시(췌장암 123 → 178). 8개 군 = 정상 211 · 전립선암 192 · 췌장암 178 · 질환대조군 172 · 폐암 89 · 대장암 85 · 방광암 56 · 유방암 55 = 1038.
 - 덱 수치 대조 13항목 **불일치 0건**.
 - ⚠️ KIMS는 병원이 아니라 재료연구원이고 췌장암 단일 군이라, 포함 시 췌장암 비중이 커지고 암:비암 비율이 655:383으로 기울어진다. 983 대비 AUC 상승(0.798 → 0.807)을 성능 개선으로 읽으면 안 되고 코호트 구성 변화로 읽어야 한다.
+
+- [ ] DL-2: 스펙트럼 → 이미지 → 2D ResNet18, 레거시 입력(402–2198) ⛔ **중단** (2026-09-22)
+  - 스크립트 `SERS-AI-ci-tiered/scripts/analysis/postchange_dl_image_two_stage.py` (커밋 8780c6c), 산출물 `SERS-AI-ci-tiered/results/postchange_983_dl_image_two_stage/` (stack_rand만 완주).
+  - 사용자 결정("파수 트림·전처리를 현행 표준과 동일하게")으로 stack_pre 도중 중단 → 같은 4조건을 DL-3에서 improved 입력으로 재실행.
+  - 완료분 stack_rand(5시드, 914검체): stage 1 AUC 0.6122±0.0170, cascade macro-F1 0.1749, cancer-only macro-F1 0.2679. 스모크 1 fold line_pre(seed 42 fold 0) AUC 0.8047 — 단일 fold 참고치, DL-3에서 5시드 확인.
+
+- [x] DL-3: 전처리를 현행 표준(improved)으로 통일 — STK-V2·LR·1D-ResNet·이미지 2D-ResNet 8조건 (2026-09-22~23) ✅
+  - 입력: despike(whitaker_hayes z6) → 트림 600–1800 → SG(5,3) → rolling-min(101) → SNV → 625점 격자. 3채널 = ch0 위 파이프라인 / d1·d2 = 같은 순서에서 smoothing 자리에 SG(5,3, deriv=1|2), baseline 없음, SNV.
+    QC(2단계 corr QC를 improved ch0에 적용, 최소 25점)를 다시 잡아 **825검체**(비암 336 / PRO 162 / PAN 109 / CRC 75 / BRE 52 / LUN 51 / BLC 40), replicate 25,270행. 레거시 914검체보다 158검체가 최소점수 미달로 더 빠짐.
+    캐시 `results/paired_analysis_cache/postall983_post_improved3ch{,_replicates}_n983_min25.npz`, `postall983_improved_stk_peaks.npz`(피크 17종 중 600 미만 3종은 0 처리).
+  - 스크립트 `postchange_dl_two_stage.py --prep improved`, `postchange_dl_image_two_stage.py --prep improved` (worktree 커밋 c051290). 산출물 `SERS-AI-ci-tiered/results/postchange_983_dl_two_stage_improved/`(stk/lr/dl_mean/dl_rep) + `postchange_983_dl_image_two_stage_improved/`(4 이미지 조건 + 앞 4조건 링크, runs.csv / table.csv / paired_vs_stk.csv / subject_probs_mean.csv / summary.json).
+  - 조건(모두 같은 fold·시드, DL-1 규약 그대로): **stk** / **lr** / **dl_mean** / **dl_rep** (DL-1과 동일) /
+    **stack_rand·stack_pre** 검체당 (3, 36, 625) replicate 스택 이미지(표준화, 0 패딩, 측정 순서 고정) → torchvision ResNet18(11.2M) /
+    **line_rand·line_pre** replicate당 (3, 224, 224) 선 그래프 렌더(채널별 1px 폴리라인, 스펙트럼별 min–max y축) → 같은 ResNet18, 검체 점수 = replicate 확률 평균.
+    `pre` = ImageNet1K_V1 가중치 전층 미세조정, `rand` = 같은 구조 무작위 초기화 대조군. fc → dropout 0.3 + 헤드 2개, 손실·AdamW·조기 종료(순위 점수, patience 40, 상한 300) DL-1과 동일.
+  - **Stage 1 암/비암 AUC (평균±SD)**: stk **0.7886±0.0076** · lr 0.7507±0.0108 · line_pre 0.7627±0.0140 · line_rand 0.7388±0.0430 · dl_rep 0.7349±0.0167 · stack_pre 0.6307±0.0246 · dl_mean 0.6133±0.0112 · stack_rand 0.5918±0.0169
+    (민감도/특이도 @0.5: stk 0.729/0.712 · lr 0.711/0.653 · line_pre 0.750/0.632 · dl_rep 0.612/0.712)
+  - **암종 6종 (cascade macro-F1 / cancer-only macro-F1 / cancer-only OvR AUC)**: stk 0.3206±0.0134 / 0.4084±0.0137 / 0.7504 · lr **0.3583** / **0.4480** / **0.7804** · line_pre 0.3478±0.0109 / 0.4347±0.0077 / 0.7706 ·
+    line_rand 0.2805 / 0.3824 / 0.7402 · dl_rep 0.2752 / 0.3716 / 0.7342 · stack_pre 0.2096 / 0.2916 / 0.6380 · dl_mean 0.1826 / 0.2603 / 0.6199 · stack_rand 0.1386 / 0.2089 / 0.5646
+  - **짝 차이 vs STK-V2 (평균±SD, 이긴 시드/5)**: line_pre AUC **−0.0259±0.0124 (0/5)**, BA −0.0297 (0/5), cascade mF1 **+0.0272±0.0136 (5/5)**, cancer-only mF1 +0.0264±0.0190 (4/5), cancer-only 정확도 +0.0658 (5/5) ·
+    lr AUC −0.0379±0.0047 (0/5), cascade mF1 +0.0376±0.0176 (5/5), cancer-only mF1 +0.0396 (5/5) · dl_rep AUC −0.0538 (0/5), cascade mF1 −0.0454 (0/5) · line_rand AUC −0.0498±0.0481 (0/5) · stack_pre AUC −0.1579 (0/5) · stack_rand −0.1968 (0/5) · dl_mean −0.1754 (0/5).
+  - **사전학습 효과 (pre − rand, 같은 시드)**: line AUC +0.0239±0.0529 (2/5), cascade mF1 **+0.0673±0.0356 (5/5)**, cancer-only mF1 +0.0524 (5/5) · stack AUC +0.0389±0.0411 (4/5), cascade mF1 +0.0710±0.0173 (5/5), cancer-only mF1 +0.0827 (5/5). FM-1(DSCF)과 달리 ImageNet 사전학습은 암종 구분을 일관되게 올림. 특히 시드 편차를 줄임(line AUC SD 0.043 → 0.014).
+  - **line_pre vs LR**: AUC +0.0121±0.0133 (5/5)이나 cascade mF1 −0.0105 (1/5), cancer-only mF1 −0.0133 (1/5), OvR AUC −0.0098 (0/5). **line_pre vs dl_rep(1D)**: AUC +0.0279 (5/5), cascade mF1 +0.0726 (5/5) — 같은 replicate 입력에서 이미지 + 사전학습 2D가 1D보다 일관되게 높음.
+  - 암종별 cascade recall(5시드 평균): PRO stk 0.18 / lr 0.32 / line_pre 0.42 · PAN 0.33 / 0.37 / 0.38 · LUN 0.56 / 0.54 / 0.45 · BRE 0.47 / 0.36 / 0.40 · CRC 0.24 / 0.26 / 0.23 · BLC 0.29 / 0.29 / 0.12. line_pre는 PRO·PAN·BRE에서 STK-V2보다 높고 LUN·BLC에서 낮음.
+  - 학습 진단: best epoch 평균 dl_mean 12 / dl_rep 23 / stack_rand 15 / stack_pre 31 / line_rand 15 / line_pre 22, 상한 도달 0회. fold당 line 420~470 s(선 이미지 uint8 3.8 GB CPU 상주), stack 15~18 s, dl_rep 101 s, stk 1,350 s(12 병렬). 총 GPU 약 8시간.
+  - **관측 (DL-1~3 종합)**: 전처리를 통일해도 순위는 같다 — stage 1(암/비암)은 STK-V2가 모든 DL 조건과 LR을 5/5 시드로 이기고, 암종 구분은 LR ≥ line_pre > STK-V2 > 나머지. 시험한 DL 6조건 중 STK-V2에 가장 근접한 것은 **선 그래프 렌더 + ImageNet 사전학습 ResNet18(line_pre)**: 암/비암 −0.026, 암종 macro-F1 +0.027. 단일 DL 모델이 STK-V2를 두 과제 모두에서 넘는 조건은 없었다.
+    입력 표현 순위(같은 replicate 단위): 선 그래프 이미지+사전학습 > 1D-ResNet ≈ 선 그래프 무작위 > … ; 검체 단위 입력(subject 평균, replicate 스택)은 모두 0.59~0.63으로 학습 검체 527개로는 부족.
+  - ⚠️ 한계: 825검체·암종=병원 중첩 코호트 · HP 고정·증강 없음·구조 1개씩(ResNet18) · 사전학습은 ImageNet 1종 · 선 이미지의 y축 스펙트럼별 min–max로 절대 강도 정보 소실 · 스택 이미지 행 순서 고정(순열 불변성 미반영) · 20% 검증 분리 · 외부 시험셋 없음 · 레거시(DL-1, 914검체)와 improved(DL-3, 825검체)는 QC 생존 검체가 달라 수치 직접 비교 불가(순위만 비교).
+  - 다음 후보(미실행, 승인 필요): (a) line_pre에 증강(y축 스케일·수평 미세 이동)·더 큰 사전학습 백본(ResNet50, ConvNeXt-T) (b) line_pre를 STK-V2 base model로 추가한 스태킹(사용자가 1차에서 제외한 옵션) (c) 스택 이미지 행 순열 증강 (d) 두 과제 손실 가중 조정(암종 헤드가 stage 1을 끌어내리는지 분리).
