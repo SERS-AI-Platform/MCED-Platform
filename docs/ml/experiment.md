@@ -1000,3 +1000,46 @@
 - 데이터셋별 수치 갱신: mapping 8/19~9/08 32,063파일·31,568행(8/19~9/08), mapping 8/10~8/14 13,865파일·13,673행, 기준측정 144파일·60행. 합계 112,557행 유지.
 - 코드: `scripts/db/aecd_historical_measurement_load.py`(mbsu 경로·note 문자열), `scripts/analysis/operator_study_design.py`(PS 교정파일이 두 데이터셋에 나뉘므로 두 폴더를 함께 읽도록 변경 — 재실행 결과 9일 60스펙트럼으로 분리 전과 동일).
 - 확인 필요: `MB&SU/` 하위 폴더명은 **교정일**, 파일명 날짜는 **측정일**이다(예: `20260805 cali/100 uM MB_20260806_B1_*`). DB run 날짜는 측정일 기준. `_ave` 12개는 규칙대로 미적재.
+
+## Phase BM — 보라매 코호트 편입 + 채취일·병원 차이의 임상값 검증 (2026-09-22)
+
+> 질문: "현재의 방식(모델 AUC)은 객관적이지 않다. CBNUH 각 군에 어떤 임상값이 있고, 채취일·병원 차이가 임상값으로도 보이는가?" (사용자 요청)
+> 예약: `experiment.phase_reservations` BM-1(코호트 편입, 미실행) · BM-2(임상값 검정) · BM-3(나이 맞춘 병원 판별).
+
+### 코호트 정의 변경 — 측정일 기준 → 환원제 lot 기준
+
+- 기존: `measurement_date >= 2026-08-19` = 926검체. 변경: **환원제 lot `BCCP0922`** = 1,039검체 (2026-08-10~09-17).
+  차이 113건이 보라매(08-10~08-14) 전량이며, 장비(DXR3xi)·측정방식은 동일(121점 측정, CBNUH·YPNUH·IJBPH·YONSEI의 121점 검체와 같은 경로로 36점 서브샘플).
+- 라벨 규칙도 변경: `cancer_type != 'control'` → **`clinical.diagnoses.cohort_group`** 기준
+  (control / prostate disease control / pancreatic disease control = 비암, `Drop` = 제외).
+  이유: 보라매 BNOR(조직검사음성)이 `cancer_type='prostate'`를 달고 있어 기존 규칙으로는 암으로 잘못 편입된다.
+  **기존 871검체 라벨과 대조 결과 불일치 0건** (2026-09-22 확인).
+- 보라매 구성: BNOR 70 (정상 20 + 조직검사음성 49 + Drop 1) · BPRO 43 (전립선암). 비암군에 "조직검사음성"이라는 새로운 종류가 들어옴에 주의.
+- 코드: `SERS-AI-ci-tiered/scripts/analysis/postchange_all_cross.py` (`POST_LOT`, `CONTROL_GROUPS`, SQL·cohort_table 수정).
+- KIMS 제외 + Drop 제외 시 **983검체** (기존 871 대비 +112). ⚠️ 871 기준 결과(덱·부록 A~H)는 그대로 두고 병기할 것 — 병원·대조군 종류·측정일이 동시에 바뀌므로 성능 차이의 원인 귀속이 불가.
+
+### CBNUH 군별 임상값 보유 현황 (lot 코호트 433검체)
+
+- **5개 군 전부 보유**: age(433), bmi/height/weight(416~420), ua_protein(433), ua_leukocyte esterase(433). ua_nitrite는 NOR만 없음(356).
+- **NOR+BLC만**: ua_ph, ua_sg, ua_ketone, ua_glucose, ua_blood(Heme), ua_urobilinogen (각 133).
+- **BLC만**: CBC 10종, chemistry 13종 (hba1c 11 · ggt 8 · triglyceride 7).
+- **PRO만** psa 61/149 · **PAN만** ca19_9 10, CEA 10(PRO 2).
+- ⚠️ `clinical.observations.numeric_value`는 **전부 NULL** — 값은 `raw_value` 텍스트(요단백 Negative/Trace/Positive/positive 대소문자 혼재). `bmi`에 0 placeholder 12건.
+- ⚠️ CBNUH NOR 77검체는 `collection_date`가 비어 있어 채취일 분석에 들어가지 못함.
+
+### BM-2: 채취 연도·병원 차이가 임상값으로 보이는가 (2026-09-22) ✅
+
+스크립트 `SERS-AI-ci-tiered/scripts/analysis/postchange_clinical_confound.py`, 산출물 `results/postchange_clinical_confound/`
+(cohort_clinical.csv, year_tests.csv, site_tests.csv, pca_lda.csv, summary.json), 그림 `results/postchange_clinical_confound_figures/fig1_pca_by_year.png`.
+검정: 숫자·순서형(age/bmi/요단백 0·1·2) Spearman, 이분형(요백혈구·요아질산염) chi-square(기대도수<5면 Fisher), 병원 비교는 Mann-Whitney, 다중비교는 BH q.
+
+- **[1] 같은 (군, 병원) 안에서 채취 연도 대비 임상값 — 유의한 것 없음 (24검정)**. 최소 p = 0.064 (PAN·CBNUH 요단백 rho −0.23, q=0.53), 그 외 BRE·IJBPH BMI +0.24(p=0.079) / 나이 +0.23(p=0.095). **q < 0.05 항목 0건**.
+  → 병원·군을 고정하면 채취 연도에 따라 환자 구성이 달라진다는 근거가 없다. AS-SITE4(peak–연도 상관이 CBNUH 안에서 소멸)와 같은 방향.
+- **[2] 같은 군 · 다른 병원 (7검정) — 정상군에서 압도적 차이**
+  - NOR YPNUH vs CBNUH: **나이 중앙값 44.5세 vs 24.0세, p=6.9e-25 (q=4.8e-24)** · 요단백 분포 p=7.9e-7 (q=2.8e-6) · 요백혈구 양성률 6.0% vs 0.0% (Fisher p=0.036, q=0.085) · BMI는 차이 없음(24.2 vs 23.5, p=0.42).
+  - PAN CBNUH vs SNUH 나이 68 vs 65 (p=0.14) · LUN SSMH vs SNUH 나이 63 vs 66 (p=0.90), BMI (p=0.45) — **차이 없음**.
+  → AS-SITE1의 정상군 병원 판별 AUC 0.957은 상당 부분 환자 구성(20년 나이차)으로 설명될 수 있다. 반면 폐암·췌장암 병원 쌍은 나이·BMI가 구분되지 않는데도 AUC 0.88~0.90 — 기록된 임상값으로 설명되지 않는다. (이 두 병원 쌍은 소변검사 값이 DB에 없어 소변 성상 비교 불가)
+- **[3] 셀별 스펙트럼 PCA + 연도 LDA (LOO 정확도, 연도당 8검체 이상인 연도만; QC 후 909검체)**
+  BRE·IJBPH(2021,2024) **0.764** vs 기준선 0.527 · PRO·CBNUH(2022~2024) 0.558 vs 0.406 · BLC·CBNUH(2021,2022) 0.681 vs 0.574 · CRC·CBNUH 0.382 vs 0.329 · PAN·CBNUH 0.400 vs 0.367 · PAN·SNUH 0.542 vs 0.542 · LUN·SNUH 0.586 vs **0.724**(기준선 미달).
+  → 연도 분리가 뚜렷한 셀은 **간격이 3년인 BRE·IJBPH 하나**. 인접 연도(1~2년)는 분리 없음. 즉 "채취 연도가 다르면 스펙트럼이 다르다"는 일반 법칙이 아니라 간격이 클 때만 관측된다.
+- ⚠️ 한계: LDA LOO 정확도는 다중클래스·불균형이라 기준선과 함께만 읽을 것 · CBNUH 정상군은 채취일이 없어 [1]·[3]에서 빠짐 · 요단백의 Trace를 1로 둔 순서형 가정 · 보라매는 age/bmi가 DB에 없어 [2]의 병원 비교에 못 들어감.
