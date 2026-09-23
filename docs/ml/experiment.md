@@ -1309,3 +1309,24 @@
     입력 표현 순위(같은 replicate 단위): 선 그래프 이미지+사전학습 > 1D-ResNet ≈ 선 그래프 무작위 > … ; 검체 단위 입력(subject 평균, replicate 스택)은 모두 0.59~0.63으로 학습 검체 527개로는 부족.
   - ⚠️ 한계: 825검체·암종=병원 중첩 코호트 · HP 고정·증강 없음·구조 1개씩(ResNet18) · 사전학습은 ImageNet 1종 · 선 이미지의 y축 스펙트럼별 min–max로 절대 강도 정보 소실 · 스택 이미지 행 순서 고정(순열 불변성 미반영) · 20% 검증 분리 · 외부 시험셋 없음 · 레거시(DL-1, 914검체)와 improved(DL-3, 825검체)는 QC 생존 검체가 달라 수치 직접 비교 불가(순위만 비교).
   - 다음 후보(미실행, 승인 필요): (a) line_pre에 증강(y축 스케일·수평 미세 이동)·더 큰 사전학습 백본(ResNet50, ConvNeXt-T) (b) line_pre를 STK-V2 base model로 추가한 스태킹(사용자가 1차에서 제외한 옵션) (c) 스택 이미지 행 순열 증강 (d) 두 과제 손실 가중 조정(암종 헤드가 stage 1을 끌어내리는지 분리).
+
+- [x] DL-4: line_pre 위에 (a) 증강·큰 백본, (b) STK-V2·LR과 고정 가중 블렌드 (2026-09-23~24) ✅
+  > 사용자 선택(2026-09-23): DL-3 다음 후보 중 (a)+(b). 입력·fold·지표·조기 종료 규약은 DL-3과 동일(improved 600–1800, 825검체, 같은 25 fold).
+  > 스크립트 `postchange_dl_image_two_stage.py`(커밋 0269d9a, `parse_condition`/`augment`), `postchange_dl_blend.py`(커밋 92fa60a). 산출물 `results/postchange_983_dl_image_two_stage_improved/` (oof_line_pre_aug / oof_line_cnxt_pre_aug, blend_runs·blend_table·blend_paired_vs_stk.csv, runs/table/paired_vs_stk.csv 갱신, run_dl4.log).
+  - **(a) 조건**: **line_pre_aug** = ResNet18 ImageNet + GPU affine 증강(가로 ±3 px ≈ ±16 cm⁻¹, 세로 0.9~1.1 스케일 + ±3 px, 최근접 샘플링, 학습 배치에만) / **line_cnxt_pre_aug** = ConvNeXt-T ImageNet1K_V1(27.8M) + 같은 증강. ResNet50은 ConvNeXt-T와 비용이 같아 생략.
+  - **Stage 1 AUC**: line_pre 0.7627±0.0140 · line_pre_aug 0.7494±0.0140 · line_cnxt_pre_aug 0.7575±**0.0037** (stk 0.7886). 민감도/특이도 @0.5: line_pre 0.750/0.632 · aug 0.759/0.590 · cnxt 0.672/0.718.
+  - **암종 (cascade macro-F1 / cancer-only macro-F1)**: line_pre 0.3478 / 0.4347 · aug 0.3306 / 0.4214 · cnxt 0.3268 / 0.4255 (stk 0.3206 / 0.4084, lr 0.3583 / 0.4480).
+  - **짝 차이**: 증강 효과 (aug − line_pre) AUC **−0.0133±0.0165 (1/5)**, cascade mF1 −0.0172 (2/5), cancer-only mF1 −0.0134 (2/5) → 증강은 도움 안 됨.
+    백본 효과 (cnxt − aug) AUC +0.0080±0.0169 (3/5), cascade mF1 −0.0038 (2/5) → 시드 편차 안. cnxt − line_pre AUC −0.0052 (2/5), cascade mF1 −0.0210 (1/5).
+    vs STK-V2: cnxt AUC −0.0311±0.0101 (0/5), cascade mF1 +0.0062 (3/5), cancer-only mF1 +0.0172 (5/5) · aug AUC −0.0392 (0/5).
+  - 학습: best epoch 평균 aug 23 / cnxt 23, 상한 도달 0회, fold당 aug 499 s / cnxt 1,398 s (총 GPU 약 13시간). ConvNeXt-T는 시드 SD가 가장 작음(0.0037)이나 평균은 line_pre 이하.
+  - **(b) 블렌드** (같은 fold OOF 확률의 고정 가중 평균, 1단계 p 평균·2단계 6종 p 평균 후 재정규화, 가중치 사전 고정 → 누수 없음):
+    stk+line_pre(0.5/0.5) AUC 0.7887 (Δ vs stk **0.0000±0.0039, 2/5**), cascade mF1 0.3533 (**+0.0326±0.0210, 4/5**), cancer-only mF1 0.4469 (+0.0385, 5/5) ·
+    **stk+lr+line_pre(1/3씩) AUC 0.7907 (+0.0020±0.0033, 4/5), cascade mF1 0.3858 (+0.0652±0.0215, 5/5), cancer-only mF1 0.4698 (+0.0614, 5/5)** ·
+    stk+lr(대조) AUC 0.7803 (−0.0083, 0/5), cascade mF1 0.3693 (+0.0487, 5/5) · lr+line_pre AUC 0.7828 (−0.0058, 1/5), cascade mF1 0.3851 (+0.0645, 5/5).
+    CNN이 더한 몫 (stk+lr+line_pre − stk+lr): AUC +0.0104 (5/5), cascade mF1 +0.0165 (5/5), cancer-only mF1 +0.0119 (5/5).
+    사후 감도(근거 아님): stk 0.75/line 0.25 AUC 0.7922 (+0.0036, 5/5), cascade mF1 +0.0227 (4/5); 0.25/0.75 AUC −0.0101 (0/5).
+  - **관측 (DL-1~4 종합)**: (1) 단일 DL이 STK-V2를 1단계에서 넘는 조건은 없다 — 증강·큰 백본을 더해도 마찬가지(최선은 여전히 line_pre −0.026). (2) 세 모델의 확률을 고정 가중으로 합치면 1단계는 STK-V2와 같고(±0.002) 암종 구분은 +0.03~+0.07(5/5) 오른다 — '대체'가 아니라 '보강' 근거.
+    (3) 블렌드 이득의 대부분은 LR이 주고(stk+lr +0.049), CNN은 그 위에 +0.017을 더한다.
+  - ⚠️ 한계: 증강은 1종 설계(affine)만 시험 · 백본은 ConvNeXt-T 1종 · 블렌드는 고정 가중이라 meta 학습 편입(11번째 base model, fold 안 inner-OOF 필요, GPU 약 16 h)은 미실행 · 나머지 한계는 DL-3과 동일(825검체, 암종=병원 중첩, 외부 시험셋 없음).
+  - 덱: `docs/presentation/2026-09-24_STK-V2_딥러닝_대체_연구_팀원공유.pptx` (팀원 기술 공유, 빌드 `workspace/_scratch/2026-09-23-dl-replacement-deck/`).
