@@ -12,6 +12,8 @@
 | `02_import_registry.sql` | 위 JSON을 SQL로 내보낸 것. **자격증명 없이 DBeaver에서 바로 실행 가능** |
 | `import_registry.py` | `logs/experiment_registry.json`(55건)을 `experiment.runs`로 적재. 멱등, 재실행 가능 (PG* 환경변수 필요) |
 | `03_design_guide.sql` | `docs/ml/preprocessing_design_guide.md`의 참조 24편 + method 17개를 등록. stage 어휘도 8단계로 확장 |
+| `05_qc_and_measurement_context.sql` | 지점 QC 결과(`point_qc`)·검체 QC(`sample_qc`)·측정 맥락(`measurement_context`: 스트립 판·측정 시각·그날 순서) 테이블. `measurement` 스키마는 읽기 전용이라 파생값을 여기에 둔다 (2026-09-29, Phase BM-13) |
+| `load_qc_context.py` | 위 세 테이블을 `SERS-AI-ci-tiered/results/qc_fail_factors_1038/`에서 채움. 멱등(ON CONFLICT), `--dry-run` 지원 |
 | `99_verify.sql` | 검증 쿼리 모음. 실행 파일이 아니라 한 블록씩 복사해서 확인용 |
 
 ## 적용 상태
@@ -121,3 +123,22 @@ DBeaver를 쓴다면 `01_schema.sql` → `02_import_registry.sql` 순서로 SQL 
 
 `src/sers/preprocessing_lab/db.py`의 `ExperimentTracker`가 유일한 쓰기
 지점이다. `src/sers/aecd_api/repository.py`는 읽기 전용이므로 혼동하지 말 것.
+
+### 2026-09-29 — QC·측정 맥락 테이블 추가
+
+`05_qc_and_measurement_context.sql` 적용, `load_qc_context.py`로 적재: `point_qc` 65,673행(qc_version
+`stage1+2a_ver1_allpoints_20260929`, 탈락 9,155 = 13.9%), `sample_qc` 1,038행(2b 검체 탈락 78),
+`measurement_context` 1,038행(스트립 판 연결 909 — 보라매 112검체는 경로에 판 번호 없음, KIMS 등 17검체는
+판 폴더 없음). 대상은 환원제 lot BCCP0922 측정분(같은 검체의 변경 전·7월 측정은 제외).
+
+- QC를 다시 정의하면 `qc_version`을 새로 붙여 **추가**한다(기존 버전 행은 지우지 않음).
+- `acquired_at`은 장비 저장 시각이라 검체 단위다(121점이 2초 안에 저장됨) — 지점별 시각은 없다.
+- 격자 좌표는 원본 파일에도 없어 넣지 못했다(장비에서 좌표를 함께 내보내야 함).
+
+예: 병원별 지점 탈락률
+```sql
+SELECT site.site_code, avg((NOT q.stage1_pass OR NOT coalesce(q.stage2a_pass, true))::int) AS fail
+FROM experiment.point_qc q JOIN measurement.measurements m USING (measurement_id)
+JOIN master.samples s ON s.sample_id = m.sample_id JOIN master.subjects subj ON subj.subject_id = s.subject_id
+JOIN master.sites site ON site.site_id = subj.site_id GROUP BY 1 ORDER BY 2 DESC;
+```
