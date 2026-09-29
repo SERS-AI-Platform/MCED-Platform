@@ -1356,6 +1356,22 @@
   - ⚠️ 한계: 825검체·암종=병원 중첩 · ch0만 사용(3채널 정보는 선 그래프만) · CWT 스케일 범위·GAF 해상도(224) 미튜닝 · KNN-ViT의 ViT·KNN 이상치 제거는 재현 안 함 · 외부 시험셋 없음.
   - 후속(2026-09-29): Obsidian 문헌 노트 1.3절의 KNN-ViT 검체를 '소변' → '혈장'으로 수정 완료(사용자 지시).
 
+- [x] DL-6: 히트맵 CNN + BorderlineSMOTE (2026-09-29~30) ✅
+  > 질문(사용자, 2026-09-29): "SMOTE까지 더해볼까?" → "히트맵에 SMOTE 붙여서 DL-6". 근거: Lin 2025도 학습셋에 BorderlineSMOTE 적용, DL 조건의 약점이 소수 암종(방광·유방) recall.
+  > 스크립트 `postchange_dl_image_two_stage.py`(커밋 675a71d, `parse_condition(...)['smote']`, `fit_fold` SMOTE 블록), 산출물 `results/postchange_983_dl_image_two_stage_improved/` (oof_/fit_heat_pre_smote, run_dl6.log).
+  - 설계: heat_pre와 동일 + **학습 fold의 학습용 replicate에만** BorderlineSMOTE(imbalanced-learn 0.14, k=5 기본값, random_state = seed·1000 + fold)를 **1D ch0 스펙트럼**에 적용 → 암종 5종을 가장 많은 전립선암 행 수까지 합성, 비암은 그대로 → 합성 스펙트럼을 히트맵으로 렌더해 음수 subject id로 추가.
+    검증·시험 데이터는 원본만. 암종 CE 클래스 가중은 끔(이중 보정 방지), 암/비암 pos_weight는 **합성 후** 비율로 재계산. fold당 합성 평균 9,024행 → 학습 행 25,188 (원래 16,164).
+  - **Stage 1 AUC**: heat_pre_smote **0.7603±0.0144** (heat_pre 0.7676±0.0077, stk 0.7886) · 민감도/특이도 @0.5: 0.652/0.718 (heat_pre 0.723/0.651)
+  - **암종**: cascade macro-F1 0.3212±0.0234 · cancer-only macro-F1 0.4231±0.0202 · cancer-only OvR AUC 0.7608 (heat_pre 0.3295 / 0.4322 / 0.7569)
+  - **짝 차이 SMOTE − heat_pre**: AUC −0.0073±0.0215 (2/5), 민감도 −0.0708 (1/5), 특이도 +0.0679 (4/5), cascade mF1 −0.0083 (2/5), cancer-only mF1 −0.0091±0.0160 (1/5), cancer-only OvR AUC +0.0039 (3/5), cancer-only 정확도 +0.0160 (3/5).
+    vs STK-V2: AUC −0.0283±0.0159 (0/5), cascade mF1 +0.0006 (3/5), cancer-only mF1 +0.0147 (3/5).
+  - 암종별 cascade recall 변화(SMOTE − heat, 이긴 시드): PRO +0.043 (4/5) · PAN −0.020 (3/5) · LUN −0.031 (1/5) · BRE −0.077 (1/5) · CRC −0.088 (0/5) · **BLC −0.060 (0/5)** — 목표였던 소수 암종 recall이 오히려 떨어짐.
+  - 학습: fold당 799 s (합성 행 포함, Grad-CAM과 GPU 일부 공유), best epoch 평균 25, 상한 도달 0회.
+  - **관측**: SMOTE는 암종 구분도 1단계도 개선하지 못했다. 1단계 민감도가 0.72 → 0.65로 떨어져(합성으로 암 행이 3배 가까이 늘자 pos_weight가 암을 낮게 가중) 게이트를 통과하는 암이 줄었고, 그 결과 cascade recall이 소수 암종에서 더 떨어졌다.
+    실제 암만 본 암종 F1도 −0.009 (1/5)라 게이트 효과를 빼도 이득 근거 없음. replicate 단위라 최근접 이웃 다수가 같은 검체의 다른 측정점이어서 합성이 사실상 복제에 가까웠을 가능성.
+  - ⚠️ 한계: SMOTE 설계 1종(replicate 단위, 암종만 전립선암 수준으로) · pos_weight 재계산 방식이 민감도 하락을 부른 것으로 보이며, 게이트 임계값을 fold 안에서 다시 잡거나 검체 단위 SMOTE로 바꾸면 결과가 달라질 수 있음(미시험).
+  - 덱(팀원 기술 공유 v2, DL-1~6 + 이미지 생성·처리 방법·참고문헌): `docs/presentation/2026-09-30_STK-V2_딥러닝_이미지CNN_팀원공유.pptx`, 빌드 코드 `SERS-AI-ci-tiered/scripts/visualization/dl_deck/`.
+
 #### 06장 막대 색 수정 + 절대 세기 보완 (2026-09-28, 사용자 지적)
 
 사용자가 "변경 후 723이 커 보이고 1000은 변경 전이 커 보이는데 덱은 반대로 적혀 있다"고 지적. 확인 결과 **덱 수치는 맞고 차트 색이 문제였다**.
