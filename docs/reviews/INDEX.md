@@ -33,4 +33,4 @@
 | 2026-09-17 | sers-report-reviewer | Paired Analysis 덱 07·08장 수정분 재검토 (카드 삭제·결정 필요 삭제) | 거의 통과, 필수 1·권장 2 → 전부 반영 | [파일](2026-09-17-sers-report-reviewer-paired-analysis-768-r2.md) |
 | 2026-09-18 | sers-report-reviewer | Paired Analysis 덱 (QC 2b 기준·926/667 코호트·추이 장 추가, 16장) | REQUEST_CHANGES → 전 항목 반영 | [파일](2026-09-18-sers-report-reviewer-paired-analysis-qc2b.md) |
 | 2026-09-21 | sers-report-reviewer | Paired Analysis 덱 (KIMS 제외 871·코호트 패널·부록 D/E, 18장) | REQUEST_CHANGES(수치 일치, 표기 7건) → 전 항목 반영 | [파일](2026-09-21-sers-report-reviewer-paired-analysis-871.md) |
-| 2026-09-29 | sers-report-reviewer | 분석 보고 덱 1038검체 (09·10장 재작성, 10-1·11-2 신설, 24장) | REQUEST_CHANGES(26건, 가짜 숫자 0) → 18건 반영·레이아웃 2건 미반영 후 전달 | [파일](2026-09-29-sers-report-reviewer-analysis-deck-1038.md) |
+| 2026-09-29 | sers-report-reviewer | 분석 보고 덱 1038검체 (09·10장 재작성, 10-1·11-2·11-3 신설, 25장) | REQUEST_CHANGES(26건, 가짜 숫자 0) → 18건 반영·레이아웃 2건 미반영 후 전달; 11-3장 추가 검토 10건 모두 반영 | [파일](2026-09-29-sers-report-reviewer-analysis-deck-1038.md) |
