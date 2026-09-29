@@ -1331,6 +1331,30 @@
   - ⚠️ 한계: 증강은 1종 설계(affine)만 시험 · 백본은 ConvNeXt-T 1종 · 블렌드는 고정 가중이라 meta 학습 편입(11번째 base model, fold 안 inner-OOF 필요, GPU 약 16 h)은 미실행 · 나머지 한계는 DL-3과 동일(825검체, 암종=병원 중첩, 외부 시험셋 없음).
   - 덱: `docs/presentation/2026-09-24_STK-V2_딥러닝_대체_연구_팀원공유.pptx` (팀원 기술 공유, 빌드 `workspace/_scratch/2026-09-23-dl-replacement-deck/`).
 
+- [x] DL-5: 문헌식 스펙트럼 이미지 인코딩 3종 — 히트맵(Jet)·CWT 스칼로그램·GAF (2026-09-29) ✅
+  > 질문(사용자, 2026-09-29): "스펙트럼을 이미지로 학습한 논문은 어떻게 했나 → 히트맵·CWT·GAF 세 가지 다 돌려줘". 출처 [Lin Y et al. BMC Med 2025;23:97, doi:10.1186/s12916-025-03887-5](혈청 SERS, heatmap(Jet)·CWT(gaus3) + ResNet18 전이학습, 7:3 단일 분할 정확도 94.75%/94.65%) ·
+  > [KNN-ViT, Measurement 2024, S0263224124017160](혈장 SERS, GAF + ViT, 정확도 >80% — 원문 접근 불가, 초록 기준) · GAF 원전 Wang & Oates, IJCAI 2015 (arXiv:1506.00327).
+  > ⚠️ Obsidian 문헌 노트 `2026-04-10__sers-ml-literature-review.md` 1.3절은 KNN-ViT를 '소변'으로 적었으나 초록은 **혈장** — 노트 수정 필요(미수정).
+  > 스크립트 `postchange_dl_image_two_stage.py`(커밋 174e0bb: `heat_images`·`cwt_images`·`gaf_images`), 산출물 `results/postchange_983_dl_image_two_stage_improved/` (oof_/fit_ heat_pre·cwt_pre·gaf_pre, run_dl5.log, runs/table/paired_vs_stk/blend_*.csv 갱신).
+  - 규약: DL-3 line_pre와 완전히 같음(improved 825검체, replicate 25,270행, 같은 25 fold, ResNet18 ImageNet1K_V1 전층 미세조정, 헤드 2개, 순위 점수 조기 종료 patience 40, bf16). **이미지 인코딩만 교체**, 셋 다 논문처럼 ch0(raw) 1개 스펙트럼에서 생성.
+    - **heat_pre**: ch0 → 224점 보간 → 스펙트럼별 min–max 0~255 → Jet RGB → 같은 색 띠 224행 반복 (열 = 파수).
+    - **cwt_pre**: |CWT| (gaus3, 스케일 1–64, PyWavelets) 64×625 → bilinear 224×224 → 이미지별 min–max → Jet RGB (세로 = 스케일, 가로 = 파수). 스케일 범위는 논문에 없어 1–64로 설정.
+    - **gaf_pre**: ch0 → 224점 → x' ∈ [−1, 1] → GASF cos(φi + φj) 224×224 → 0~255 흑백 3채널 복제. 네트워크는 ViT가 아닌 ResNet18로 고정(인코딩 효과만 분리).
+    - 무작위 초기화 대조군은 생략(DL-3에서 ImageNet 효과 5/5 확인, 비용 2배).
+  - **Stage 1 AUC (평균±SD)**: stk 0.7886±0.0076 · **heat_pre 0.7676±0.0077** · **gaf_pre 0.7674±0.0063** · line_pre 0.7627±0.0140 · **cwt_pre 0.7566±0.0119** · lr 0.7507±0.0108
+    (민감도/특이도 @0.5: heat 0.723/0.651 · cwt 0.731/0.625 · gaf 0.728/0.682)
+  - **암종 (cascade macro-F1 / cancer-only macro-F1 / cancer-only OvR AUC)**: heat 0.3295 / 0.4322 / 0.7569 · cwt 0.3353 / 0.4274 / 0.7659 · gaf 0.3418 / 0.4388 / 0.7606 (stk 0.3206 / 0.4084 / 0.7504, lr 0.3583 / 0.4480, line_pre 0.3478 / 0.4347)
+  - **짝 차이 vs STK-V2 (평균±SD, 이긴 시드/5)**: heat AUC **−0.0211±0.0101 (0/5)**, cascade mF1 +0.0089 (3/5), cancer-only mF1 +0.0238 (4/5) · cwt AUC −0.0320±0.0176 (0/5), cascade +0.0147 (4/5) · gaf AUC **−0.0212±0.0065 (0/5)**, BA −0.0156 (0/5), cascade +0.0212 (4/5), cancer-only +0.0304 (4/5).
+  - **인코딩 간 짝 차이**: heat − line_pre AUC +0.0048±0.0182 (2/5), cascade −0.0182 (1/5) · cwt − heat AUC −0.0110 (1/5) · gaf − heat AUC −0.0001±0.0080 (4/5), cascade +0.0122 (3/5) · gaf − line_pre AUC +0.0047 (3/5) → **모두 시드 편차 안**. heat − dl_rep(1D) AUC +0.0327 (5/5), cascade +0.0544 (5/5).
+  - 암종별 cascade recall(PRO/PAN/LUN/BRE/CRC/BLC): heat 0.31/0.40/0.47/0.41/0.21/0.17 · cwt 0.34/0.40/0.46/0.35/0.24/0.18 · gaf 0.33/0.38/0.48/0.43/0.21/0.17 — 방광암은 모두 0.2 미만.
+  - 학습: fold당 heat 496 s / cwt 441 s / gaf 504 s, best epoch 평균 23 / 17 / 22, 상한 도달 0회. 이미지 생성 heat 2 s · cwt 48 s · gaf 12 s (25,270장, uint8 3.8 GB).
+  - **블렌드 재계산 (히트맵 CNN 포함, `postchange_dl_blend.py`, 고정 가중)**: stk+lr+heat_pre AUC 0.7929 (+0.0043±0.0036, 4/5), cascade mF1 0.3815 (+0.0609±0.0187, 5/5), cancer-only 0.4696 · stk+heat_pre AUC 0.7916 (+0.0030, 3/5), cascade +0.0314 (4/5) ·
+    CNN이 더한 몫(stk+lr+heat − stk+lr) AUC +0.0127 (5/5), cascade +0.0122 (4/5). 히트맵 대 선 그래프 블렌드 차이(stk+lr+heat − stk+lr+line) AUC +0.0023 (3/5), cascade −0.0042 (2/5) — 같은 수준.
+  - Grad-CAM(해석용, `scripts/visualization/dl_deck/make_gradcam.py`, heat_pre 모델 1개 seed 42 fold 0, 시험 fold AUC 0.791, layer3 14칸·칸당 약 86 cm-1, 보간 없음): 1단계 암 logit 최고 칸 943–1029 cm-1 (layer4 7칸 기준 771–943),
+    암종 logit 최고 칸 PRO·BRE 1371–1457 · LUN 1543–1629 · PAN·BLC 1714–1800 · CRC 1286–1371. 같은 seed/fold 재학습이 GPU 비결정성으로 첫 실행(AUC 0.825)과 달라 예시로만 사용.
+  - **관측**: 문헌식 인코딩 3종 모두 1단계에서 STK-V2 미달(0/5)이고, 선 그래프(DL-3)와 차이는 시드 편차 안. 논문 보고 정확도(94%대)는 혈청·단일 분할·정확도 지표라 우리 수치와 비교 불가. 이미지 형식보다 replicate 단위 + ImageNet 사전학습이 결정적.
+  - ⚠️ 한계: 825검체·암종=병원 중첩 · ch0만 사용(3채널 정보는 선 그래프만) · CWT 스케일 범위·GAF 해상도(224) 미튜닝 · KNN-ViT의 ViT·KNN 이상치 제거는 재현 안 함 · 외부 시험셋 없음.
+
 #### 06장 막대 색 수정 + 절대 세기 보완 (2026-09-28, 사용자 지적)
 
 사용자가 "변경 후 723이 커 보이고 1000은 변경 전이 커 보이는데 덱은 반대로 적혀 있다"고 지적. 확인 결과 **덱 수치는 맞고 차트 색이 문제였다**.
