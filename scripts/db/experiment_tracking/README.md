@@ -128,8 +128,8 @@ DBeaver를 쓴다면 `01_schema.sql` → `02_import_registry.sql` 순서로 SQL 
 
 `05_qc_and_measurement_context.sql` 적용, `load_qc_context.py`로 적재: `point_qc` 65,673행(qc_version
 `stage1+2a_ver1_allpoints_20260929`, 탈락 9,155 = 13.9%), `sample_qc` 1,038행(2b 검체 탈락 78),
-`measurement_context` 1,038행(스트립 판 연결 909 — 보라매 112검체는 경로에 판 번호 없음, KIMS 등 17검체는
-판 폴더 없음). 대상은 환원제 lot BCCP0922 측정분(같은 검체의 변경 전·7월 측정은 제외).
+`measurement_context` 1,038행(스트립 판 연결 909 — 보라매 112검체와 첫 측정일 2026-08-19의 17검체는
+경로에 판 폴더가 없음). 대상은 환원제 lot BCCP0922 측정분(같은 검체의 변경 전·7월 측정은 제외).
 
 - QC를 다시 정의하면 `qc_version`을 새로 붙여 **추가**한다(기존 버전 행은 지우지 않음).
 - `acquired_at`은 장비 저장 시각이라 검체 단위다(121점이 2초 안에 저장됨) — 지점별 시각은 없다.
