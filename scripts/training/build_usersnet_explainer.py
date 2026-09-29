@@ -14,6 +14,8 @@
     explainer/reference_noncancer_mean.npy  (3, 935) float32 — 기여도 계산의 대조 스펙트럼
     explainer/reference_cancer_mean.npy     (3, 935)          — 검증(방향 대조)용
     explainer/reference_type_means.npz      암종별 평균       — 검증용
+    explainer/peak_ranges.json              피크별 Voigt 면적 분포(비암·암 코호트 5/50/95 백분위) — 환자 피크가
+                                            비암 범위 안/밖인지 설명하는 데 쓴다 (2026-09-29)
     explainer/explainer.json                method·version·background·validated·n_samples·source_commit
 """
 
@@ -33,6 +35,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from models import build_production_stacking as bps  # noqa: E402  (운영 모델과 같은 로더·전처리)
+from scripts.training.train_usersnet import KNOWN_PEAKS, extract_peak_features  # noqa: E402  (운영 피크 특징과 같은 적합)
 
 METHOD_VERSION = "0.1"
 METHOD = "peak-occlusion"
@@ -79,6 +82,14 @@ def main() -> None:
     np.savez(out / "reference_type_means.npz",
              **{ct: X_agg[groups == ct].mean(axis=0).astype(np.float32) for ct in bps.CANCER_TYPES if (groups == ct).any()})
 
+    # 피크별 면적 분포: 운영 모델의 피크 특징(Voigt 면적, 앞 17열)과 같은 계산
+    areas = extract_peak_features(X_agg[:, 0, :], grid)[:, : len(KNOWN_PEAKS)]
+    def pct(values):
+        return {q: round(float(v), 6) for q, v in zip(("p5", "p50", "p95"), np.percentile(values, [5, 50, 95]))}
+    ranges = {name: {"wavenumber": center, "noncancer": pct(areas[non_cancer, i]), "cancer": pct(areas[cancer, i])}
+              for i, (center, name, _hw) in enumerate(KNOWN_PEAKS)}
+    (out / "peak_ranges.json").write_text(json.dumps(ranges, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
     counts = {str(g): int((groups == g).sum()) for g in sorted(set(groups))}
     meta = {
         "method": METHOD,
@@ -90,6 +101,7 @@ def main() -> None:
         "channels": prep.get("channels"),
         "grid_points": int(len(grid)),
         "window_factor": 1.5,
+        "ranges_file": "peak_ranges.json",
         "n_samples": {"non_cancer": int(non_cancer.sum()), "cancer": int(cancer.sum()), "by_group": counts},
         "validated": bool(args.validated),
         "validation_note": "" if args.validated else "검증 전 — 앱은 값을 저장만 하고 화면·보고서에 표시하지 않는다.",
