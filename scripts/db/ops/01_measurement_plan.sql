@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS ops.clinical_exclusions (
 
 -- 대시보드용: 검체 한 행. 완료 = 환원제 lot BCCP0922로 측정된 기록이 있음(변경 전 측정은 완료로 세지 않음).
 -- QC는 experiment.sample_qc에 계산된 검체만(없으면 NULL = 미계산). 제외 사유 텍스트는 넣지 않는다.
+-- 전체 계획 = 현재 계획표 + 이전 계획표(--previous로 적재)에만 있는 칸. 0907 계획표는 0728 계획 DAY 1을 잰 뒤 남은
+-- 검체로 다시 짠 것이라(그룹마다 번호가 이어짐), 둘을 합쳐야 전체 진행률이 나온다(2026-10-02 사용자 결정).
+-- plan_scope로 '현재 계획'/'이전 계획'을 구분한다. 제외 여부는 둘 다 현재 계획표의 제외 목록(환자 단위 최신 기준).
 CREATE OR REPLACE VIEW ops.v_plan_progress AS
 WITH cur AS (SELECT plan_version_id FROM ops.plan_versions WHERE is_current),
 meas AS (
@@ -77,7 +80,19 @@ meas AS (
 qc AS (
     SELECT DISTINCT ON (sample_id) sample_id, dropped_2b, n_fail, n_points
     FROM experiment.sample_qc ORDER BY sample_id, computed_at DESC
-)
+),
+cur_plan AS (
+    SELECT p.*, '현재 계획'::text AS plan_scope FROM ops.measurement_plan p JOIN cur USING (plan_version_id)
+),
+prev_plan AS (
+    -- 현재 계획표에 없는 칸만. 같은 검체가 이전 계획 여러 벌에 있으면 가장 최근에 적재한 벌 하나만
+    SELECT DISTINCT ON (p.sample_id) p.*, '이전 계획'::text AS plan_scope
+    FROM ops.measurement_plan p
+    JOIN ops.plan_versions v USING (plan_version_id)
+    WHERE NOT v.is_current AND p.sample_id NOT IN (SELECT sample_id FROM cur_plan)
+    ORDER BY p.sample_id, v.loaded_at DESC
+),
+p AS (SELECT * FROM cur_plan UNION ALL SELECT * FROM prev_plan)
 SELECT p.solum_label, p.plan_day, p.plan_lot, p.paper_no, p.plan_group,
        site.site_code,
        d.cohort_group,
@@ -88,15 +103,26 @@ SELECT p.solum_label, p.plan_day, p.plan_lot, p.paper_no, p.plan_group,
             WHEN qc.sample_id IS NULL THEN 'QC 미계산'
             WHEN qc.dropped_2b THEN 'QC 탈락'
             ELSE 'QC 통과' END                   AS qc_status,
-       round(qc.n_fail::numeric / NULLIF(qc.n_points, 0), 3) AS point_fail_rate
-FROM ops.measurement_plan p
-JOIN cur USING (plan_version_id)
+       round(qc.n_fail::numeric / NULLIF(qc.n_points, 0), 3) AS point_fail_rate,
+       p.plan_scope,
+       -- 제외 분류(제외사유 목록의 Y/N 플래그). 자유 텍스트 사유는 내보내지 않는다. 플래그 없이 노란표시만 있으면 '기타'
+       CASE WHEN e.sample_id IS NULL THEN '포함'
+            ELSE COALESCE(NULLIF(concat_ws(' + ',
+                     CASE WHEN e.other_cancer      THEN '타암이력' END,
+                     CASE WHEN e.urinary_infection THEN '요로감염' END,
+                     CASE WHEN e.post_treatment    THEN '치료후채취' END,
+                     CASE WHEN e.multi_cancer      THEN '다중암' END,
+                     CASE WHEN e.drop_flag         THEN 'Drop' END), ''), '기타') END AS exclusion_category,
+       CASE WHEN e.sample_id IS NOT NULL THEN '제외'
+            WHEN meas.sample_id IS NOT NULL THEN '측정 완료'
+            ELSE '미측정' END                   AS sample_status
+FROM p
 JOIN master.samples s ON s.sample_id = p.sample_id
 JOIN master.subjects subj ON subj.subject_id = s.subject_id
 JOIN master.sites site ON site.site_id = subj.site_id
 -- 다중암 환자는 진단이 2건이라 검체 자신의 진단만(diagnosis_id = sample_id, 2026-09-29 전 검체 확인)
 LEFT JOIN clinical.diagnoses d ON d.subject_id = subj.subject_id AND d.diagnosis_id = s.sample_id
-LEFT JOIN ops.clinical_exclusions e ON e.plan_version_id = p.plan_version_id AND e.sample_id = p.sample_id
+LEFT JOIN ops.clinical_exclusions e ON e.plan_version_id = (SELECT plan_version_id FROM cur) AND e.sample_id = p.sample_id
 LEFT JOIN meas ON meas.sample_id = p.sample_id
 LEFT JOIN qc ON qc.sample_id = p.sample_id;
 

@@ -4,9 +4,11 @@ The workbook ("검체 측정 Lot_Powder_…xlsx") has one sheet per measuring da
 down), column B = Paper '#n', row 2 = group headers, cells = sample numbers ("57,58"). Cell font colours are
 not used -- red marks are partial rich text; the exclusion sheet ("제외사유_목록_…") is the source instead.
 A file is identified by its MD5: loading the same file again only re-marks it current.
+--previous loads an older plan's cells only (no exclusion sheet, current plan untouched); v_plan_progress adds its
+cells that the current plan lacks as plan_scope '이전 계획', so the dashboard shows overall progress.
 
     source scripts/db/pghost.sh
-    python scripts/db/ops/load_measurement_plan.py --file "<xlsx>" [--dry-run]
+    python scripts/db/ops/load_measurement_plan.py --file "<xlsx>" [--dry-run] [--previous]
 """
 
 from __future__ import annotations
@@ -70,11 +72,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--file", type=Path, required=True)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--previous", action="store_true",
+                    help="이전 계획표: 계획 칸만 적재하고 현재 계획은 바꾸지 않음 (제외 목록은 현재 계획표 것을 씀)")
     args = ap.parse_args()
     md5 = hashlib.md5(args.file.read_bytes()).hexdigest()
     wb = openpyxl.load_workbook(args.file, data_only=True)
     plan = parse_plan(wb)
-    excl, criteria = parse_exclusions(wb)
+    excl, criteria = ([], "-") if args.previous else parse_exclusions(wb)
 
     labels = [p["label"] for p in plan]
     dup = {x for x in labels if labels.count(x) > 1}
@@ -93,6 +97,10 @@ def main() -> None:
         if args.dry_run:
             print("dry-run: 쓰지 않음")
             return
+        if args.previous:
+            cur.execute("SELECT 1 FROM ops.plan_versions WHERE file_md5 = %s AND is_current", (md5,))
+            if cur.fetchone():
+                sys.exit("이 파일은 현재 계획이다 — --previous로 다시 넣으면 제외 목록이 지워짐")
 
         cur.execute("""INSERT INTO ops.plan_versions (source_file, file_md5) VALUES (%s, %s)
                        ON CONFLICT (file_md5) DO UPDATE SET source_file = EXCLUDED.source_file
@@ -107,15 +115,18 @@ def main() -> None:
             (plan_version_id, sample_id, solum_label, urinary_infection, other_cancer, post_treatment, multi_cancer,
              drop_flag, yellow_mark, reason, criteria) VALUES %s""",
             [(vid, sid[e["label"]], e["label"], *(e[f] for f in EXCL_FLAGS), e["reason"], criteria) for e in excl])
-        cur.execute("UPDATE ops.plan_versions SET is_current = false WHERE is_current AND plan_version_id <> %s", (vid,))
-        cur.execute("UPDATE ops.plan_versions SET is_current = true WHERE plan_version_id = %s", (vid,))
+        if not args.previous:
+            cur.execute("UPDATE ops.plan_versions SET is_current = false WHERE is_current AND plan_version_id <> %s", (vid,))
+            cur.execute("UPDATE ops.plan_versions SET is_current = true WHERE plan_version_id = %s", (vid,))
         conn.commit()
 
-        cur.execute("SELECT count(*), count(*) FILTER (WHERE measured), count(*) FILTER (WHERE excluded) FROM ops.v_plan_progress")
-        n, m, x = cur.fetchone()
-        print(f"적재 확인: 현재 계획 {n}칸 (plan_version_id {vid}) · BCCP0922 측정 {m} · 제외 대상 {x}", flush=True)
-        if n != len(plan):
-            sys.exit("v_plan_progress 행 수가 계획 칸 수와 다름 (조인 중복?)")
+        cur.execute("""SELECT plan_scope, count(*), count(*) FILTER (WHERE measured), count(*) FILTER (WHERE excluded)
+                       FROM ops.v_plan_progress GROUP BY 1 ORDER BY 1 DESC""")
+        scopes = {s: (n, m, x) for s, n, m, x in cur.fetchall()}
+        for s, (n, m, x) in scopes.items():
+            print(f"적재 확인 [{s}]: {n}칸 · BCCP0922 측정 {m} · 제외 대상 {x}", flush=True)
+        if not args.previous and scopes.get("현재 계획", (0,))[0] != len(plan):
+            sys.exit("v_plan_progress 현재 계획 행 수가 계획 칸 수와 다름 (조인 중복?)")
 
 
 if __name__ == "__main__":
