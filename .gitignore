@@ -46,6 +46,8 @@ env/
 .env
 .env.local
 .env.aecd-api
+.env.langgraph
+.langgraph_api/
 secrets/
 credentials/
 

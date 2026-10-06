@@ -345,7 +345,7 @@ SERS 스펙트럼 데이터(`processed_spectra.csv`)의 `group + sample_id` 조�
 | UNK | 2 | 0 | - |
 | **전체** | **1,344** | **1,170** | **87%** |
 
-> LUN 100명 미매칭: 폐암3(100명)의 임상 patient_id가 병원코드 형식(예: `24732410`)으로, SERS의 순번 ID(`LUN 201`~`LUN 300`)와 직접 매칭 불가.
+> LUN 100명 미매칭: 폐암3(100명)의 임상 patient_id가 병원코드 형식(예: `XXXXXXXX`)으로, SERS의 순번 ID(`LUN 201`~`LUN 300`)와 직접 매칭 불가.
 > SPAN(72명), UNK(2명)는 임상 데이터 미수집 그룹.
 
 ![Figure 10: SERS-Clinical Linkage Summary](figures/fig10_linkage_summary.png)
@@ -494,7 +494,7 @@ data/clinical_data/standardized/
 
 ## 13. 향후 과제 (Next Steps)
 
-1. **폐암3 SERS-임상 ID 매핑** — 병원코드(예: `24732410`) ↔ SERS 순번(예: `LUN 201`) 매핑 테이블 확보
+1. **폐암3 SERS-임상 ID 매핑** — 병원코드(예: `XXXXXXXX`) ↔ SERS 순번(예: `LUN 201`) 매핑 테이블 확보
 2. **SPAN 그룹 확인** — SERS에만 존재하는 72명의 질환군 및 임상 데이터 확인
 3. **교란 변수 보정** — 연령(NOR 45.3세 vs 암 65-73세), 성별 등의 교란 변수에 대한 다변량 분석
 4. **암 환자 검사 데이터 보강** — SMCXD01 형식(PRO/BRE/OVA) 환자의 추가 검사 데이터 확보 가능성 검토
