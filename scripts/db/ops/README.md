@@ -36,7 +36,7 @@ python scripts/db/ops/load_measurement_plan.py --file "<이전 계획표.xlsx>" 
 
 ## Power BI
 
-1. Power BI Desktop(Windows) → 데이터 가져오기 → **PostgreSQL 데이터베이스** → 서버 `localhost`, 데이터베이스 `aecd_platform`, 가져오기(Import) → `ops.v_plan_progress` 선택. 또는 `aecd_plan_progress.pbids`를 열면 서버·DB가 채워진 연결 창이 바로 뜬다(인증: 데이터베이스 탭, `solumhc`). 쿼리 이름은 `v_plan_progress`로 바꾼다(아래 DAX가 이 이름을 씀).
+1. Power BI Desktop(Windows) → 데이터 가져오기 → **PostgreSQL 데이터베이스** → 서버 `localhost:15432`, 데이터베이스 `aecd_platform`, 가져오기(Import) → `ops.v_plan_progress` 선택. 또는 `aecd_plan_progress.pbids`를 열면 서버·DB가 채워진 연결 창이 바로 뜬다(인증: 데이터베이스 탭, `solumhc`). 쿼리 이름은 `v_plan_progress`로 바꾼다(아래 DAX가 이 이름을 씀).
 2. 측정값(DAX):
    ```
    계획 = COUNTROWS(v_plan_progress)
@@ -48,7 +48,8 @@ python scripts/db/ops/load_measurement_plan.py --file "<이전 계획표.xlsx>" 
    남은 계획 진행률 = CALCULATE([진행률], v_plan_progress[plan_scope] = "현재 계획")
    ```
    `진행률`은 전체(현재 + 이전 계획) 기준이다. 표·차트에서 `plan_scope`를 범례로 쓰면 두 묶음을 나눠 볼 수 있다.
-3. 게시 → 작업 영역. DB가 이 PC에 있으므로 예약 새로 고침에는 **온프레미스 데이터 게이트웨이**(개인 모드로 충분, 가져오기 모드 지원)가 이 PC에 설치·실행돼 있어야 한다. PC가 꺼져 있으면 새로 고침 실패.
+   - 2026-10-02부터 DB는 저장 망 서버(192.168.10.133)에 있다. 먼저 SSH 터널을 연다: `powershell -ExecutionPolicy Bypass -File scripts\db\pg_tunnel.ps1`. WSL은 mirrored 네트워킹이라 WSL 스크립트도 같은 `localhost:15432`를 쓴다(`.env`: `PGHOST=localhost`, `PGPORT=15432`).
+3. 게시 → 작업 영역. 예약 새로 고침에는 **온프레미스 데이터 게이트웨이**(개인 모드로 충분, 가져오기 모드 지원)가 이 PC에 설치·실행돼 있어야 하고, 같은 PC에서 위 SSH 터널도 열려 있어야 한다. PC가 꺼져 있거나 터널이 닫혀 있으면 새로 고침 실패.
 4. Teams 채널 → 탭 추가(+) → **Power BI** → 게시한 보고서 선택. 보는 사람에게 해당 작업 영역·보고서 권한이 있어야 한다.
 
 Supabase는 쓰지 않는다(회사 정책, 2026-09-02).
