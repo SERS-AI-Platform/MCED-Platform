@@ -141,7 +141,7 @@ def main() -> None:
     spectrum = arrays["X"].astype(np.float32)
     patient_ids = arrays["patient_ids"].astype(int)
     labels = {"cancer_vs_non_cancer": arrays["y_binary"].astype(int), "three_class": arrays["y_three"].astype(int)}
-    clinical = load_clinical_table(REPO / "data" / "mapping" / "clinical_df.xlsx")
+    clinical = load_clinical_table(REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814" / "clinical_df.xlsx")
     if len(clinical.values) != int(patient_ids.max()):
         raise ClinicalMappingMismatchError("clinical row count does not match patient ordinals")
     predictions = {task: np.full((len(spectrum), 2 if task == "cancer_vs_non_cancer" else 3), np.nan, dtype=float) for task in labels}

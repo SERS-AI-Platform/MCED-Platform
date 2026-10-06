@@ -8,7 +8,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ../data/raw_data:/spectra:ro
+      - ../data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated:/spectra:ro
     environment:
       - PYTHONUNBUFFERED=1
     deploy:
@@ -33,7 +33,7 @@ services:
       dockerfile: infra/Dockerfile
     container_name: sers-predict
     volumes:
-      - ../data/raw_data:/spectra:ro
+      - ../data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated:/spectra:ro
       - ../results:/results:rw
     environment:
       - PYTHONUNBUFFERED=1

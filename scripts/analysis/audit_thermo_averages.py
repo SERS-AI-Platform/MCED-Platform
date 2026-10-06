@@ -14,7 +14,7 @@ from sers.raw_set.audit import AverageAuditPolicy, audit_average_file
 @click.option(
     "--data-root",
     type=click.Path(path_type=Path, exists=True, file_okay=False),
-    default=Path("data/raw_data"),
+    default=Path("data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated"),
     show_default=True,
 )
 @click.option(

@@ -61,8 +61,8 @@ Spectra are stored as `dict[(group, sample_id, replicate), (x_array, y_array)]` 
 
 ### Dual data sources
 
-- **Thermo**: CSV files in `data/raw_data/`, 5 replicates per sample, already background-subtracted.
-- **Medical**: TXT files in `data/raw_data_medical/`, 6 replicates, raw + BG in `Background/` subdir. Requires -28 cm⁻¹ wavenumber shift for Thermo alignment. SG smoothing and calibration are skipped.
+- **Thermo**: CSV files in `data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated/`, 5 replicates per sample, already background-subtracted.
+- **Medical**: TXT files in `data/02_sers_primary_pooled_acquisition/ramcheck_retro_12groups_undated/`, 6 replicates, raw + BG in `Background/` subdir. Requires -28 cm⁻¹ wavenumber shift for Thermo alignment. SG smoothing and calibration are skipped.
 
 ### Scripts directory
 

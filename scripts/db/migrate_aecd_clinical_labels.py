@@ -55,7 +55,7 @@ except ModuleNotFoundError:
         resolve_labels,
     )
 
-DEFAULT_INPUT: Final = Path("data/processed/aecd_platform_ingest/smcxd07_clinical_master.csv")
+DEFAULT_INPUT: Final = Path("data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest/smcxd07_clinical_master.csv")
 DEFAULT_MAPPING: Final = Path("config/aecd_label_mapping_v1.csv")
 DATABASE_ROWS: Final = TypeAdapter(list[tuple[int, str]])
 

@@ -64,7 +64,7 @@ log("=" * 70)
 log("PANCREATIC CANCER: TNM → AJCC 8th Edition Staging")
 log("=" * 70)
 
-pan = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/PAN_clinical_standardized.csv')
+pan = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/PAN_clinical_standardized.csv')
 pan_stages = []
 for row_index, row in pan.iterrows():
     stage, reason = map_pan_ajcc(row['t_stage'], row['n_stage'], row['m_stage'])
@@ -93,11 +93,11 @@ log("PROSTATE CANCER: TNM + Gleason Score Extraction")
 log("=" * 70)
 
 pro_raw = pd.read_excel(
-    '/home/user/SERS-AI/data/clinical_data/1. 전립선암/SMCXD01_전립선암 임상정보.xlsx',
+    '/home/user/SERS-AI/data/01_clinical_metadata/01_raw_hospital/1. 전립선암/SMCXD01_전립선암 임상정보.xlsx',
     header=None, skiprows=2
 )
 
-pro_std = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/PRO_clinical_standardized.csv')
+pro_std = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/PRO_clinical_standardized.csv')
 
 # Col 1 = NO (1-100), Col 17 = TNM, Col 19 = Gleason
 pro_tnm_raw = pro_raw.iloc[:, 17]
@@ -152,8 +152,8 @@ log("\n" + "=" * 70)
 log("COLORECTAL CANCER: Merge raw Excel (270) + standardized (30)")
 log("=" * 70)
 
-crc_std = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/CRC_clinical_standardized.csv')
-crc_raw = pd.read_excel('/home/user/SERS-AI/data/clinical_data/9. 대장암/SMCXD06_대장암.xlsx')
+crc_std = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/CRC_clinical_standardized.csv')
+crc_raw = pd.read_excel('/home/user/SERS-AI/data/01_clinical_metadata/01_raw_hospital/9. 대장암/SMCXD06_대장암.xlsx')
 
 # Standardized has 300 rows, 30 with t_stage
 # Raw has 270 rows with staging
@@ -223,7 +223,7 @@ log("\n" + "=" * 70)
 log("OVARIAN CANCER: TNM from pathology column")
 log("=" * 70)
 
-ova = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/OVA_clinical_standardized.csv')
+ova = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/OVA_clinical_standardized.csv')
 ova_path = ova['pathology'].dropna()
 
 log(f"  OVA pathology available: {len(ova_path)}/70")
@@ -239,7 +239,7 @@ log("\n" + "=" * 70)
 log("LUNG CANCER: Stage from standardized (already complete)")
 log("=" * 70)
 
-lun = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/LUN_clinical_standardized.csv')
+lun = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/LUN_clinical_standardized.csv')
 stages = lun['stage'].dropna()
 
 lun_stages_clean = stages.apply(normalize_lun_stage)

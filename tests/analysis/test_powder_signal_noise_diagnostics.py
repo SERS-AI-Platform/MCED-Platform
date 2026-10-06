@@ -127,7 +127,7 @@ def test_actual_powder_lot_inventory_is_balanced() -> None:
 
     # When: raw replicate files are parsed without using _ave files.
     result = load_lot_replicates(
-        repo / "data" / "20260715_Powder_Reproducibility test",
+        repo / "data" / "04_machine_repeatability_tests" / "thermo_powder_reproducibility_BPRO_20260715",
         grid,
     )
 

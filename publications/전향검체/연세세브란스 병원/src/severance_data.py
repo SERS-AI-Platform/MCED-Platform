@@ -24,8 +24,8 @@ CLEAN_MANIFEST: Final = REPO / "results" / "clean_cohort_20260605" / "clean_coho
 CLINICAL_MAPPING: Final = TABLE_DIR / "yonsei_clinical_data_mapping.csv"
 PREDICTIONS: Final = TABLE_DIR / "yonsei_oof_predictions.csv"
 OPTIMIZED_PREDICTIONS: Final = TABLE_DIR / "severance_lr_oof_predictions.csv"
-YPAN_RAW: Final = REPO / "data" / "raw_data" / "10-3. Y-Pancreatic cancer (YPAN)"
-YNOR_RAW: Final = REPO / "data" / "raw_data" / "12. Y-Normal (YNOR)"
+YPAN_RAW: Final = REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "10-3. Y-Pancreatic cancer (YPAN)"
+YNOR_RAW: Final = REPO / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "12. Y-Normal (YNOR)"
 RAW_FILE_RE: Final = re.compile(r"^(YPAN|YNOR)\s+([0-9]+)_([0-9]+|ave)\.CSV$", re.IGNORECASE)
 EXCLUDED_REPEAT_ACQUISITIONS: Final = frozenset({("YNOR", "21")})
 

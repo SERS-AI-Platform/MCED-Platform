@@ -146,7 +146,7 @@ def _is_sidecar(relative: str) -> bool:
 
 def archive_alias_summary(repo_root: Path) -> dict[str, Scalar]:
     archive = repo_root / "data" / "환원제_변경후_데이터.zip"
-    mapping_root = repo_root / "data" / "mapping"
+    mapping_root = repo_root / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814"
     if not archive.is_file() or not mapping_root.is_dir():
         return {"status": "not_found", "archive_member_count": 0, "filesystem_file_count": 0}
 

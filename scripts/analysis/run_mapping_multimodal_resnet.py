@@ -193,7 +193,7 @@ def main() -> None:
     patient_ids = arrays["patient_ids"].astype(int)
     y_binary = arrays["y_binary"].astype(int)
     y_three = arrays["y_three"].astype(int)
-    clinical = load_clinical_table(REPO / "data" / "mapping" / "clinical_df.xlsx")
+    clinical = load_clinical_table(REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814" / "clinical_df.xlsx")
     if len(clinical.values) != int(patient_ids.max()):
         raise ValueError("clinical row count does not match mapping patient ordinals")
     write_csv(out / "clinical_feature_summary.csv", list(clinical.summary_rows))

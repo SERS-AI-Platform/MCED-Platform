@@ -45,8 +45,8 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 
 
 OUT_DIR = PROJECT_ROOT / "results" / "figures" / "process_report"
-RAW_DIR = PROJECT_ROOT / "data" / "raw_data"
-MEDICAL_DIR = PROJECT_ROOT / "data" / "raw_data_medical"
+RAW_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
+MEDICAL_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
 ARTIFACT_DIR = PROJECT_ROOT / "artifacts" / "usersnet" / "current"
 SHIFT_CSV_CANDIDATES = [
     PROJECT_ROOT / "results" / "preprocessing_dacr_all" / "calibration_shifts.csv",
@@ -539,7 +539,7 @@ def main() -> None:
     config = load_config(PROJECT_ROOT / "config" / "config.yaml")
     index = load_raw_index(config)
     if not index:
-        raise RuntimeError("No raw spectra found under data/raw_data")
+        raise RuntimeError("No raw spectra found under data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated")
 
     grid = load_grid()
     replicates = load_replicates(index, preferred_group="NOR")

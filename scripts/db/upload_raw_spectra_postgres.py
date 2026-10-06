@@ -43,7 +43,7 @@ FOLDER_GROUPS = {
     "10-1. C-Pancreatic cancer (70개)": "CPAN",
     "10-2. S-Pancreatic cancer (72개)": "SPAN",
     "10-3. Y-Pancreatic cancer (YPAN)": "YPAN",
-    "11 BLC (299개)": "BLC",
+    "BLC_1st_20260319-20260320": "BLC",
     "12. Y-Normal (YNOR)": "YNOR",
 }
 
@@ -275,7 +275,7 @@ def write_database(summary: ScanSummary, options: IngestOptions) -> None:
 
 def parse_args() -> IngestOptions:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input-root", type=Path, default=Path("data/raw_data"))
+    parser.add_argument("--input-root", type=Path, default=Path("data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated"))
     parser.add_argument("--dataset-version", default="raw_data_csv_v1")
     parser.add_argument("--include-averages", action="store_true")
     parser.add_argument("--batch-size", type=int, default=100)

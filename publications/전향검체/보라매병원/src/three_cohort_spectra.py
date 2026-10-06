@@ -70,7 +70,7 @@ def _clean_pro_spectra(repo: Path, grid: np.ndarray) -> tuple[np.ndarray, np.nda
             for row in csv.DictReader(handle)
             if row["source_group"] == "PRO"
         }
-    root = repo / "data" / "raw_data" / "1. Prostate cancer (100개)"
+    root = repo / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "1. Prostate cancer (100개)"
     grouped: dict[int, list[Path]] = {}
     for path in sorted(root.glob("PRO *.CSV")):
         match = PRO_PATTERN.fullmatch(path.name)
@@ -83,7 +83,7 @@ def _clean_pro_spectra(repo: Path, grid: np.ndarray) -> tuple[np.ndarray, np.nda
 
 
 def _boramae_cancer_ids(repo: Path) -> set[int]:
-    path = repo / "data" / "clinical_data" / "보라매 병원 임상정보.xlsx"
+    path = repo / "data" / "01_clinical_metadata" / "01_raw_hospital" / "보라매 병원 임상정보.xlsx"
     with closing(openpyxl.load_workbook(path, data_only=True)) as workbook:
         sheet = workbook.active
         if sheet is None:
@@ -109,7 +109,7 @@ def _boramae_cancer_spectra(
     repo: Path, grid: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
     selected = _boramae_cancer_ids(repo)
-    root = repo / "data" / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100"
+    root = repo / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710"
     grouped: dict[int, list[Path]] = {}
     for path in sorted(root.rglob("*.CSV")):
         match = BORAMAE_PATTERN.fullmatch(path.name)
@@ -122,7 +122,7 @@ def _boramae_cancer_spectra(
 
 
 def _mapping_spectra(repo: Path, grid: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    root = repo / "data" / "mapping"
+    root = repo / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814"
     with closing(
         openpyxl.load_workbook(root / "clinical_df.xlsx", read_only=True, data_only=True)
     ) as workbook:

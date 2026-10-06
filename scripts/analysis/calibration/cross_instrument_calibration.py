@@ -68,8 +68,8 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Configuration
 # =============================================================================
-THERMO_DIR = PROJECT_ROOT / "data" / "raw_data"
-MEDICAL_DIR = PROJECT_ROOT / "data" / "raw_data_medical"
+THERMO_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
+MEDICAL_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
 OUT_DIR = PROJECT_ROOT / "results" / "cross_instrument" / "calibration"
 DIAG_DIR = OUT_DIR / "diagnosis"
 
@@ -85,7 +85,7 @@ THERMO_FOLDER_MAP = {
     "8. High blood pressure + Diabetes (100개)":   "H.D.",
     "9. Colorectal cancer (300개)":                "CRC",
     "10-1. C-Pancreatic cancer (70개)":            "CPAN",
-    "11 BLC (299개)":                              "BLC",
+    "BLC_1st_20260319-20260320":                              "BLC",
 }
 MEDICAL_FOLDER_MAP = {
     "1. Prostate cancer (100개)": "PRO",

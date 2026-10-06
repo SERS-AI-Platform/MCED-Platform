@@ -21,10 +21,10 @@ dataset:
     "9. Colorectal cancer (300개)": "CRC"
     "10-1. C-Pancreatic cancer (70개)": "CPAN"
     "10-2. S-Pancreatic cancer (72개)": "SPAN"
-    "20260407_Bladder_1mW_0.05s_Ave 100": "BLC"
+    "BLC_2nd_20260407-20260409": "BLC"
 
   # -------------------------------------------------------------------------
-  # folder_to_group_medical: Maps raw_data_medical folder names → group codes
+  # folder_to_group_medical: Maps ramcheck_retro_12groups_undated (구 raw_data_medical) folder names → group codes
   # Medical Raman 장비 데이터 (BG 미차감 원본 + Background/ 폴더)
   # -------------------------------------------------------------------------
   folder_to_group_medical:
@@ -372,7 +372,14 @@ display:
 preprocessing:
   # Wavenumber calibration — aligns urea reference peak across all spectra
   # Corrects instrument drift (typically ±1–4 cm⁻¹ between lots/institutions)
-  do_calibration: true
+  # 2026-09-09 결정: urea 피크 보정 OFF. 근거 — 장비 축 드리프트(PS/Si 표준물질, run당
+  #   0.03~0.5 cm⁻¹)보다 urea 피크 이동(스펙트럼별 sd 2.2~2.4, |max| 7 cm⁻¹, 후향 데이터에서
+  #   그룹별 평균 CRC +2.4 / CPAN +2.0 / LUN +1.7 vs PRO 0.0)이 한 자릿수 크므로 이 "보정"은
+  #   장비가 아니라 검체 화학(1001 urea / 1004 Phe 겹침)을 정렬한다. 축 보정은 PS+Si
+  #   표준물질 run 단위 1차 모델(preprocessing.fit_standard_material_axis /
+  #   apply_standard_material_axis, 값은 measurement.calibrations)로만 한다.
+  #   PL-3 cal_ps_si 결과: docs/ml/experiment.md 2026-09-09 항목.
+  do_calibration: false
   calibration_reference_wn: 1001.4   # Urea symmetric C-N stretch (cm⁻¹)
   calibration_window: 10.0           # ± search range (cm⁻¹) — narrowed 2026-04-07
   # Robust scoring: distance-weighted (sigma=3) + min-score fail-safe.
@@ -381,7 +388,13 @@ preprocessing:
 
   do_smooth: true
   smoothing_method: savgol     # savgol | median | gaussian | moving_average | wavelet_haar | none
-  smooth_window: 11      # Must be odd, >= smooth_poly + 2
+  # 2026-09-03 변경: 11 → 5 (PL-2, 표준물질 PS/Si 결합 평가 근거)
+  #   w11 p3: SNR배수 PS 1.15 / Si 0.50, FWHM 증가 PS +27.4% / Si +47.0% → 기하평균 0.76
+  #   w5  p3: SNR배수 PS 1.11 / Si 0.99, FWHM 증가 PS  +4.7% / Si  +3.1% → 기하평균 1.05
+  #   기존 w11은 smoothing 없음(1.00)보다도 나빴다. FWHM 예산 5~30% 어디로 잡아도 w5가 최적.
+  #   근거: scripts/analysis/preprocessing_lab/run_smoothing_sweep.py --combined
+  #   문헌: Butler 2016 [17] "recommend limited and cautious use of smoothing"
+  smooth_window: 5      # Must be odd, >= smooth_poly + 2
   smooth_poly: 3         # Savitzky-Golay polynomial order
   # Optional smoothing/denoising parameters for non-default methods
   median_window: 5

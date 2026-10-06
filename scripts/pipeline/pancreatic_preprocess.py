@@ -36,7 +36,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── Paths ──────────────────────────────────────────────────────────────
-RAW_DATA_DIR = Path("data/raw_data")
+RAW_DATA_DIR = Path("data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated")
 OUTPUT_DIR = Path("results/pancreatic")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

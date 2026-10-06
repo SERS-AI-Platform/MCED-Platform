@@ -25,9 +25,9 @@ from src.sers.io import read_spectrum  # noqa: E402
 
 DEFAULT_INPUT = PROJECT_ROOT / "results" / "processed_spectra.csv"
 DEFAULT_OUT = PROJECT_ROOT / "results" / "kao_20260610_updated_cohort"
-DEFAULT_CLINICAL = PROJECT_ROOT / "data" / "clinical_data" / "전체환자_임상정보_정규화.xlsx"
+DEFAULT_CLINICAL = PROJECT_ROOT / "data" / "01_clinical_metadata" / "00_master_normalized_workbook" / "전체환자_임상정보_정규화_v8.xlsx"
 FALLBACK_CLINICAL = (
-    PROJECT_ROOT / "data" / "clinical_data" / "standardized" / "all_clinical_standardized.csv"
+    PROJECT_ROOT / "data" / "01_clinical_metadata" / "02_standardized_1782" / "standardized" / "all_clinical_standardized.csv"
 )
 
 TARGET_SOURCE_GROUPS = (
@@ -57,7 +57,7 @@ FALLBACK_SAMPLES = (
         "files": [
             PROJECT_ROOT
             / "data"
-            / "임상데이터"
+            / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
             / "20260512_Urine test"
             / "11. BLC"
             / f"BLC 241_{rep}.CSV"
@@ -71,7 +71,7 @@ FALLBACK_SAMPLES = (
         "files": [
             PROJECT_ROOT
             / "data"
-            / "임상데이터"
+            / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
             / "20260518_Urine test"
             / "6. PRO"
             / f"YNOR 21_{rep}.CSV"

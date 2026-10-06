@@ -12,7 +12,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
-CSV="${STAGING_CSV:-$ROOT/data/processed/aecd_platform_ingest/전체환자_임상정보_정규화_v7_staging.csv}"
+CSV="${STAGING_CSV:-$ROOT/data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest/전체환자_임상정보_정규화_v7_staging.csv}"
 DRY_RUN=0
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=1
 
@@ -28,7 +28,7 @@ if [ ! -f "$CSV" ]; then
 fi
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-BACKUP="$ROOT/data/processed/aecd_platform_ingest/backup_master_clinical_ingest_$STAMP.sql"
+BACKUP="$ROOT/data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest/backup_master_clinical_ingest_$STAMP.sql"
 echo "== backup -> $BACKUP"
 pg_dump -d aecd_platform -n master -n clinical -n ingest -f "$BACKUP"
 

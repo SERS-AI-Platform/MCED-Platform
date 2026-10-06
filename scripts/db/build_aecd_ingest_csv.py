@@ -52,8 +52,8 @@ ExcelValue: TypeAlias = (
 )
 
 DEFAULT_WORKBOOK: Final = Path("/mnt/c/Users/user/Downloads/전체환자_임상정보_정규화 v5.xlsx")
-DEFAULT_MAPPING_ROOT: Final = Path("/home/user/SERS-AI/data/mapping")
-DEFAULT_OUTPUT_DIR: Final = Path("/home/user/SERS-AI/data/processed/aecd_platform_ingest")
+DEFAULT_MAPPING_ROOT: Final = Path("/home/user/SERS-AI/data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814")
+DEFAULT_OUTPUT_DIR: Final = Path("/home/user/SERS-AI/data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest")
 DEFAULT_SHEET: Final = "table"
 DEFAULT_SITE_CODE: Final = "smcxd07"
 

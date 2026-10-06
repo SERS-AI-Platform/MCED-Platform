@@ -23,6 +23,18 @@ SG(config: 창 5, 차수 3), 개별 spectrum 학습, 환자 mean OOF:
                   : 기준점에서 ④ smoothing만 교체 (기준점은 SG 창 5)
     order_baseline_first
                   : 기준점에서 ④↔⑤ 순서만 교체 (baseline → smooth)
+    cal_ps        : 표준물질(PS) run 단위 축 보정만 (urea ✗ despike ✗)  ← 2026-09-09 추가
+    cal_ps_urea   : PS 축 보정 후 urea 피크 보정 (despike ✗)            ← 2026-09-09 추가
+    cal_ps_si     : PS 8피크 + Si 520.7 피크로 run 단위 1차(offset+slope) 축 보정, urea ✗
+    cal_ps_si_sg11: 위와 같고 SG 창만 11                                 ← 2026-09-09 사용자 결정
+                    ("urea 보정은 화학 신호를 볼 수 있으므로 PS/Si 표준물질로만 보정")
+
+표준물질 보정(2026-09-09 추가): `measurement.calibrations`(PS, raman_shift, pass)의
+run(측정일+장비) 단위 global_shift를 x축에서 빼는 것(x − shift)이며, AECD API
+파이프라인(scripts/analysis/aecd_api_model_mean_spectrum_clinical_performance.py)의
+정의와 같다. 기존 "production"의 calibration은 검체 내 urea 1001.4 피크 기준
+스펙트럼별 보정(config.yaml)이고, DB method_key `calibration_astm_reference`와는
+다른 알고리즘임에 주의 — PL-3 초기 기록의 명칭 불일치.
 
 과제(task) 두 개를 같은 조건·같은 전처리 결과로 낸다:
     cancer_screening     — 전립선암 vs 비암(질환대조+control), 이진 LR
@@ -33,7 +45,7 @@ SG(config: 창 5, 차수 3), 개별 spectrum 학습, 환자 mean OOF:
 결정했다. 감사 완료는 whitaker_hayes·airpls 2건뿐이며 audit_status는 건드리지
 않는다. 결과는 채택 근거가 아니라 탐색 기록이다.
 
-데이터: aecd_platform 전립선 3군만 쓴다. 매핑 폴더(data/mapping)는 같은 보라매
+데이터: aecd_platform 전립선 3군만 쓴다. 매핑 폴더(data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814)는 같은 보라매
 113검체×121점의 파일 사본이라 독립 재현이 아니고, xlsx 라벨은 DB에서 철회된
 구 라벨(2026-09-02 'Drop' 1명)을 포함하므로 쓰지 않는다. `--cohort mapping`은
 로더 일치 확인용으로만 남겨 두며 DB에는 적재하지 않는다.
@@ -53,6 +65,11 @@ Usage:
     python scripts/analysis/preprocessing_lab/run_guide_pipeline.py --cohort aecd
     python scripts/analysis/preprocessing_lab/run_guide_pipeline.py --cohort aecd --load-db
         # 저장된 예측 CSV로부터 CI 표를 만들고 DB에 적재 (재계산 없음)
+    python scripts/analysis/preprocessing_lab/run_guide_pipeline.py --cohort aecd \
+        --conditions <new_condition> --date-tag 20261001 --phase PL-4 \
+        --notes "Preprocessing Lab 그래프 승인 run (audit approved)" --baseline-ref cal_ps_si
+        # 기록용 인자 4개(2026-09-14 추가). 생략하면 PL-3 고정값 그대로 — 계산에는 영향 없음.
+        # 이미 있는 산출물 폴더를 다른 태그로 재적재하려 하면 중단한다.
 """
 
 from __future__ import annotations
@@ -60,6 +77,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import re
 import subprocess
 import sys
 import time
@@ -94,7 +112,12 @@ from sers.evaluation.schema import (  # noqa: E402
     Task,
     write_metrics_csv,
 )
-from sers.preprocessing import calibrate_spectra_batch, preprocess_spectra  # noqa: E402
+from sers.preprocessing import (  # noqa: E402
+    apply_standard_material_axis,
+    calibrate_spectra_batch,
+    fit_standard_material_axis,
+    preprocess_spectra,
+)
 from sers.qc.qc import (  # noqa: E402
     apply_per_spectrum_corr_qc,
     apply_stage1_qc,
@@ -107,6 +130,29 @@ N_BOOT = 2000
 GRID = np.linspace(402.0, 2198.0, 935)
 DATE_TAG = "20260907"
 OUT_ROOT = REPO / "results" / "preprocessing_lab" / f"guide_pipeline_{DATE_TAG}"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class RecordTags:
+    """산출물·DB에 남기는 기록용 값 (`--date-tag/--phase/--notes/--baseline-ref`).
+
+    기본값은 PL-3 당시 고정값이라 인자 없이 실행하면 이전과 같은 경로·run_name·기록이 나온다.
+    계산(전처리·학습·CI)에는 영향이 없다. date_tag는 산출물 폴더·run_name·cohort_id에 들어가므로
+    다른 date_tag로 실행한 run은 cohort_id가 달라져 check_comparable()이 PL-3 run과의 비교를
+    거부한다 — 살아있는 DB에서 다시 로드한 코호트를 같은 코호트로 간주하지 않기 위한 보수적 선택.
+    """
+
+    date_tag: str = DATE_TAG
+    phase: str = "PL-3"
+    notes: str | None = None  # None이면 PL-3 탐색 실험 문구(감사 게이트 면제 명시)
+    baseline_ref: str = "cal_despike"
+
+    @property
+    def out_root(self) -> Path:
+        return REPO / "results" / "preprocessing_lab" / f"guide_pipeline_{self.date_tag}"
+
+
+DEFAULT_TAGS = RecordTags()
 
 # 코호트를 명시적으로 고정 (aecd_platform은 살아있는 DB — PL-1 주석 참조)
 AECD_COHORTS = ("prostate", "prostate disease control", "control")
@@ -172,11 +218,81 @@ for _key, _ov, _lab in (
         calibrate=True, method_key="savgol" if _key.startswith("sm_sg") else None,
         label=f"기준점에서 smoothing={_lab}",
     )
+CONDITIONS["no_cal_sg11"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv",
+                   smooth_window=11),
+    calibrate=False, method_key=None,
+    label="PL-1 despike_off 정확 재현: cal✗ despike✗ SG 11 rolling_min SNV",
+)
+CONDITIONS["cal_ps"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=False, ps_calibrate=True, method_key="calibration_astm_reference",
+    label="표준물질(PS) run 단위 축 보정만: ps✓ urea✗ despike✗ rolling_min SNV",
+)
+CONDITIONS["cal_ps_urea"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=True, ps_calibrate=True, method_key="calibration_astm_reference",
+    label="PS 축 보정 후 urea 피크 보정: ps✓ urea✓ despike✗ rolling_min SNV",
+)
+CONDITIONS["cal_ps_si"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=False, ps_calibrate="linear", method_key="calibration_astm_reference",
+    label="PS+Si 표준물질 run 단위 1차 축 보정(offset+slope): urea✗ despike✗ rolling_min SNV (SG 5)",
+)
+CONDITIONS["cal_ps_si_sg11"] = dict(
+    overrides=dict(do_despike=False, baseline_method="rolling_min", normalization="snv",
+                   smooth_window=11),
+    calibrate=False, ps_calibrate="linear", method_key="calibration_astm_reference",
+    label="PS+Si 표준물질 run 단위 1차 축 보정: urea✗ despike✗ rolling_min SNV (SG 11)",
+)
 CONDITIONS["order_baseline_first"] = dict(
     overrides={**_BASE, "baseline_before_smooth": True},
     calibrate=True, method_key=None,
     label="기준점에서 순서만 baseline → smooth (가이드 §2 '두 순서 다')",
 )
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-09 사용자 결정("축 보정은 PS+Si 표준물질로만") 이후의 사다리: 기존 요인 조건을
+# urea 보정 없이 PS+Si 1차 축 보정 위에서 재실행한다. 기준점 = ps_despike
+# (PS+Si ✓, WH despike ✓, rolling_min, SNV, SG 5 = 기존 cal_despike에서 urea→PS+Si만 교체).
+# ---------------------------------------------------------------------------
+_PS_SKIP = {"no_cal", "production", "no_cal_sg11", "cal_ps", "cal_ps_urea", "cal_ps_si", "cal_ps_si_sg11"}
+for _name, _spec in list(CONDITIONS.items()):
+    if _name in _PS_SKIP or not _spec["calibrate"]:
+        continue
+    _new = "ps_despike" if _name == "cal_despike" else f"ps_{_name}"
+    CONDITIONS[_new] = dict(
+        overrides=dict(_spec["overrides"]),
+        calibrate=False, ps_calibrate="linear",
+        method_key=_spec["method_key"] or "calibration_astm_reference",
+        label=f"[PS+Si 축보정, urea✗] {_spec['label']}",
+    )
+# SG 창 5 vs 11 결정용 중간 창 (2026-09-09 사용자 요청) — PS+Si 기준점에서 smoothing 창만 교체
+for _w in (7, 9):
+    CONDITIONS[f"ps_sm_sg{_w}"] = dict(
+        overrides={**_BASE, "smooth_window": _w},
+        calibrate=False, ps_calibrate="linear", method_key="savgol",
+        label=f"[PS+Si 축보정, urea✗] 기준점에서 smoothing=SG 창 {_w}",
+    )
+# baseline 보정 없음 (2026-09-09 사용자 질문 "baseline correction이 없는 것이 좋다는 거지?"에 직접 답하기 위한 조건)
+CONDITIONS["ps_bl_none"] = dict(
+    overrides={**_BASE, "do_baseline": False},
+    calibrate=False, ps_calibrate="linear", method_key=None,
+    label="[PS+Si 축보정, urea✗] 기준점에서 baseline 보정 없음 (SG 5, SNV)",
+)
+CONDITIONS["ps_sm_none_bl_none"] = dict(
+    overrides={**_BASE, "do_baseline": False, "do_smooth": False},
+    calibrate=False, ps_calibrate="linear", method_key=None,
+    label="[PS+Si 축보정, urea✗] smoothing 없음 + baseline 없음 (SNV만)",
+)
+# despike 유무 확인 (2026-09-10 사용자 질문 "despike는 의미 없는데 왜 들어가 있나") — SG 없음 조건에서 despike만 끔
+CONDITIONS["ps_sm_none_nodespike"] = dict(
+    overrides=dict(do_despike=False, do_smooth=False, baseline_method="rolling_min", normalization="snv"),
+    calibrate=False, ps_calibrate="linear", method_key=None,
+    label="[PS+Si 축보정, urea✗] smoothing 없음 + despike 없음 (rolling_min SNV)",
+)
+PS_LADDER = tuple(k for k in CONDITIONS if k.startswith("ps_"))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -195,7 +311,8 @@ def _prep_config(cfg, overrides: dict) -> PreprocessingConfigExt:
 
 
 #: 짝지은 Δ를 낼 기준. production = 현재 배포 파이프라인, cal_despike = 요인 교체의 기준점
-DELTA_REFERENCES = ("production", "cal_despike")
+DELTA_REFERENCES = ("production", "cal_despike", "no_cal", "cal_ps_si", "ps_despike")
+# 2026-09-09 사용자 결정 이후 기준 조건은 cal_ps_si(표준물질만). "production"은 urea 보정 시절 기록 유지용.
 
 #: 3-class 라벨 (aecd cohort_group → 클래스 인덱스). 매핑 run의 GROUP_ORDER와 같은 순서.
 THREE_CLASS = {"control": 0, "prostate disease control": 1, "prostate": 2,
@@ -216,28 +333,112 @@ class Cohort:
     control_groups: tuple[str, ...]
     measurement_ids: list[int] | None      # aecd만 FK 연결
     data_query_filters: dict
+    ps_shift_by_key: dict | None = None    # aecd만: key → PS global_shift_cm1 (run 단위)
+    ps_si_linear_by_key: dict | None = None  # aecd만: key → (a, b): x_corr = x − (a + b·x)
 
 
-def load_aecd() -> Cohort:
+def load_aecd(groups: tuple[str, ...] = AECD_COHORTS, name: str = "aecd") -> Cohort:
+    """aecd_platform 전립선 코호트. ``groups``로 비암군을 좁힐 수 있다 (aecd_ctrl = 암 vs 정상만)."""
     from sers.aecd_api.loader import load_spectra_from_aecd
     from sers.aecd_api.models import SpectrumFilters
     from sers.aecd_api.repository import DatabaseSettings, PostgresAecdRepository
 
     repo = PostgresAecdRepository(DatabaseSettings.from_environment())
-    spectra, ids, observed = {}, [], {}
-    for cohort in AECD_COHORTS:
+    spectra, ids, observed, key_to_mid = {}, [], {}, {}
+    for cohort in groups:
         res = load_spectra_from_aecd(repo, SpectrumFilters(cohort_group=cohort), page_size=500)
+        # loader는 spectra dict와 measurement_ids를 같은 루프에서 같은 순서로 채운다
+        key_to_mid.update(dict(zip(res.spectra.keys(), res.measurement_ids)))
         spectra.update(res.spectra)
         ids.extend(res.measurement_ids)
         observed[cohort] = len(res.spectra)
         print(f"  {cohort:26s} {len(res.spectra):6d} spectra")
+    ps_shift_by_key, ps_si_linear_by_key = _load_ps_shifts(key_to_mid)
     return Cohort(
-        name="aecd", site="aecd_platform(전립선 3군)", spectra=spectra,
+        name=name, site=f"aecd_platform(전립선 {len(groups)}군)", spectra=spectra,
         cancer_group=AECD_CANCER,
-        control_groups=tuple(c for c in AECD_COHORTS if c != AECD_CANCER),
+        control_groups=tuple(c for c in groups if c != AECD_CANCER),
         measurement_ids=ids,
-        data_query_filters={"cohort_group": list(AECD_COHORTS), "observed_at_load": observed},
+        data_query_filters={"cohort_group": list(groups), "observed_at_load": observed},
+        ps_shift_by_key=ps_shift_by_key,
+        ps_si_linear_by_key=ps_si_linear_by_key,
     )
+
+
+def _load_ps_shifts(key_to_mid: dict) -> dict:
+    """key → 표준물질(PS) run 단위 global_shift_cm1.
+
+    AECD API 파이프라인(`load_standard_material_calibrations`/`calibration_for_item`)과
+    같은 정의: 측정일(date)+장비명으로 `measurement.calibrations`(PS, raman_shift, pass)를
+    조인하고, 축 보정은 x_corrected = x_observed − global_shift_cm1. 대응 보정이 없는
+    측정은 오류로 멈춘다 (조용히 0 처리하지 않음).
+    """
+    import os
+
+    import psycopg2
+
+    conn = psycopg2.connect(
+        host=os.environ.get("PGHOST", "localhost"), port=int(os.environ.get("PGPORT", "5432")),
+        dbname=os.environ.get("PGDATABASE", "aecd_platform"),
+        user=os.environ.get("PGUSER", "postgres"), password=os.environ.get("PGPASSWORD", ""),
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT c.calibration_date::date, i.instrument_name, c.standard_material, "
+                "c.global_shift_cm1, c.reference_peaks_cm1, c.observed_peaks_cm1 "
+                "FROM measurement.calibrations c "
+                "JOIN measurement.instruments i ON i.instrument_id = c.instrument_id "
+                "WHERE c.standard_material IN ('Polystyrene (PS)', 'Silicon (Si)') "
+                "AND c.calibration_type = 'raman_shift' AND c.result = 'pass'")
+            cal, peaks = {}, {}
+            for d, inst, material, shift, ref, obs in cur.fetchall():
+                k = (d.isoformat(), inst)
+                ref_a = np.asarray(ref, dtype=float)
+                err_a = np.asarray(obs, dtype=float) - ref_a
+                if material.startswith("Polystyrene"):
+                    if k in cal:
+                        raise RuntimeError(f"PS calibration ambiguous for {k}")
+                    if shift is None or not np.allclose(err_a, float(shift), atol=0.05):
+                        raise RuntimeError(f"stored global_shift disagrees with peak errors for {k}")
+                    cal[k] = float(shift)
+                peaks.setdefault(k, []).append((ref_a, err_a, material))
+            # PS+Si 1차 축 보정: 관측오차 err(x) = a + b·x 를 두 물질의 피크에 최소제곱 적합.
+            # PS 관측피크는 DB에 global_shift로 파생 저장돼 있어 8점이 같은 오차를 가지며,
+            # Si 520.7은 독립 관측이라 기울기는 사실상 Si↔PS 차이가 결정한다.
+            linear = {}
+            for k, items in peaks.items():
+                mats = {m for _, _, m in items}
+                if not {"Polystyrene (PS)", "Silicon (Si)"} <= mats:
+                    raise RuntimeError(f"PS+Si calibration incomplete for {k}: {mats}")
+                xs = np.concatenate([r for r, _, _ in items])
+                es = np.concatenate([e for _, e, _ in items])
+                linear[k] = fit_standard_material_axis(xs, xs + es)
+            mids = [int(m) for m in key_to_mid.values()]
+            cur.execute(
+                "SELECT m.measurement_id, r.measurement_date, i.instrument_name "
+                "FROM measurement.measurements m "
+                "JOIN measurement.runs r ON r.measurement_run_id = m.measurement_run_id "
+                "JOIN measurement.instruments i ON i.instrument_id = r.instrument_id "
+                "WHERE m.measurement_id = ANY(%s)", (mids,))
+            mid_to_run = {int(mid): (d.isoformat() if d else None, inst)
+                          for mid, d, inst in cur.fetchall()}
+    finally:
+        conn.close()
+    out, out_lin = {}, {}
+    for key, mid in key_to_mid.items():
+        run = mid_to_run.get(int(mid))
+        if run is None or run not in cal or run not in linear:
+            raise RuntimeError(f"no PS/Si calibration for measurement {mid} (run={run})")
+        out[key] = cal[run]
+        out_lin[key] = linear[run]
+    uniq = sorted(set(out.values()))
+    print(f"  PS calibration: {len(cal)} run(s), shift(cm⁻¹) = {uniq}")
+    for k in sorted(linear):
+        a, b = linear[k]
+        print(f"  PS+Si linear {k[0]}: err(x) = {a:+.4f} {b:+.2e}·x  "
+              f"(corr @520={a + b * 520:+.3f}, @1000={a + b * 1000:+.3f}, @2000={a + b * 2000:+.3f})")
+    return out, out_lin
 
 
 def load_mapping() -> Cohort:
@@ -257,7 +458,7 @@ def load_mapping() -> Cohort:
         cancer_group=MAPPING_CANCER,
         control_groups=tuple(g for g in GROUP_ORDER if g != MAPPING_CANCER),
         measurement_ids=None,
-        data_query_filters={"source": "data/mapping/2026*_mapping + clinical_df.xlsx",
+        data_query_filters={"source": "data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/2026*_mapping + clinical_df.xlsx",
                             "raw_axis": json.loads(json.dumps(raw_axis, default=float)),
                             "group_counts": counts},
     )
@@ -270,6 +471,20 @@ def load_mapping() -> Cohort:
 def run_condition(cohort: Cohort, cfg, spec: dict):
     raw = cohort.spectra
     shift_df = None
+    if spec.get("ps_calibrate") == "linear":
+        if cohort.ps_si_linear_by_key is None:
+            raise RuntimeError("PS+Si 보정은 aecd 코호트(measurement.calibrations)에서만 가능")
+        # x_corrected = x_observed − (a + b·x_observed), run 단위 1차 보정
+        raw = {}
+        for k, (x, y) in cohort.spectra.items():
+            a, b = cohort.ps_si_linear_by_key[k]
+            raw[k] = (apply_standard_material_axis(x, a, b), y)
+    elif spec.get("ps_calibrate"):
+        if cohort.ps_shift_by_key is None:
+            raise RuntimeError("PS 보정은 aecd 코호트(measurement.calibrations)에서만 가능")
+        # x_corrected = x_observed − global_shift (AECD API 파이프라인과 동일 정의)
+        raw = {k: (np.asarray(x, dtype=float) - cohort.ps_shift_by_key[k], y)
+               for k, (x, y) in raw.items()}
     if spec["calibrate"]:
         raw, shift_df = calibrate_spectra_batch(
             raw, target_wn=cfg.preprocessing.calibration_reference_wn,
@@ -351,15 +566,29 @@ TASK_FILES = {"screening": "patient_oof_predictions.csv",
 # 실행
 # ---------------------------------------------------------------------------
 
-def run_name(cohort: str, cond: str) -> str:
-    return f"guide_{cohort}_{cond}_{DATE_TAG}"
+def run_name(cohort: str, cond: str, date_tag: str = DATE_TAG) -> str:
+    return f"guide_{cohort}_{cond}_{date_tag}"
+
+
+def _check_tags(meta: dict, tags: RecordTags, out_dir: Path) -> None:
+    """저장된 산출물과 이번 실행의 기록 태그가 같은지 확인한다.
+
+    record_tags가 없는 기존 산출물(PL-3)은 기본 태그로 만든 것이므로 기본값만 허용한다 —
+    PL-3 결과가 다른 phase·notes로 DB에 재적재되는 것을 막는다.
+    """
+    saved = meta.get("record_tags") or dataclasses.asdict(DEFAULT_TAGS)
+    if saved != dataclasses.asdict(tags):
+        raise SystemExit(f"{out_dir}: 저장된 record_tags {saved} ≠ 이번 인자 {dataclasses.asdict(tags)}")
 
 
 def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, dry_run: bool,
-            tasks: tuple[str, ...] = ("screening", "three_class"), force: bool = False):
+            tasks: tuple[str, ...] = ("screening", "three_class"), force: bool = False,
+            tags: RecordTags = DEFAULT_TAGS):
     for cond in conditions:
         spec = CONDITIONS[cond]
-        out_dir = OUT_ROOT / cohort.name / cond
+        out_dir = tags.out_root / cohort.name / cond
+        if (out_dir / "run_metadata.json").exists():
+            _check_tags(json.loads((out_dir / "run_metadata.json").read_text()), tags, out_dir)
         todo = [t for t in tasks if force or dry_run or not (out_dir / TASK_FILES[t]).exists()]
         if not todo:
             print(f"\n[{cohort.name}/{cond}] 이미 있음 — 건너뜀 (--force로 재계산)")
@@ -412,10 +641,17 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
         if shift_df is not None:
             shift_df.to_csv(out_dir / "calibration_shifts.csv", index=False, encoding="utf-8-sig")
         meta.update({
-            "run_name": run_name(cohort.name, cond),
+            "run_name": run_name(cohort.name, cond, tags.date_tag),
+            "record_tags": dataclasses.asdict(tags),
             "cohort": cohort.name, "site": cohort.site, "condition": cond,
             "label": spec["label"], "method_key": spec["method_key"],
             "calibrate": spec["calibrate"],
+            "ps_calibrate": spec.get("ps_calibrate", False),
+            "ps_shift_cm1": (None if not spec.get("ps_calibrate") else
+                             sorted({float(v) for v in cohort.ps_shift_by_key.values()})),
+            "ps_si_linear": (None if spec.get("ps_calibrate") != "linear" else
+                             sorted({(round(a, 5), round(b, 8))
+                                     for a, b in cohort.ps_si_linear_by_key.values()})),
             "preprocessing": {k: (list(v) if isinstance(v, tuple) else v)
                               for k, v in dataclasses.asdict(prep_cfg).items()
                               if isinstance(v, (int, float, str, bool, tuple, list)) or v is None},
@@ -444,10 +680,16 @@ def compute(cohort: Cohort, conditions: list[str], seeds: tuple[int, ...], cfg, 
 # CI 표 + DB 적재 (저장된 예측에서만 계산 — 재학습 없음)
 # ---------------------------------------------------------------------------
 
-def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str, task: Task) -> CohortSpec:
-    if cohort_key == "aecd":
+def _cohort_spec(meta: dict, pt: pd.DataFrame, cohort_key: str, task: Task,
+                 date_tag: str = DATE_TAG) -> CohortSpec:
+    if cohort_key == "aecd_ctrl":
+        cancer, control = (AECD_CANCER,), ("control",)
+        cohort_id, site = f"aecd_prostate_vs_control_{date_tag}", "aecd_platform"
+        note = ("aecd_platform 전립선암 vs 정상(control)만 — 질환대조군 제외. 3군 코호트의 부분집합이며 "
+                "같은 환자·같은 전처리에서 두 군만으로 학습·OOF. 양성=전립선암.")
+    elif cohort_key == "aecd":
         cancer, control = (AECD_CANCER,), tuple(c for c in AECD_COHORTS if c != AECD_CANCER)
-        cohort_id, site = f"aecd_prostate3_{DATE_TAG}", "aecd_platform"
+        cohort_id, site = f"aecd_prostate3_{date_tag}", "aecd_platform"
         note = ("aecd_platform 전립선 3군(prostate / prostate disease control / control) = 보라매 "
                 "113검체×121점 매핑 데이터의 DB 사본(2026-09-02 Drop 1명 제외). 양성=전립선암.")
     else:
@@ -487,7 +729,8 @@ def _task_rows(pt: pd.DataFrame, task: Task, rname: str, cohort: CohortSpec) -> 
     return rows
 
 
-def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFrame:
+def build_ci(cohort_key: str, conditions: list[str], load_db: bool,
+             tags: RecordTags = DEFAULT_TAGS) -> pd.DataFrame:
     tracker = None
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
                             text=True).stdout.strip() or None
@@ -497,15 +740,16 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
 
     summary, primary, primary3 = [], {}, {}
     for cond in conditions:
-        out_dir = OUT_ROOT / cohort_key / cond
+        out_dir = tags.out_root / cohort_key / cond
         if not (out_dir / "run_metadata.json").exists():
             print(f"  (skip) {out_dir} 결과 없음")
             continue
         meta = json.loads((out_dir / "run_metadata.json").read_text())
+        _check_tags(meta, tags, out_dir)
         rname = meta["run_name"]
         allp = pd.read_csv(out_dir / TASK_FILES["screening"], encoding="utf-8-sig")
         pt = allp[allp.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
-        cohort = _cohort_spec(meta, pt, cohort_key, Task.CANCER_SCREENING)
+        cohort = _cohort_spec(meta, pt, cohort_key, Task.CANCER_SCREENING, tags.date_tag)
         rows = _task_rows(pt, Task.CANCER_SCREENING, rname, cohort)
         primary[cond] = pt
         auc = rows[0]
@@ -524,7 +768,7 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
         if three.exists():
             all3 = pd.read_csv(three, encoding="utf-8-sig")
             pt3 = all3[all3.seed == PRIMARY_SEED].sort_values("subject").reset_index(drop=True)
-            cohort3 = _cohort_spec(meta, pt3, cohort_key, Task.PROSTATE_THREE_CLASS)
+            cohort3 = _cohort_spec(meta, pt3, cohort_key, Task.PROSTATE_THREE_CLASS, tags.date_tag)
             rows3 = _task_rows(pt3, Task.PROSTATE_THREE_CLASS, rname, cohort3)
             rows += rows3
             primary3[cond] = pt3
@@ -543,7 +787,7 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
         print(line)
 
         if tracker is not None:
-            _load_run(tracker, meta, rows, out_dir, commit)
+            _load_run(tracker, meta, rows, out_dir, commit, tags)
 
     # 조건 간 짝지은 차이 — 같은 환자를 함께 재추출. 기준 2개(production, cal_despike)
     for ref in DELTA_REFERENCES:
@@ -575,7 +819,18 @@ def build_ci(cohort_key: str, conditions: list[str], load_db: bool) -> pd.DataFr
     return pd.DataFrame(summary)
 
 
-def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit: str | None) -> None:
+def _run_notes(meta: dict, out_dir: Path, tags: RecordTags) -> str:
+    """experiment.runs.notes. tags.notes가 없으면 PL-3 탐색 실험 문구(기존 고정 문구와 동일)."""
+    body = f"[{meta['cohort']}] {meta['label']}. LR C=1.0 고정(PL-1 규약). "
+    if tags.notes is None:
+        return (f"PL-3 설계가이드 요인별 비교 {body}"
+                f"탐색 실험 — audit gate 면제(사용자 결정 2026-09-08), 채택 근거 아님. "
+                f"산출물 {out_dir.relative_to(REPO)}")
+    return f"{tags.notes} {body}산출물 {out_dir.relative_to(REPO)}"
+
+
+def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit: str | None,
+              tags: RecordTags = DEFAULT_TAGS) -> None:
     """runs 행을 method_id·config와 함께 만들고(없을 때만), CI 행과 시드 행을 얹는다."""
     rname = meta["run_name"]
     with tracker._connect() as conn, conn.cursor() as cur:  # noqa: SLF001 — 조회 전용
@@ -594,9 +849,7 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
             n_subjects=meta["qc"]["n_patients"], n_spectra=meta["qc"]["final"],
             qc_passed_n=meta["qc"]["final"], qc_failed_n=meta["qc"]["dropped"],
             started_at=meta.get("started_at", meta["finished_at"]), status="complete",
-            notes=f"PL-3 설계가이드 요인별 비교 [{meta['cohort']}] {meta['label']}. "
-                  f"LR C=1.0 고정(PL-1 규약). 탐색 실험 — audit gate 면제(사용자 결정 2026-09-08), "
-                  f"채택 근거 아님. 산출물 {out_dir.relative_to(REPO)}",
+            notes=_run_notes(meta, out_dir, tags),
         )
         # create_run은 코호트 배열 컬럼을 넣지 않고 load_metric_rows의 ON CONFLICT도
         # 갱신하지 않으므로 여기서 직접 채운다 (01_schema.sql: 비교 가능성 판단 근거).
@@ -605,8 +858,8 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
             cur.execute(
                 "UPDATE experiment.runs SET cancer_types=%s, non_cancer_groups=%s, "
                 "aggregation=%s, phase=%s, variable=%s, baseline=%s WHERE run_id=%s",
-                (list(cohort.cancer_groups), list(cohort.control_groups), "patient", "PL-3",
-                 meta["condition"], "cal_despike", run_id),
+                (list(cohort.cancer_groups), list(cohort.control_groups), "patient", tags.phase,
+                 meta["condition"], tags.baseline_ref, run_id),
             )
             conn.commit()
         ids_path = out_dir / "measurement_ids.npy"
@@ -637,9 +890,22 @@ def _load_run(tracker, meta: dict, rows: list[MetricRow], out_dir: Path, commit:
     print(f"    → experiment.runs #{run_id} ({rname})")
 
 
+def record_tags(date_tag: str, phase: str, notes: str | None, baseline_ref: str) -> RecordTags:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", date_tag):
+        raise SystemExit(f"--date-tag는 영문·숫자·_·-만 허용 (폴더명·run_name에 쓰임): {date_tag!r}")
+    if not phase.strip():
+        raise SystemExit("--phase가 비어 있다")
+    if notes is not None and not notes.strip():
+        raise SystemExit("--notes가 비어 있다 (생략하면 PL-3 문구)")
+    if baseline_ref not in CONDITIONS:
+        raise SystemExit(f"--baseline-ref가 CONDITIONS에 없다: {baseline_ref!r}")
+    return RecordTags(date_tag=date_tag, phase=phase, notes=notes, baseline_ref=baseline_ref)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--cohort", choices=["aecd", "mapping", "both"], default="both")
+    ap.add_argument("--cohort", choices=["aecd", "aecd_ctrl", "mapping", "both"], default="aecd",
+                    help="aecd=전립선 3군, aecd_ctrl=암 vs 정상만(질환대조 제외), mapping=파일 로더 확인용")
     ap.add_argument("--conditions", default=",".join(CONDITIONS),
                     help="쉼표 구분. 기본: 전부")
     ap.add_argument("--seeds", default=",".join(map(str, SEEDS)))
@@ -650,9 +916,19 @@ def main() -> None:
                     help="학습 없이 저장된 예측에서 CI 표·summary만 다시 만듦 (DB 미적재)")
     ap.add_argument("--tasks", default="screening,three_class")
     ap.add_argument("--force", action="store_true", help="이미 있는 task 결과도 재계산")
+    ap.add_argument("--date-tag", default=DEFAULT_TAGS.date_tag,
+                    help="산출물 폴더·run_name·cohort_id 태그 (기본 PL-3 값). 바꾸면 PL-3 run과 cohort_id가 달라짐")
+    ap.add_argument("--phase", default=DEFAULT_TAGS.phase, help="experiment.runs.phase (기본 PL-3)")
+    ap.add_argument("--notes", default=None,
+                    help="experiment.runs.notes 머리말. 생략 시 PL-3 탐색 실험(감사 게이트 면제) 문구")
+    ap.add_argument("--baseline-ref", default=DEFAULT_TAGS.baseline_ref,
+                    help="experiment.runs.baseline에 기록할 기준 조건 (CONDITIONS 키)")
     args = ap.parse_args()
+    tags = record_tags(args.date_tag, args.phase, args.notes, args.baseline_ref)
 
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
+    if conditions == ["PS_LADDER"]:
+        conditions = list(PS_LADDER)
     unknown = set(conditions) - set(CONDITIONS)
     if unknown:
         raise SystemExit(f"unknown conditions: {sorted(unknown)}")
@@ -665,18 +941,25 @@ def main() -> None:
         cfg = load_config()
         for key in cohorts:
             print(f"\n=== 데이터 로드: {key} ===")
-            cohort = load_aecd() if key == "aecd" else load_mapping()
+            if key == "aecd":
+                cohort = load_aecd()
+            elif key == "aecd_ctrl":
+                cohort = load_aecd(groups=(AECD_CANCER, "control"), name="aecd_ctrl")
+            else:
+                cohort = load_mapping()
             compute(cohort, conditions, seeds, cfg, args.dry_run,
-                    tasks=tuple(t.strip() for t in args.tasks.split(",")), force=args.force)
+                    tasks=tuple(t.strip() for t in args.tasks.split(",")), force=args.force,
+                    tags=tags)
         if args.dry_run:
             print("\n(dry-run) 저장·적재 없음")
             return
 
     print("\n=== CI 표 / summary ===")
-    frames = [build_ci(key, conditions, load_db=args.load_db and key == "aecd") for key in cohorts]
+    frames = [build_ci(key, conditions, load_db=args.load_db and key.startswith("aecd"), tags=tags)
+              for key in cohorts]
     summary = pd.concat([f for f in frames if len(f)], ignore_index=True)
-    OUT_ROOT.mkdir(parents=True, exist_ok=True)
-    path = OUT_ROOT / "summary.csv"
+    tags.out_root.mkdir(parents=True, exist_ok=True)
+    path = tags.out_root / "summary.csv"
     if path.exists():
         old = pd.read_csv(path, encoding="utf-8-sig")
         old = old[~old.set_index(["cohort", "condition"]).index.isin(

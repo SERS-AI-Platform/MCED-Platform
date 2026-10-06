@@ -16,7 +16,7 @@ from mapping_repeat_average_peaks import (
 )
 
 REPO = Path("/home/user/SERS-AI")
-MAPPING_ROOT = REPO / "data/mapping"
+MAPPING_ROOT = REPO / "data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814"
 CLINICAL_PATH = MAPPING_ROOT / "clinical_df.xlsx"
 GRID_PATH = REPO / "artifacts/usersnet/v1.0.0/common_grid.npy"
 GROUP_ORDER = ("Control", "Prostate disease control", "Prostate cancer")

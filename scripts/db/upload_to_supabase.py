@@ -29,7 +29,7 @@ HEADERS = {
 
 BASE_DIR = Path("/home/user/SERS-AI")
 RESULTS_DIR = BASE_DIR / "results"
-CLINICAL_DIR = BASE_DIR / "data" / "clinical_data" / "standardized"
+CLINICAL_DIR = BASE_DIR / "data" / "01_clinical_metadata" / "02_standardized_1782" / "standardized"
 DASHBOARD_DIR = Path("/home/user/workspace/solum-dashboard")
 
 def post_batch(table, rows, batch_size=500):

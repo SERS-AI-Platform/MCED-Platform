@@ -39,5 +39,10 @@ done
 
 echo "경고: localhost / $_pghost_gateway 어느 쪽에서도 ${PGDATABASE:-aecd_platform}에 인증하지 못했습니다." >&2
 echo "      .env의 PGUSER/PGPASSWORD를 확인하세요." >&2
+# 2026-10-02부터 aecd_platform은 저장 망 서버(192.168.10.133)에 있고 .env는 PGPORT=15432(SSH 터널)를 쓴다.
+if [ "${PGPORT:-5432}" = "15432" ]; then
+    echo "      서버 DB 터널이 열려 있는지 확인하세요 (Windows PowerShell):" >&2
+    echo "        powershell -ExecutionPolicy Bypass -File scripts\\db\\pg_tunnel.ps1" >&2
+fi
 unset _pghost_try _pghost_gateway _pghost_quiet _candidate
 return 1 2>/dev/null || exit 1

@@ -46,7 +46,7 @@ def processed_spectra_path() -> Path:
 def build_raw_measurement_metadata() -> pd.DataFrame:
     config = load_config("config/config.yaml")
     rows = []
-    raw_root = PROJECT_ROOT / "data" / "임상데이터"
+    raw_root = PROJECT_ROOT / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
     for path in sorted(raw_root.glob("*/*/*.CSV")):
         if "_ave" in path.stem.lower():
             continue

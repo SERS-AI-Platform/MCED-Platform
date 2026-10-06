@@ -30,7 +30,7 @@ def _normalize_row(row: dict[str, str | None]) -> dict[str, str | None]:
 
 
 def _clinical_paths(repo_root: Path) -> tuple[Path, ...]:
-    root = repo_root / "data" / "clinical_data" / "standardized"
+    root = repo_root / "data" / "01_clinical_metadata" / "02_standardized_1782" / "standardized"
     canonical = root / "all_clinical_standardized.csv"
     if canonical.is_file():
         return (canonical,)
