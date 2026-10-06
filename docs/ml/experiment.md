@@ -1432,7 +1432,7 @@
   - 정정(2026-10-03, 감사 에이전트 지적): 7암종 표의 dl_rep 민감도 0.740 → **0.739**(table.csv 0.7395 반올림 오류). 관측(②)의 "stage 1 AUC는 조건별 ±0.01 안"은 과장 — stk −0.0066 · heat +0.0044 · gaf −0.0083 · lr −0.0072는 ±0.01 안이지만 **line_pre −0.0106 · dl_rep −0.0144는 밖**. 결론(fold 재추출 영향과 구분 불가)은 그대로.
   - ⚠️ 추가 주의(2026-10-06, 사용자 지적): DL-1~7의 STK-V2 대조군은 `scripts/training/train_usersnet.py`의 `EXTENDED_BASE_MODELS` 10개를 그대로 재학습하므로 base 모델 `lr_peak`가 **문헌 고정 위치 `KNOWN_PEAKS` 17개**(448~1651 cm-1, Voigt 피팅)를 쓴다. 이 피크 정의는 2026-06-10 모델 개정 보고서(vault `Reports/Model_Revision_20260610/`)에서 데이터 근거 없음으로 판정돼 데이터 기반 peak registry로 대체하기로 했으나 운영 STK-V2·대조군 코드에는 반영되지 않은 상태다. improved 트림(600–1800)에서는 448·539가 범위 밖이라 15개만 유효. 10개 중 1개 base 모델이고 ElasticNet meta가 가중하므로 DL-1~7의 결론(1단계 STK-V2 우위)을 뒤집을 크기는 아니지만, 대조군 정의의 한계로 기록한다. 후속: BM-15(registry 재구축 + lr_peak 창 교정).
 
-- [x] BM-15 (1): 현행 조건 데이터 기반 peak registry 재구축 + 밴드 위치의 strip lot 의존 (2026-10-06) ✅ ((2) STK-V2 대조군 lr_peak 교정은 진행 중)
+- [x] BM-15: 현행 조건 데이터 기반 peak registry 재구축 + 밴드 위치의 strip lot 의존 (1) · STK-V2 대조군 lr_peak 교정 (2) (2026-10-06) ✅
   > 배경(사용자, 2026-10-06): "SERS에서 prominence·고유 진동을 어떻게 정의하느냐가 먼저다. KNOWN_PEAKS는 이미 틀린 것으로 보고 안 쓰기로 했다." 확인: 2026-06-10 모델 개정 보고서(vault `Reports/Model_Revision_20260610/`)가 Voigt `KNOWN_PEAKS`(문헌 고정 17위치)를 데이터 근거 없음으로 판정하고 데이터 기반 registry(발견 153 → accepted 127 → 판별 71, 변경 전 코호트·레거시 전처리)를 만들었으나, 운영 STK-V2(`scripts/training/train_usersnet.py` `lr_peak`)와 DL-1~7 대조군에는 반영되지 않았음(DL-7 항목 주의 참조).
   > 스크립트 `scripts/analysis/peak_registry_lot_cohort.py`(worktree, 06-10 `build_data_driven_peak_registry.py`를 import해 같은 기준 적용) → `results/peak_registry_lot1354/` (peak_registry.csv, window_stability.csv, known_peaks_vs_registry.csv, registry_windows_union.csv, peak_registry_windows.png, summary.json, sample_run_meta.csv = DB 2026-10-06 조회). in-fold 선택 모듈 `scripts/analysis/peak_registry_windows.py`.
   - 코호트·입력: DL-7과 동일(lot BCCP0922 ≤ 9/29, 재측정은 최근 측정, improved 600–1800 625점, QC 생존 **1,138검체** 평균 스펙트럼 ch0; replicate 출현율은 35,136행). 군 = CONTROL(비암 431) + PRO 223·PAN 109·LUN 74·BRE 108·CRC 113·BLC 68·OVA 12. **범위(scope) = 전체 1,138검체 → 기술용(descriptive)**, CV 평가의 특징으로 쓰면 안 됨(그래서 (2)는 fold 안 선택).
@@ -1443,6 +1443,21 @@
   - **밴드 위치의 strip lot 의존**(검체별 매칭 중심, lot당 n ≥ 10): 727 밴드가 가장 크게 움직임 — CONTROL lot 평균 723.4(SK20260804B01) → 735.2(SK20260810C01), **lot 순서대로 단조 증가, 범위 11.7 cm-1**; PRO 723.7 → 736.6(12.9), BRE 727.1 → 740.6(13.4). η²(lot) 0.22(중앙값)~0.68. 1231(PRO 범위 12.5)·1302(CONTROL 16.9, 폭 넓은 밴드)·1146(LUN 7.2)·1595(BLC 7.8)도 lot 범위 7 cm-1 이상. 848·935·1002는 범위 ≤ 5.6, η²(lot) ≤ 0.15로 안정. 병원 η²는 비암(여러 병원)에서 ≤ 0.11 — lot 효과가 병원 효과보다 큼(암종은 병원=1이라 측정 불가).
   - **관측**: ① 현행 조건에서도 데이터 기반 밴드는 15개로 정리되고 문헌 17개와 대부분 겹치지만, 2개는 근거가 없고 5개는 빠져 있다. ② 727 cm-1(문헌 adenine 724) 밴드 위치가 strip lot에 따라 12~13 cm-1 이동하므로 **±15 고정 창 Voigt 피팅의 "peak shift" 특징은 분자가 아니라 lot을 읽는다** — BM-7(lot 보정)·9/22 "750–765 lot 의존" 관측과 같은 방향. ③ 따라서 피크 특징은 fold 안에서 데이터로 창을 정하고(폭 16~90, 밴드 15개 × height·area·contrast = 45차원), lot 민감 밴드는 별도 표시가 필요하다.
   - ⚠️ 한계: 검체 평균 기준 registry(06-10 규약)라 replicate 단위 hot-spot 변동은 출현율로만 반영 · lot과 측정일·측정자가 거의 완전히 교란(lot별 측정 기간이 겹치지 않음)되어 η²(lot)=η²(date)에 가깝고 분리 불가 · OVA 12검체는 lot당 n < 10이라 lot 통계 없음 · 임계값(3σ·30 %·35 cm-1) 민감도는 미시험 · 밴드 15개의 분자 귀속(assignment)은 하지 않음(문헌 이름은 비교 참고용).
+
+  **(2) STK-V2 대조군의 lr_peak 교정 — `stk_reg`** (`postchange_dl_two_stage.py --conditions stk_reg --cohort 1354`, 커밋 8eff028; `_stk_reg_fold` → `peak_registry_windows.fold_peak_matrix`): 10개 base 모델 중 `lr_peak` 입력만 교체 — 문헌 `KNOWN_PEAKS` Voigt(17위치 × 면적·높이·FWHM·이동 + 비율 7 = 75차원) 대신 **각 outer fold의 학습 검체 평균에서만** 위 기준으로 군별 창을 고르고 15 cm-1 간격으로 밴드로 묶어(fold별 15~17개: 15개 16 fold·16개 6·17개 3) 밴드당 height·area·contrast(06-10 peak-evidence 특징) 45~51차원. 나머지 9개 base·meta·fold·시드는 DL-7 stk와 완전히 동일 → 짝 비교. fold당 1,195 s(12 worker, 53.5 min).
+
+    | 지표 (1,138검체, 7암종 채점) | stk (KNOWN_PEAKS) | stk_reg (데이터 밴드) | 차이 stk_reg − stk (이긴 시드) |
+    |---|---|---|---|
+    | stage 1 AUC | 0.7726±0.0041 | **0.7761±0.0047** | **+0.0035±0.0019 (5/5)** |
+    | 민감도 / 특이도 @0.5 | 0.716 / 0.687 | 0.705 / 0.691 | −0.0107 (0/5) / +0.0032 (2/5) |
+    | 균형정확도 | 0.7016 | 0.6979 | −0.0038±0.0089 (2/5) |
+    | cascade macro-F1 | 0.3207±0.0058 | 0.3098±0.0115 | −0.0109±0.0164 (1/5) |
+    | cascade macro OvR AUC | 0.7291 | 0.7342 | +0.0050±0.0036 (5/5) |
+    | cancer-only macro-F1 | 0.4053±0.0044 | 0.3971±0.0098 | −0.0082±0.0122 (1/5) |
+
+    OVA 제외 재채점: AUC +0.0037 (5/5), cascade mF1 −0.0099 (1/5), cancer-only mF1 −0.0043 (2/5). 암종별 cascade recall 변화: PRO −0.034 · PAN −0.024 · CRC −0.016 · LUN −0.003 · BRE +0.004 · BLC +0.008 · OVA 0.017 → 0.
+  - **관측 (2)**: 문헌 피크를 데이터 밴드로 바꾸면 1단계 AUC가 작지만 5/5 시드 일관되게 오르고(+0.0035; DL-7 blend 사전 지정 조합의 +0.0016~+0.0043과 같은 크기), 게이트 0.5에서는 민감도가 0.011 내려가고 특이도가 그만큼 올라 균형정확도는 그대로다. 2단계(암종) 지표는 −0.01 안팎으로 내려가지만 시드 편차(0.012~0.016) 안이고, 암종 OvR AUC는 오히려 +0.005 (5/5). 즉 **KNOWN_PEAKS 제거로 성능이 떨어지지 않으며**, 1/10 base 모델 교체의 효과는 전체적으로 ±0.01 안이다 — "근거 없는 특징을 근거 있는 특징으로 바꿔도 손해가 없다"가 결론이고, 큰 이득을 기대할 자리는 아니다(ElasticNet meta가 lr_peak에 작은 가중을 줬을 가능성; base별 meta 가중은 저장하지 않아 미확인).
+  - ⚠️ 한계 (2): 밴드 특징 3종(height·area·contrast)만 시험, Voigt 폭·이동 특징의 데이터 기반 판은 미시험 · 밴드 선택 임계값 민감도 미시험 · 운영 `train_usersnet.py`에는 미반영(반영 여부는 사용자 결정) · 1,138검체 1코호트 결과.
 
 #### 06장 막대 색 수정 + 절대 세기 보완 (2026-09-28, 사용자 지적)
 
