@@ -13,6 +13,8 @@ Dated sources:
     july       20260715 powder reproducibility (one run per Sigma batch), 20260716 powder,
                20260720 YPAN (operator 엄찬호 from its 라만 분석 txt). Date = folder/log date.
     handheld   equipment_comparison_NOR_5devices_undated/handheld, Metrohm Mira P. Date = CreatedDate in each export.
+    handheld_retest  03_.../handheld_retest_12groups_20260416-20260526 (4월 재측정 on Mira P, mirrored from the NAS
+               upload of raman01). Label from file name (CSV Name unreliable). Date = CreatedDate.
     metabolite metabolite reference standards; date = original share folder (name + size match).
 
 Undated sources (measurement_date NULL, notes carry measurement_date=unknown; needs
@@ -361,6 +363,70 @@ def src_handheld() -> tuple[dict[str, Run], list[File]]:
     return runs, files
 
 
+HH_RETEST = "handheld_retest_12groups_20260416-20260526"
+HH_RETEST_NAS = "nfs://192.168.10.10/volume1/sers_raw/2026/10/raman01"
+HH_FILE_RE = re.compile(r"(?P<stem>.+?)_\.?(?P<rep>\d+|ave)\s*\(\d+\)_Sample_[\d_]+", re.I)
+HH_CONTROL = {"0. Ref_PS": "PS", "0. Ref_Si": "Si"}
+# left out (test data, user 2026-10-06): CRC 3 measured twice on 4/16 (15:33 and 17:07 sets);
+# CRC 46 has two _4 files and no _5
+# day folders loaded in this pass; 20260427+ were still uploading on 2026-10-06 (load them as the next range)
+HH_FOLDERS = ("20260416", "20260424")
+HH_HOLD = {("hhretest_20260416", "CRC_3"), ("hhretest_20260420", "CRC_46")}
+
+
+def src_handheld_retest() -> tuple[dict[str, Run], list[File]]:
+    """Handheld (Mira P) 4월 재측정, uploaded by raman01 (2026-10-06) and mirrored from the NAS.
+    The CSV Name field is unreliable in this batch (e.g. "NOR_1" without the sample number,
+    "LIN 106", "H,D. 42"), so the label comes from the file name, which always agrees with its
+    group folder. Date = CreatedDate. Blank sub-labels (e.g. "4-2") survive only in raw_filename."""
+    root = DATA / "03_sers_date_lot_balanced_acquisition" / HH_RETEST
+    runs: dict[str, Run] = {}
+    files: list[File] = []
+    for p in csvs(root):
+        if not HH_FOLDERS[0] <= p.relative_to(root).parts[0] <= HH_FOLDERS[1]:
+            continue
+        m = HH_FILE_RE.fullmatch(p.stem)
+        if m is None:
+            raise ValueError(f"unexpected handheld file name: {p}")
+        if m.group("rep").lower() == "ave":
+            continue
+        meta = handheld_meta(p)
+        if not meta["DeviceName"].startswith("Mira P"):
+            raise ValueError(f"not a Mira P export: {p}")
+        day = datetime.fromisoformat(meta["CreatedDate"]).date()
+        key = f"hhretest_{day:%Y%m%d}"
+        run = runs.setdefault(key, Run(
+            key, day, instrument=MIRA_P, laser_wavelength_nm=float(meta["Wavelength"]),
+            exposure_time_s=float(meta["IntTime"]), notes=[
+                "4월 재측정 handheld (pre reducing-agent change; reagent identity not recorded)",
+                f"source_root=data/03_sers_date_lot_balanced_acquisition/{HH_RETEST}",
+                f"canonical copy={HH_RETEST_NAS} (sha256 in _ledger/uploads.csv)",
+                f"device={meta['DeviceName']}", f"LaserPower setting={meta['LaserPower']} (device level, not mW)",
+                f"SmartTip={meta['SmartTipName']} SN {meta['SmartTipSerialNumber']}",
+                f"device user={meta['UserName']}", f"LastCalibrationDate={meta['LastCalibrationDate']}",
+                "label from file name (CSV Name field unreliable in this batch)"]))
+        folder_note = f"day_folder={p.relative_to(root).parts[0]}"
+        if folder_note not in run.notes:
+            run.notes.append(folder_note)
+        folder, stem = p.parent.name, m.group("stem").strip()
+        if folder == "0. Blank":
+            files.append(File(p, key, "blank", control_type="strip_blank"))
+        elif folder in HH_CONTROL:
+            if not stem.startswith(HH_CONTROL[folder]):
+                raise ValueError(f"control file in wrong folder: {p}")
+            files.append(File(p, key, "control", control_type=HH_CONTROL[folder], source_kind="calibration"))
+        else:
+            label = clinical_label(stem)
+            group = folder.split(". ", 1)[1]
+            if label is None or label.rsplit("_", 1)[0] != GROUP_ALIASES.get(group, group):
+                raise ValueError(f"label {label!r} does not match folder {folder!r}: {p}")
+            if (key, label) in HH_HOLD:
+                print(f"  HELD (not loaded): {p.relative_to(root)}")
+                continue
+            files.append(File(p, key, "clinical", label=label, rep=int(m.group("rep"))))
+    return runs, files
+
+
 METABOLITE_SHARE = Path("/mnt/c/Users/user/OneDrive - solum/헬스케어-R BD - RnBD/퇴사자/▷보티낫린"
                         "/4. Metabolite/Experimental data")
 
@@ -491,7 +557,8 @@ def src_metrohm() -> tuple[dict[str, Run], list[File]]:
 
 
 SOURCES = {"mbsu": src_mbsu, "april": src_april, "raw_dated": src_raw_dated, "july": src_july,
-           "april_spa": src_april_spa, "handheld": src_handheld, "metabolite": src_metabolite,
+           "april_spa": src_april_spa, "handheld": src_handheld, "handheld_retest": src_handheld_retest,
+           "metabolite": src_metabolite,
            "thermo_retro": src_thermo_retro, "medical": src_medical, "metrohm": src_metrohm}
 
 
