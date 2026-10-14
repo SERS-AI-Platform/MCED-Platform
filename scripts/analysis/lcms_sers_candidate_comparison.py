@@ -2,7 +2,7 @@
 
 Inputs
 - data/06_supporting_or_previous_outputs/lcmsms_untargeted_BNOR-BPRO_20261014/
-  (supplement 2 per-sample PQN log2 values for 28 standard-matched features, sample map)
+  (supplement 2 per-sample PQN log2 values for 29 standard-matched feature columns, sample map)
 - aecd_platform measurement runs 1-6 (2026-08 Boramae mapping, ~121 points per subject)
 - BM-15 data-driven bands (15 + 727 split into 723a/744b)
 
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import os
 import subprocess
 from pathlib import Path
@@ -148,6 +149,7 @@ def main() -> None:
     pp = load_config().preprocessing
     meta, lc = load_lcms()
     bands = pd.read_csv(BANDS_CSV, encoding="utf-8-sig")
+    shutil.copy(BANDS_CSV, OUT / "bands_used.csv")
     spec = load_spectra(list(meta.index))
 
     A, B = preprocess(spec, pp)
@@ -171,6 +173,10 @@ def main() -> None:
     corr = pd.DataFrame(corr)
     corr["q"] = bh(corr.p)
     corr.sort_values("p").to_csv(OUT / "corr_lcms_vs_band.csv", index=False, encoding="utf-8-sig")
+    # per candidate: strongest of its 34 (band x arm) tests; q is BH over all tests
+    best = corr.sort_values("p").groupby("lcms_feature").head(1).set_index("lcms_feature")
+    best["n_tests_p05"] = corr[corr.p < 0.05].groupby("lcms_feature").size()
+    best.sort_values("q").to_csv(OUT / "per_candidate_best.csv", encoding="utf-8-sig")
 
     # permutation null: shuffle whole LC rows across subjects inside each lot (keeps feature and
     # band correlation structure), count p<0.05 hits and the strongest |rho_pooled|
@@ -200,6 +206,24 @@ def main() -> None:
         "obs_max_abs_rho": obs_max, "null_max_abs_rho_95pct": float(np.percentile(null_max, 95)),
         "perm_p_max_rho": float((1 + sum(m >= obs_max for m in null_max)) / (N_PERM + 1)),
     }
+
+    # 1b) detection (detected vs not) vs band value inside each lot stratum
+    det = []
+    for arm, feat in rows:
+        for f in lc.columns:
+            for s in sorted(meta.lot.unique()):
+                idx = meta.index[meta.lot == s].intersection(lc.index)
+                d = lc.loc[idx, f].notna().astype(int).values
+                if min(d.sum(), len(d) - d.sum()) < 5:
+                    continue
+                for b in feat.columns:
+                    v = feat.loc[idx, b].values
+                    det.append({"arm": arm, "lcms_feature": f, "lot": s, "band": b, "n_detected": int(d.sum()),
+                                "n_not": int(len(d) - d.sum()), "auc_detected": roc_auc_score(d, v),
+                                "p": stats.mannwhitneyu(v[d == 1], v[d == 0]).pvalue})
+    det = pd.DataFrame(det)
+    det["q"] = bh(det.p)
+    det.sort_values("p").to_csv(OUT / "detection_vs_band.csv", index=False, encoding="utf-8-sig")
 
     # 2) SERS group separation on the same contrasts the vendor used
     contrasts = {
@@ -237,6 +261,9 @@ def main() -> None:
         "n_corr_tests": int(corr.p.notna().sum()), "n_corr_q05": int((corr.q < 0.05).sum()),
         "n_corr_p05": int((corr.p < 0.05).sum()),
         **perm_summary,
+        "n_detection_tests": int(len(det)), "n_detection_p05": int((det.p < 0.05).sum()),
+        "n_detection_q05": int((det.q < 0.05).sum()),
+        "bands_csv_sha256_12": hashlib.sha256(BANDS_CSV.read_bytes()).hexdigest()[:12],
         "n_band_tests": int(len(band_df)), "n_band_q05": int((band_df.q < 0.05).sum()),
         "axis_calibration": "none (runs 1-6 calibration_id NULL)", "config_sha256_12": cfg_hash, "git": commit,
     }
