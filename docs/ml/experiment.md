@@ -2050,3 +2050,15 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
   - 정정 후 불합격 5/72(반복성 3: 0810B01-9·0810C01-3·0810C01-5, 위치 2). 불합격 포장 검체 64명 암 AUC 0.832 vs 합격 739명 0.737, 잔차 크기 6.56 vs 6.68 — **여전히 검체 품질과 연관 없음**. 잠정 기준은 "현재 생산분 대비 이상치"를 표시할 뿐 "맞게 측정됐는가"를 판정하지 못함(조성 기반 정답 스펙트럼 필요).
 - **PL-10 해석 정정**: lot 제외 AUC 0.696 → 0.703(+0.007)은 단일 결정적 분할 값이고 무작위 분할 AUC도 같은 만큼(0.724 → 0.728) 올라 **시드 편차(약 0.01) 안의 변화** — "해 없음, 측정 가능한 개선 없음"으로 읽을 것. 앞 문단의 "성분 단위가 낫다는 방향은 확인"은 철회. k ≥ 4 악화는 유지.
 - (PL-8·PL-10 공통 한계) lot 편차 계산의 군·병원 평균에 held-out lot 검체가 포함됨 — lot 단위 상수 보정이라 영향은 작음.
+
+### LCMS-1: 보라매 45명 비표적 LC-MS/MS 후보 vs 같은 검체 SERS 밴드 (2026-10-14) ✅
+> 사용자: LC-MS/MS 결과(코웰바이오다임, 정상 10·전립선암 23·전립선 관련 질환 12) 도착 → 후보를 우리 SERS와 비교. 설계서 `docs/ml/spike_in_lcmsms_validation_design.md` E6를 의도했으나 받은 자료가 **비표적 상대값**(PQN log2)이고 시료별 값은 표준품 대응 28 feature뿐(요산·hypoxanthine·creatinine 시료별 값 없음, 농도 아님) → E6의 PLS→Bland–Altman 불가, E6 분석 ②(창 값 vs LC Spearman)만 탐색적으로 수행.
+
+스크립트 `scripts/analysis/lcms_sers_candidate_comparison.py`(커밋 1e58440), 산출물 `results/lcms_sers_candidates_20261014/`(subjects, sers_band_area_raw/snv, corr_lcms_vs_band, sers_band_group_auc, sers_panel_cv_auc, summary.json). 데이터 `data/06_supporting_or_previous_outputs/lcmsms_untargeted_BNOR-BPRO_20261014/`(SMCX007-NNN → BNOR_n/BPRO_n 대조표 포함).
+
+- **SERS**: 2026-08 보라매 mapping(DB run 1–6), 45명 × 121 point = 5,445 스펙트럼. 축 보정 없음(run 1–6 calibration 미기록). arm A raw = 600–1800 trim + rolling-min baseline, arm B = + SG 5/3 + SNV. 검체값 = point 중앙값 스펙트럼의 밴드 면적(BM-15 15밴드 + 727 분할 723a/744b = 17). config sha256 fca620838311.
+- **교란**: strip lot = 군. 정상·양성질환 → lot 1(08-10~13, 같은 날 섞여 측정), 전립선암 → lot 6(08-13~14). 상관은 lot 층 안 Spearman → Fisher z 합산, 미검출은 결측(검출 시료만, 층당 ≥8).
+- **① LC feature × 밴드 상관(28 × 17 × 2 arm = 986 검정)**: FDR q<0.05 **0개**. p<0.05 78개 vs 층 안 LC 행 순열 200회 귀무 중앙값 53, 95% 88 → **순열 p = 0.10, 우연 수준을 넘지 않음**. 상위(참고): indole-3-acetic acid O-glucuronide–621 ρ −0.54, 2-HPMA–935 ρ −0.53, xanthopterin–892 ρ +0.55(층별 0.75/0.28로 불일치), ascorbic acid–1595 ρ −0.48 (모두 q ≥ 0.12).
+- **② SERS 군 구분(같은 비교, 17밴드 LR 5-fold×5 CV AUC raw / SNV)**: 정상 vs 전립선 관련 질환(같은 lot) **0.43 / 0.40** (LC-MS 패널 0.98–0.99) · GG1–2 vs GG3–5(같은 lot, v11 등급) 0.44 / 0.47 · 정상 vs 전립선암 0.63 / 0.66 (**lot 교란**) · 양성질환 vs 전립선암 0.46 / 0.45 (lot 교란). 밴드 단일 AUC 136검정 FDR 0개.
+- 관측: 이 45명·이 측정 조건에서 LC-MS 후보 feature와 SERS 밴드 면적 사이 연관은 우연과 구분되지 않음. LC-MS에서 가장 강했던 양성질환군 차이(검출 0%↔100% feature 다수)는 같은 lot SERS에서 재현되지 않음. 원인(SERS 감도 밖 물질 / 상대값·PQN vs 비정규화 raw / n 22–23 검정력)은 이 자료로 구분 불가.
+- ⚠️ 한계: LC 값은 PQN(희석 보정) 상대값이라 raw arm 상관은 소변 농도 차이를 함께 봄 · 층당 n 22/23, 검출 시료만이면 16~22 · 등급 불일치 BPRO_29(보고서 GG1 / v11 GG2), BPRO_32(시료명 G5 / 값·v11 GG4) — v11 기준(사용자 결정) · 표적 정량(요산·hypoxanthine·xanthine·creatinine, 동위원소 희석)과 전체 feature 시료별 행렬은 업체에 요청 필요.
