@@ -36,7 +36,7 @@ You are working on SERS-AI — surface-enhanced Raman spectroscopy (SERS) based 
 8-class (with BLC) 결과는 5-class benchmark와 직접 비교 불가.
 
 ### 5. BLC dataset
-- Folder: `data/raw_data/11 BLC (299개)/`
+- Folder: `data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated/BLC_1st_20260319-20260320/`
 - 299 samples (1~300, **#241 missing**)
 - Protocol: SMCXD06, Retrospective, 충북대학교병원
 

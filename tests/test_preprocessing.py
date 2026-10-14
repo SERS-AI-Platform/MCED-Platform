@@ -750,3 +750,28 @@ def test_baseline_before_smooth_changes_order_only():
     np.testing.assert_allclose(default, explicit)
     assert not np.allclose(default, swapped)
     assert np.corrcoef(default, swapped)[0, 1] > 0.98
+
+
+def test_standard_material_axis_roundtrip():
+    from sers.preprocessing import apply_standard_material_axis, fit_standard_material_axis
+
+    ref = np.array([520.7, 621.3, 794.8, 1001.2, 1602.8])
+    a_true, b_true = 0.32, -1.5e-4
+    obs = ref + a_true + b_true * ref
+    a, b = fit_standard_material_axis(ref, obs)
+    assert abs(a - a_true) < 1e-9 and abs(b - b_true) < 1e-12
+    x = np.linspace(400, 2200, 10)
+    corrected = apply_standard_material_axis(x + a_true + b_true * x, a, b)
+    # x_obs = x + err(x); correcting with err(x_obs) leaves a second-order residual only
+    assert np.allclose(corrected, x, atol=1e-3)
+
+
+def test_standard_material_axis_rejects_degenerate():
+    import pytest
+
+    from sers.preprocessing import fit_standard_material_axis
+
+    with pytest.raises(ValueError):
+        fit_standard_material_axis(np.array([520.7]), np.array([521.0]))
+    with pytest.raises(ValueError):
+        fit_standard_material_axis(np.array([520.7, 520.7]), np.array([521.0, 521.1]))

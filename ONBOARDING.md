@@ -98,7 +98,7 @@ sers preprocess              # 전처리 + QC 파이프라인
 ## 8. 역할별 시작점
 
 - **ML / SW 엔지니어**: `src/sers/` 구조 파악 → `docs/architecture/MODEL_WORKFLOW.md` → 테스트 실행 → 작은 `fix/` PR로 워크플로우 체험
-- **데이터 / 임상 담당**: `data/clinical_data/*_column_detail.xlsx`(데이터 사전) → `docs/clinical/` → 위 §5 도메인 규칙 숙지
+- **데이터 / 임상 담당**: `data/01_clinical_metadata/05_dictionaries_and_governance/*_column_detail.xlsx`(데이터 사전) → `docs/clinical/` → 위 §5 도메인 규칙 숙지
 
 ## 9. 막히면 어디를 보나
 
@@ -118,4 +118,4 @@ sers preprocess              # 전처리 + QC 파이프라인
 - [ ] 이 문서 + `CONTRIBUTING.md` + `.github/copilot-instructions.md` 정독
 - [ ] 작은 `docs/` 또는 `fix/` PR을 하나 올려 **PR → CI → 병합** 흐름 체험
 - [ ] §5 도메인 규칙 숙지 (특히 **hospital confound**)
-- [ ] 본인 역할 영역(`src/sers/` 또는 `data/clinical_data/`) 둘러보기
+- [ ] 본인 역할 영역(`src/sers/` 또는 `data/01_clinical_metadata/`) 둘러보기

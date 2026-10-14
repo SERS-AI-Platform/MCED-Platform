@@ -182,7 +182,7 @@ def create_schema(engine, drop_first=False):
 # ==========================================================================
 def load_rds_data():
     """Load the merged RDS file created by create_rds.py."""
-    rds_path = PROJECT_ROOT / "data" / "sers_clinical.rds"
+    rds_path = PROJECT_ROOT / "data" / "06_supporting_or_previous_outputs" / "sers_clinical_R" / "sers_clinical.rds"
     if not rds_path.exists():
         raise FileNotFoundError(
             f"{rds_path} not found. Run 'python create_rds.py' first."

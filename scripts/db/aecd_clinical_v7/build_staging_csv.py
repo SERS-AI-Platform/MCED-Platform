@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from site_map import site_for_label  # noqa: E402
 
 DEFAULT_WORKBOOK = Path("/mnt/c/Users/user/Downloads/전체환자_임상정보_정규화_v7.xlsx")
-DEFAULT_OUTPUT_DIR = Path("/home/user/SERS-AI/data/processed/aecd_platform_ingest")
+DEFAULT_OUTPUT_DIR = Path("/home/user/SERS-AI/data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest")
 DEFAULT_SHEET = "table"
 DEFAULT_SOURCE_MAPPING = "clinical_v7_20260902"
 
@@ -91,6 +91,9 @@ STAGING_COLUMNS = (
     "Microscopy_Bacteria", "source_row_number", "standardization_notes",
 )
 
+# v11 부터 워크북 table 시트의 분석 제외 표시 (--with-eligibility 일 때만 CSV 끝에 붙인다; v7 적재 형식은 그대로)
+ELIGIBILITY_COLUMNS = ("analysis_excluded", "exclusion_reason")
+
 DATE_TEXT_FORMATS = ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y%m%d")
 
 
@@ -126,7 +129,15 @@ def to_date_text(value: object) -> tuple[str | None, bool]:
     return text, False
 
 
-def build(workbook: Path, sheet: str, output_dir: Path, source_mapping: str) -> int:
+def build(workbook: Path, sheet: str, output_dir: Path, source_mapping: str,
+          with_eligibility: bool = False, eligibility_csv: Path | None = None) -> int:
+    columns = STAGING_COLUMNS + (ELIGIBILITY_COLUMNS if with_eligibility or eligibility_csv else ())
+    # 라벨 파일(solum_label, analysis_excluded, exclusion_reason)이 있으면 워크북 값 대신 사용
+    labels: dict[str, dict[str, str]] = {}
+    if eligibility_csv is not None:
+        with eligibility_csv.open(encoding="utf-8-sig") as handle:
+            labels = {LABEL_SPACE_AFTER_UNDERSCORE.sub("_", r["solum_label"]).strip(): r
+                      for r in csv.DictReader(handle)}
     frame = pd.read_excel(workbook, sheet_name=sheet)
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = workbook.stem
@@ -173,10 +184,12 @@ def build(workbook: Path, sheet: str, output_dir: Path, source_mapping: str) -> 
             "source_mapping": source_mapping,
             "site_code": site_code,
         }
-        for column in STAGING_COLUMNS:
+        for column in columns:
             if column in ("source_mapping", "site_code"):
                 continue
             value = label if column == "solum_label" else record.get(column)
+            if column in ELIGIBILITY_COLUMNS and label in labels:
+                value = labels[label][column] or None
             if column in DATE_COLUMNS:
                 text, parsed = to_date_text(value)
                 if not parsed:
@@ -191,7 +204,7 @@ def build(workbook: Path, sheet: str, output_dir: Path, source_mapping: str) -> 
 
     staging_path = output_dir / f"{stem}_staging.csv"
     with staging_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(STAGING_COLUMNS))
+        writer = csv.DictWriter(handle, fieldnames=list(columns))
         writer.writeheader()
         writer.writerows(rows)
 
@@ -227,8 +240,13 @@ def main() -> int:
     parser.add_argument("--sheet", default=DEFAULT_SHEET)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--source-mapping", default=DEFAULT_SOURCE_MAPPING)
+    parser.add_argument("--with-eligibility", action="store_true",
+                        help="analysis_excluded / exclusion_reason 열을 CSV 에 포함 (v11 로더용)")
+    parser.add_argument("--eligibility-csv", type=Path, default=None,
+                        help="검체별 분석 제외 라벨 CSV (solum_label, analysis_excluded, exclusion_reason)")
     args = parser.parse_args()
-    return build(args.workbook, args.sheet, args.output_dir, args.source_mapping)
+    return build(args.workbook, args.sheet, args.output_dir, args.source_mapping, args.with_eligibility,
+                 args.eligibility_csv)
 
 
 if __name__ == "__main__":

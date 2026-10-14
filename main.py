@@ -11,8 +11,8 @@ This script coordinates the entire preprocessing workflow:
 7. Save results
 
 Usage:
-    python main.py                    # Thermo (raw_data) — default
-    python main.py --data-source medical  # Medical (raw_data_medical)
+    python main.py                    # Thermo (02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated) — default
+    python main.py --data-source medical  # Medical (02_sers_primary_pooled_acquisition/ramcheck_retro_12groups_undated)
 """
 
 import argparse
@@ -171,7 +171,7 @@ def parse_args():
         "--data-source",
         choices=["thermo", "medical"],
         default="thermo",
-        help="Data source: 'thermo' (raw_data, default) or 'medical' (raw_data_medical)",
+        help="Data source: 'thermo' (thermo_retro_12groups_undated, default) or 'medical' (ramcheck_retro_12groups_undated)",
     )
     return parser.parse_args()
 

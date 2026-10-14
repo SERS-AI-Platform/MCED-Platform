@@ -215,8 +215,8 @@ def test_configured_inventory_excludes_unmapped_experiment_folders(
     tmp_path: Path,
 ) -> None:
     # Given: one configured clinical folder and one equipment experiment.
-    _write_spectrum(tmp_path / "data" / "raw_data" / "mapped" / "PRO 1_1.CSV")
-    _write_spectrum(tmp_path / "data" / "raw_data" / "equipment" / "PRO 2_1.CSV")
+    _write_spectrum(tmp_path / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "mapped" / "PRO 1_1.CSV")
+    _write_spectrum(tmp_path / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / "equipment" / "PRO 2_1.CSV")
     config = Config(folder_to_group={"mapped": "PRO"})
 
     # When: inventory roots are derived from the application folder mapping.

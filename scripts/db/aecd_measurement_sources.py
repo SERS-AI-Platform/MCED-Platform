@@ -18,7 +18,7 @@ FOLDER_GROUPS: dict[str, str] = {
     "10-1. C-Pancreatic cancer (70개)": "CPAN",
     "10-2. S-Pancreatic cancer (72개)": "SPAN",
     "10-3. Y-Pancreatic cancer (YPAN)": "YPAN",
-    "11 BLC (299개)": "BLC",
+    "BLC_1st_20260319-20260320": "BLC",
     "12. Y-Normal (YNOR)": "YNOR",
 }
 
@@ -192,7 +192,30 @@ def _source_kind(spec: SourceSpec, source_batch: str) -> tuple[str, str]:
     return spec.source_kind, spec.preparation
 
 
-def _date_from_path(path: Path) -> str | None:
+_DATE_TOKEN = re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)")
+
+
+def _date_from_path(path: Path, root: Path | None = None, *, root_name_dated: bool = True) -> str | None:
+    """First YYYYMMDD in the path below ``root``; else in ``root.name`` (if ``root_name_dated``).
+
+    Folders above the scanned source root (e.g. ``03_sers_date_lot_balanced_acquisition/
+    thermo_retest_12groups_20260416-20260519``) carry collection windows, not acquisition dates,
+    so they are ignored. A ``YYYYMMDD-YYYYMMDD`` window inside the scanned tree yields its start
+    date (``BLC_2nd_20260407-20260409`` -> 2026-04-07, as the former ``20260407_Bladder...``).
+    Pass ``root_name_dated=False`` for roots whose name window is not a session date
+    (metabolite standards 20250828-20251203).
+    """
+    if root is None:
+        names = [str(path)]
+    else:
+        names = list(path.relative_to(root).parts)
+        if root_name_dated:
+            names.append(root.name)
+    for name in names:
+        match = _DATE_TOKEN.search(name)
+        if match is not None:
+            return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    return None
     match = re.search(r"(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)", str(path))
     if match is None:
         return None
@@ -317,7 +340,7 @@ def classify_measurement_file(path: Path, root: Path, spec: SourceSpec) -> Measu
         sample_id=sample_id,
         replicate=replicate,
         control_type=control_type,
-        acquisition_date=_date_from_path(path),
+        acquisition_date=_date_from_path(path, root, root_name_dated=spec.source_kind != "metabolite_reference"),
         source_sha256="",
         file_format=path.suffix.casefold().lstrip("."),
         reagent_phase=spec.reagent_phase,

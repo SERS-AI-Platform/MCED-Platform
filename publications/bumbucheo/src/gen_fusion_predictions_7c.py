@@ -64,8 +64,7 @@ df_agg = df_agg[df_agg["group"].isin(CANCER_TYPES + NON_CANCER)].reset_index(dro
 
 # ── Clinical data ──
 print("Building clinical lookup...")
-clin = pd.read_csv(os.path.join(SERS_ROOT, "data", "clinical_data", "standardized",
-                                 "all_clinical_standardized.csv"))
+clin = pd.read_csv(os.path.join(SERS_ROOT, "data", "01_clinical_metadata", "02_standardized_1782", "standardized", "all_clinical_standardized.csv"))
 clin["disease_group"] = clin["disease_group"].replace({"PAN": "CPAN"})
 clin["sex_numeric"] = (clin["sex"] == "M").astype(float)
 

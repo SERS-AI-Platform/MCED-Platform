@@ -81,7 +81,7 @@ THERMO_MAP = {
     "9. Colorectal cancer (300개)": "CRC",
     "10-1. C-Pancreatic cancer (70개)": "CPAN",
     "10-3. Y-Pancreatic cancer (YPAN)": "YPAN",
-    "11 BLC (299개)": "BLC",
+    "BLC_1st_20260319-20260320": "BLC",
     "12. Y-Normal (YNOR)": "YNOR",
 }
 GROUP_ALIASES = {"CPAN": "PAN", "YPAN": "PAN", "YNOR": "NOR"}
@@ -104,7 +104,7 @@ def preprocess_channel(x, y, grid, deriv_order):
 
 def load_data(grid):
     """Load all spectra → 3-channel arrays + metadata with unique subject IDs."""
-    data_dir = PROJECT_ROOT / "data" / "raw_data"
+    data_dir = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
     all_X, meta_rows, failed = [], [], 0
 
     for folder_name, group in THERMO_MAP.items():

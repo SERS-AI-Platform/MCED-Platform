@@ -17,7 +17,7 @@ def run_locked_stk_reference(subjects: Sequence[PreparedSubject], out: Path) -> 
         from sers_predict import StackingPredictor
     except (ImportError, ModuleNotFoundError) as exc:
         return {"status": "not_run", "reason": f"import failed: {exc}"}
-    mapping_root = REPO / "data" / "mapping"
+    mapping_root = REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_BNOR-BPRO_20260810-20260814"
     label_by_ordinal: dict[int, str] = {}
     workbook = __import__("openpyxl").load_workbook(mapping_root / "clinical_df.xlsx", read_only=True, data_only=True)
     rows = list(workbook.active.iter_rows(values_only=True))
@@ -73,7 +73,7 @@ def write_report(
 ) -> None:
     main_metrics = [row for row in metrics if row.get("aggregation") == "mean"]
     lines = [
-        "# data/mapping Multi-scale 1D ResNet 평가",
+        "# data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814 Multi-scale 1D ResNet 평가",
         "",
         "## 결론 요약",
         "",

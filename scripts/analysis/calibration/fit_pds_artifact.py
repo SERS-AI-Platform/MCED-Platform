@@ -42,8 +42,8 @@ logging.basicConfig(level=logging.INFO,
                     datefmt="%H:%M:%S")
 logger = logging.getLogger(__name__)
 
-THERMO_DIR = PROJECT_ROOT / "data" / "raw_data"
-MEDICAL_DIR = PROJECT_ROOT / "data" / "raw_data_medical"
+THERMO_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
+MEDICAL_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated"
 
 BEST_PDS = {"half_window": 31, "ridge": 0.01}
 

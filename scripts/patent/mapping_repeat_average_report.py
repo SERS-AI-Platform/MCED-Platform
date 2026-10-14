@@ -133,7 +133,7 @@ def write_report(
     audit_rmse = float(metadata["instrument_average_audit"]["normalized_rmse_median"])
     audit_corr = float(metadata["instrument_average_audit"]["correlation_median"])
     report = (
-        "# data/mapping 반복 평균 적용 및 peak 검출 비교\n\n"
+        "# data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814 반복 평균 적용 및 peak 검출 비교\n\n"
         "## 분석 범위\n\n"
         f"- 임상 매핑 {len(results)}명: Control {groups['Control']}명, Prostate disease control {groups['Prostate disease control']}명, Prostate cancer {groups['Prostate cancer']}명.\n"
         f"- subject별 원시 반복 121개, 총 {metadata['input_repeats']}개를 사용했다. `_ave` 파일은 기존 장비 평균 방식으로 별도 감사했다.\n"
@@ -157,7 +157,7 @@ def write_report(
         "- 이번 감사에서 `_ave`는 121회 원시 산술평균과 일치하지 않았다. 따라서 기존 `_ave`는 독립적인 장비 집계/전처리 결과로 취급했고, 특허 방식은 QC 통과 반복의 평균으로 재현했다.\n"
         "- 검출된 peak는 분석적 재현성 지표이지 임상 바이오마커 확정이나 분류 성능을 의미하지 않는다.\n\n"
         "## 기준물질 및 한계\n\n"
-        f"- data/mapping 내 Thermo Reference 파일은 {metadata['reference_audit']['reference_csv_files']}개이며, subject 측정일과 겹치는 기준물질 파일은 {metadata['reference_audit']['same_run_reference_files_verified']}개다. 이번 산출에서는 기준물질 peak shift 보정은 적용하지 않았다.\n"
+        f"- data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814 내 Thermo Reference 파일은 {metadata['reference_audit']['reference_csv_files']}개이며, subject 측정일과 겹치는 기준물질 파일은 {metadata['reference_audit']['same_run_reference_files_verified']}개다. 이번 산출에서는 기준물질 peak shift 보정은 적용하지 않았다.\n"
         "- 출력에는 raw sample identifier, source filename, raw spectral array를 포함하지 않았다.\n\n"
         "## 산출물\n\n"
         "- `subject_mapping_repeatability_peak_metrics.csv`\n"

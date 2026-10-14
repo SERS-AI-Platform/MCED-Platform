@@ -72,7 +72,7 @@ def _safe_error(action: str, error: BaseException) -> click.ClickException:
 
 
 @click.command("inventory")
-@click.option("--db", type=_PATH, default=Path("data/sers_master.db"), show_default=True)
+@click.option("--db", type=_PATH, default=Path("data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db"), show_default=True)
 @click.option("--repo-root", type=_EXISTING_DIR, default=PROJECT_ROOT, show_default=True)
 @click.option("--config", "config_path", type=_EXISTING_FILE, default=None)
 @click.option("--clinical-root", type=_EXISTING_DIR, default=None)
@@ -92,7 +92,7 @@ def inventory_command(
     source_kind: str,
 ) -> None:
     clinical = inventory_clinical_sources(
-        clinical_root or repo_root / "data" / "clinical_data"
+        clinical_root or repo_root / "data" / "01_clinical_metadata" / "01_raw_hospital"
     )
     roots = (
         tuple(

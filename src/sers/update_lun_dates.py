@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 # Load current standardized
-lun = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/LUN_clinical_standardized.csv')
+lun = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/LUN_clinical_standardized.csv')
 print(f"LUN standardized: {len(lun)} rows")
 print("Before update:")
 print(f"  sample_date:    {lun['sample_date'].notna().sum()}/300")
@@ -34,11 +34,11 @@ lun['_num'] = lun['patient_id'].str.extract(r'(\d+)').astype(int)
 
 # ── LUN file 3: 진단검사 sheet (patients 201-300) ──
 lun3_diag = pd.read_excel(
-    '/home/user/SERS-AI/data/clinical_data/4. 폐암/SMCXD06_폐암 3.xlsx',
+    '/home/user/SERS-AI/data/01_clinical_metadata/01_raw_hospital/4. 폐암/SMCXD06_폐암 3.xlsx',
     sheet_name='진단검사'
 )
 lun3_demo = pd.read_excel(
-    '/home/user/SERS-AI/data/clinical_data/4. 폐암/SMCXD06_폐암 3.xlsx',
+    '/home/user/SERS-AI/data/01_clinical_metadata/01_raw_hospital/4. 폐암/SMCXD06_폐암 3.xlsx',
     sheet_name='인구학적정보 및 암 관련 정보'
 )
 
@@ -88,14 +88,14 @@ for start, end, label in [(1, 30, 'File1'), (31, 200, 'File2'), (201, 300, 'File
 
 # Drop helper column and save
 lun.drop(columns=['_num'], inplace=True)
-lun.to_csv('/home/user/SERS-AI/data/clinical_data/standardized/LUN_clinical_standardized.csv', index=False)
+lun.to_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/LUN_clinical_standardized.csv', index=False)
 print("\nSaved: LUN_clinical_standardized.csv")
 
 # ── Also update all_clinical_standardized.csv ──
-all_clin = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/all_clinical_standardized.csv')
+all_clin = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/all_clinical_standardized.csv')
 # Replace LUN rows
 all_clin = all_clin[all_clin['disease_group'] != 'LUN']
-lun_for_merge = pd.read_csv('/home/user/SERS-AI/data/clinical_data/standardized/LUN_clinical_standardized.csv')
+lun_for_merge = pd.read_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/LUN_clinical_standardized.csv')
 all_clin = pd.concat([all_clin, lun_for_merge], ignore_index=True)
-all_clin.to_csv('/home/user/SERS-AI/data/clinical_data/standardized/all_clinical_standardized.csv', index=False)
+all_clin.to_csv('/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized/all_clinical_standardized.csv', index=False)
 print("Saved: all_clinical_standardized.csv")

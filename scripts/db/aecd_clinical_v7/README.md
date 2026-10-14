@@ -11,7 +11,7 @@ python scripts/db/aecd_clinical_v7/build_staging_csv.py     # 워크북 → 적�
 ```
 
 `run_load.sh`는 실행 전에 `pg_dump -n master -n clinical -n ingest`로 백업을 뜬다
-(`data/processed/aecd_platform_ingest/backup_*.sql`). `measurement` 스키마는 이 파이프라인이
+(`data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest/backup_*.sql`). `measurement` 스키마는 이 파이프라인이
 건드리지 않으므로 백업 대상에서 제외한다.
 
 ## 파일
@@ -30,7 +30,7 @@ python scripts/db/aecd_clinical_v7/build_staging_csv.py     # 워크북 → 적�
 ## 결정 사항 (2026-09-02, 데이터 오너 확인)
 
 **적재 범위 — 2,850행.** 워크북 2,898행 중 `solum_label` 없는 40행과 `group='Drop'` 8행을 제외.
-제외 목록은 `data/processed/aecd_platform_ingest/*_excluded.csv`.
+제외 목록은 `data/06_supporting_or_previous_outputs/processed/aecd_platform_ingest/*_excluded.csv`.
 
 **site_code = 병원 약어.** 프로토콜 코드(SMCXD01~07, SMCMD06)는 site로 쓸 수 없다 — 한 병원이
 여러 프로토콜을 돌린다(CBNUH만 4종). `master.subjects`의 유일성이 `(site_id, patient_code)`이므로

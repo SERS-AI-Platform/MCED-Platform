@@ -185,6 +185,61 @@ def calibrate_spectrum(
     return x + shift, y, shift
 
 
+def fit_standard_material_axis(
+    reference_peaks: np.ndarray,
+    observed_peaks: np.ndarray,
+) -> Tuple[float, float]:
+    """
+    Fit a first-order wavenumber-axis error model from standard-material peaks.
+
+    Fits ``err(x) = a + b * x`` by least squares, where ``err`` is the observed
+    minus the certified peak position (ASTM E1840 style; polystyrene and silicon
+    peaks pooled). Use ``apply_standard_material_axis`` to correct spectra
+    measured in the same run.
+
+    Decision 2026-09-09: the urea-peak calibration (``calibrate_spectrum``)
+    aligns a *sample* peak whose position varies with sample chemistry
+    (retrospective shifts: sd 2.4 cm⁻¹ with group-dependent means), so
+    instrument axis calibration must use standard materials only.
+
+    Parameters
+    ----------
+    reference_peaks : np.ndarray
+        Certified peak positions (cm⁻¹).
+    observed_peaks : np.ndarray
+        Observed peak positions on the same instrument/run (cm⁻¹).
+
+    Returns
+    -------
+    a, b : float
+        Intercept and slope of the axis error, cm⁻¹ and cm⁻¹ per cm⁻¹.
+    """
+    ref = np.asarray(reference_peaks, dtype=float)
+    obs = np.asarray(observed_peaks, dtype=float)
+    if ref.shape != obs.shape or ref.ndim != 1 or len(ref) < 2:
+        raise ValueError("need >= 2 matched reference/observed peaks")
+    if np.unique(ref).size < 2:
+        raise ValueError("reference peaks must span >= 2 distinct wavenumbers")
+    b, a = np.polyfit(ref, obs - ref, 1)
+    return float(a), float(b)
+
+
+def apply_standard_material_axis(
+    x: np.ndarray,
+    a: float,
+    b: float,
+) -> np.ndarray:
+    """
+    Correct a wavenumber axis with a fitted standard-material error model.
+
+    ``x_corrected = x - (a + b * x)``; intensities are unchanged. With ``b = 0``
+    this reduces to the run-level global shift stored in
+    ``measurement.calibrations.global_shift_cm1``.
+    """
+    xa = np.asarray(x, dtype=float)
+    return xa - (a + b * xa)
+
+
 def calibrate_spectra_batch(
     raw_spectra: Dict[Tuple, Tuple[np.ndarray, np.ndarray]],
     target_wn: float = DEFAULT_REFERENCE_PEAK_WN,

@@ -65,25 +65,25 @@ def configured_inventory_roots(repo_root: Path, config: Config) -> tuple[Invento
     data_root = repo_root / "data"
     roots = [
         InventoryRoot(
-            path=data_root / "raw_data" / folder,
+            path=data_root / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / folder,
             source_kind=SourceKind.THERMO,
             instrument_key="Thermo",
             preparation="liquid",
         )
         for folder in config.folder_to_group
-        if (data_root / "raw_data" / folder).is_dir()
+        if (data_root / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated" / folder).is_dir()
     ]
     roots.extend(
         InventoryRoot(
-            path=data_root / "raw_data_medical" / folder,
+            path=data_root / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated" / folder,
             source_kind=SourceKind.MEDICAL,
             instrument_key="Medical Raman",
             preparation="liquid",
         )
         for folder in config.folder_to_group_medical
-        if (data_root / "raw_data_medical" / folder).is_dir()
+        if (data_root / "02_sers_primary_pooled_acquisition" / "ramcheck_retro_12groups_undated" / folder).is_dir()
     )
-    remeasurement_root = data_root / "임상데이터"
+    remeasurement_root = data_root / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
     if remeasurement_root.is_dir():
         roots.extend(
             InventoryRoot(
@@ -97,17 +97,17 @@ def configured_inventory_roots(repo_root: Path, config: Config) -> tuple[Invento
         )
     special_roots = (
         (
-            data_root / "raw_data" / "20260709_BPRO,BNOR_1mW_0.05s_Ave100",
+            data_root / "03_sers_date_lot_balanced_acquisition" / "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710",
             SourceKind.BORAMAE_LIQUID,
             "liquid",
         ),
         (
-            data_root / "20260716_Urine test (Powder_BNOR, BPRO)",
+            data_root / "05_not_yet_analyzed" / "thermo_powder_BNOR-BPRO_20260716",
             SourceKind.BORAMAE_POWDER,
             "powder",
         ),
         (
-            data_root / "20260715_Powder_Reproducibility test",
+            data_root / "04_machine_repeatability_tests" / "thermo_powder_reproducibility_BPRO_20260715",
             SourceKind.POWDER_REPRODUCIBILITY,
             "powder",
         ),

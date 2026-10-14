@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 # ── Paths ──────────────────────────────────────────────────────────────────
 BASE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(os.path.dirname(BASE))
-METABOLITE_DIR = os.path.join(PROJECT, "data", "Metabolite analysis_Thermo",
+METABOLITE_DIR = os.path.join(PROJECT, "data", "06_supporting_or_previous_outputs", "thermo_metabolite_standards_20250828-20251203",
                               "Metabolite analysis_Thermo")
 SERS_CSV = os.path.join(PROJECT, "results", "processed_spectra.csv")
 OUT_DIR = os.path.join(BASE, "standardized")

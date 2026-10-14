@@ -8,7 +8,7 @@ import three_cohort_spectra as t
 OUT=ROOT/'results/three_cohort_spectra_ci_20260828_v1'
 OUT.mkdir(exist_ok=True)
 liq=t._boramae_cancer_ids(ROOT)
-w=openpyxl.load_workbook(ROOT/'data/mapping/clinical_df.xlsx',read_only=True,data_only=True)
+w=openpyxl.load_workbook(ROOT/'data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/clinical_df.xlsx',read_only=True,data_only=True)
 rows=w.active.iter_rows(values_only=True);h=next(rows);ix={str(v):i for i,v in enumerate(h) if v is not None}
 cancer=sorted(str(row[ix['solum_label']]).replace('_',' ') for row in rows if row[ix['cohort_group']]=='prostate')
 w.close()

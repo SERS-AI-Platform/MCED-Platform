@@ -1,7 +1,7 @@
 """
 SPAN (Samsung Pancreatic Cancer) CRF 데이터 → 표준화된 임상 데이터 변환
 소스: /mnt/c/.../10. 췌장암/SPAN/20260203/
-출력: data/clinical_data/standardized/SPAN_clinical_standardized.csv
+출력: data/01_clinical_metadata/02_standardized_1782/standardized/SPAN_clinical_standardized.csv
 """
 import csv
 import os
@@ -9,7 +9,7 @@ import math
 from collections import defaultdict
 
 SPAN_DIR = "/mnt/c/Users/user/OneDrive - solum/바탕 화면/SERS-AI/data/clinical_data/10. 췌장암/SPAN/20260203"
-OUTPUT_DIR = "/home/user/SERS-AI/data/clinical_data/standardized"
+OUTPUT_DIR = "/home/user/SERS-AI/data/01_clinical_metadata/02_standardized_1782/standardized"
 
 # Standard columns matching existing format
 STANDARD_COLS = [

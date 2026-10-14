@@ -6,7 +6,7 @@ standardizes column names (Korean -> English), and outputs a unified
 all_clinical_standardized.csv plus per-disease CSVs.
 
 This script wraps the per-disease loaders from
-data/clinical_data/standardize_clinical.py, driven by config/config.yaml
+data/01_clinical_metadata/07_scripts_and_sql/standardize_clinical.py, driven by config/config.yaml
 group definitions. It can be run repeatedly — output is fully regenerated
 each time.
 
@@ -16,8 +16,8 @@ Usage:
     python scripts/standardize_clinical_data.py --dry-run
 
 Output:
-    data/clinical_data/standardized/all_clinical_standardized.csv
-    data/clinical_data/standardized/{GROUP}_clinical_standardized.csv  (per disease)
+    data/01_clinical_metadata/02_standardized_1782/standardized/all_clinical_standardized.csv
+    data/01_clinical_metadata/02_standardized_1782/standardized/{GROUP}_clinical_standardized.csv  (per disease)
 
 Requires:
     pandas, openpyxl, pyyaml
@@ -34,11 +34,11 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Path setup — ensure we can import from src/ and data/clinical_data/
+# Path setup — ensure we can import from src/ and data/01_clinical_metadata/07_scripts_and_sql/
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
-sys.path.insert(0, str(PROJECT_ROOT / "data" / "clinical_data"))
+sys.path.insert(0, str(PROJECT_ROOT / "data" / "01_clinical_metadata" / "07_scripts_and_sql"))
 
 from sers.config import load_config, CLINICAL_DATA_DIR
 
@@ -264,7 +264,7 @@ def main():
     )
     parser.add_argument(
         "--output-dir",
-        default=str(PROJECT_ROOT / "data" / "clinical_data" / "standardized"),
+        default=str(PROJECT_ROOT / "data" / "01_clinical_metadata" / "02_standardized_1782" / "standardized"),
         help="Output directory for standardized CSVs",
     )
     parser.add_argument(

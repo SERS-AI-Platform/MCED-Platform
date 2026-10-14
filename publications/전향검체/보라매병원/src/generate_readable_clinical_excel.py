@@ -14,7 +14,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 REPO: Final = Path(__file__).resolve().parents[4]
 OUT: Final = REPO / "publications" / "전향검체" / "보라매병원" / "internal"
 SOURCE: Final = OUT / "clinical_classification_analysis_bpro.csv"
-CLINICAL_XLSX: Final = REPO / "data" / "clinical_data" / "보라매 병원 임상정보.xlsx"
+CLINICAL_XLSX: Final = REPO / "data" / "01_clinical_metadata" / "01_raw_hospital" / "보라매 병원 임상정보.xlsx"
 OUTPUT: Final = OUT / "clinical_classification_analysis_readable.xlsx"
 
 FIELDS: Final = (

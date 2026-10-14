@@ -22,6 +22,7 @@ SITE_NAMES: Final[dict[str, str]] = {
     "BORAMAE": "Seoul National University Boramae Hospital",
     "CBNUH": "Chungbuk National University Hospital",
     "IJBPH": "Inje University Busan Paik Hospital",
+    "KNUH": "Kyungpook National University Hospital",
     "SAMSUNG": "Samsung Seoul Hospital",
     "SNUH": "Seoul National University Hospital",
     "SSMH": "Seoul St. Mary's Hospital",
@@ -45,14 +46,16 @@ LABEL_RANGES: Final[tuple[tuple[str, int, int, str], ...]] = (
     ("BRE", 1, 330, "IJBPH"),
     ("OVA", 1, 30, "IJBPH"),
     ("OVA", 31, 70, "SNUH"),
+    ("OVA", 71, 71, "KNUH"),  # v11 추가 (Label definition: 경북대학교병원 OVA_71)
     ("LUN", 1, 30, "SNUH"),
     ("LUN", 31, 200, "SSMH"),
     ("LUN", 201, 300, "SNUH"),
     ("SPAN", 1, 126, "SAMSUNG"),
     ("YNOR", 1, 60, "YONSEI"),
     ("YPAN", 1, 60, "YONSEI"),
-    ("BNOR", 1, 160, "BORAMAE"),
-    ("BPRO", 1, 160, "BORAMAE"),
+    # v11 부터 Label definition 이 개별 번호 나열이라 상한을 넉넉히 (환자코드 SMCX007-* 로 보라매 확인)
+    ("BNOR", 1, 200, "BORAMAE"),
+    ("BPRO", 1, 200, "BORAMAE"),
 )
 
 

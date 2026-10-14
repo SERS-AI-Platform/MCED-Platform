@@ -22,45 +22,45 @@ preprocess → train → test → predict
 임상정보와 spectrum의 불변 원본·matching·label·dataset lineage는 `sers data`에서 관리합니다. 출력은 집계만 포함하며 환자 가명키와 source sample code를 표시하지 않습니다.
 
 ```bash
-sers data inventory --db data/sers_master.db
+sers data inventory --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db
 
 sers data ingest-clinical \
-  --db data/sers_master.db \
-  --source data/clinical_data/source.xlsx \
+  --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
+  --source data/01_clinical_metadata/01_raw_hospital/source.xlsx \
   --site-code SITE-A \
   --protocol-code PROTOCOL-V1 \
   --source-group PRO \
   --subject-key-field SUBJID \
-  --raw-store data/raw_store
+  --raw-store data/06_supporting_or_previous_outputs/raw_store
 
 sers data ingest-clinical-registry \
-  --clinical-root data/clinical_data \
+  --clinical-root data/01_clinical_metadata/01_raw_hospital \
   --validate-only
 
 sers data ingest-clinical-registry \
-  --clinical-root data/clinical_data \
-  --db data/sers_master.db \
-  --raw-store data/raw_store
+  --clinical-root data/01_clinical_metadata/01_raw_hospital \
+  --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
+  --raw-store data/06_supporting_or_previous_outputs/raw_store
 
 sers data ingest-spectra \
-  --db data/sers_master.db \
-  --root data/raw_data/remeasurement \
+  --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
+  --root data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated/remeasurement \
   --site-code SITE-A \
   --source-kind remeasurement \
-  --raw-store data/raw_store
+  --raw-store data/06_supporting_or_previous_outputs/raw_store
 
-sers data match --db data/sers_master.db --rule-version exact-v1
+sers data match --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db --rule-version exact-v1
 sers data build-labels \
-  --db data/sers_master.db \
+  --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
   --task-name prostate-screening \
   --definition-version pathology-v1 \
   --observation-code pathology_result \
   --label-source pathology \
   --mapping Cancer=Cancer
-sers data reconcile --db data/sers_master.db --rule-version exact-v1
+sers data reconcile --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db --rule-version exact-v1
 
 sers data export-dataset \
-  --db data/sers_master.db \
+  --db data/06_supporting_or_previous_outputs/sers_master_sqlite/sers_master.db \
   --manifest-id MANIFEST_UUID \
   --output results/datasets/training.csv
 ```

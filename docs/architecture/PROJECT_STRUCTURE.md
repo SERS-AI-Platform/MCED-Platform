@@ -95,7 +95,14 @@ SERS-AI/
 │   └── environment.lock.yml       #   잠금된 의존성
 │
 ├── data/                          # ── 데이터 (git-ignored) ──
-│   ├── raw_data/                  #   원시 스펙트럼 (14개 폴더, 476MB)
+│   ├── 00_README/                 #   DATASET_INVENTORY.md (폴더별 내용 표)
+│   ├── 01_clinical_metadata/      #   병원별 임상 테이블·프로토콜 엑셀·샘플 제외 목록
+│   ├── 02_sers_primary_pooled_acquisition/ # 후향 본세트: thermo_retro_12groups_undated(구 raw_data, BLC_1st/BLC_2nd 포함), ramcheck_retro_12groups_undated(구 raw_data_medical), metrohm_retro_NOR-PRO_undated
+│   ├── 03_sers_date_lot_balanced_acquisition/ # 날짜·lot 확정: 4~5월 재측정, mapping 3세트, 보라매 0709 액체
+│   ├── 04_machine_repeatability_tests/ # 장비 비교(구 equipment_test_data), 분말 재현성
+│   ├── 05_not_yet_analyzed/       #   분말 0716, psAuNP, YPAN/YNOR 추가분
+│   ├── 06_supporting_or_previous_outputs/ # processed, raw_store, 구 SQLite, R 산출물, 대사체 표준물질
+│   └── 99_manifests/              #   path_rename_map.csv (구→신 경로)
 │   ├── raw_data_medical/          #   의료기기 데이터 (Nanoscope, 472MB)
 │   ├── equipment_test_data/       #   장비 재현성 데이터
 │   ├── clinical_data/             #   임상 메타데이터 (.xlsm)

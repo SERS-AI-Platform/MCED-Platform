@@ -52,7 +52,7 @@ text='''# 전립선암 3개 코호트 스펙트럼: 95% CI 및 그룹 차이 분
 
 - 후향: clean_cohort_20260605 manifest의 PRO 검체 91개, 각 5회.
 - 액상: 보라매 임상표의 제외 기준을 적용한 prostate 41개, 20260709 원천의 각 5회.
-- 분말: data/mapping/clinical_df.xlsx의 prostate 43개, 각 121회.
+- 분말: data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/clinical_df.xlsx의 prostate 43개, 각 121회.
 - `_ave` 파일은 제외. 공통 grid는 402–2198 cm⁻¹, 935 point.
 - Raw는 trim 및 공통-grid 보간 후 검체 내 반복 평균이다. 새 baseline/QC/PS alignment는 추가하지 않았다.
 - Processed는 원본 정의대로 각 반복 spectrum에 SG(window 11, polyorder 3) → baseline correction(window 101) → SNV → 보간을 적용한 뒤 검체 내 평균이다. 평균 후 전처리와 혼동하지 않는다.
@@ -98,7 +98,7 @@ text='''# 전립선암 3개 코호트 스펙트럼: 95% CI 및 그룹 차이 분
 - 공유 ZIP은 aggregate 파일만 포함. subject_spectra.npz는 연구용 개별자료로 제외했다.
 '''
 (OUT/'README.md').write_text(text,encoding='utf-8')
-files=[ROOT/'notebooks/audit_three_cohort_ci.py',ROOT/'notebooks/analyze_three_cohort_ci.py',Path(__file__),ROOT/'publications/전향검체/보라매병원/src/three_cohort_spectra.py',ROOT/'artifacts/usersnet/v1.0.0/common_grid.npy',ROOT/'data/mapping/clinical_df.xlsx',ROOT/'data/clinical_data/보라매 병원 임상정보.xlsx',ROOT/'results/clean_cohort_20260605/clean_cohort_manifest.csv']
+files=[ROOT/'notebooks/audit_three_cohort_ci.py',ROOT/'notebooks/analyze_three_cohort_ci.py',Path(__file__),ROOT/'publications/전향검체/보라매병원/src/three_cohort_spectra.py',ROOT/'artifacts/usersnet/v1.0.0/common_grid.npy',ROOT/'data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814/clinical_df.xlsx',ROOT/'data/01_clinical_metadata/01_raw_hospital/보라매 병원 임상정보.xlsx',ROOT/'results/clean_cohort_20260605/clean_cohort_manifest.csv']
 (OUT/'source_hashes.json').write_text(json.dumps({str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},ensure_ascii=False,indent=2))
 for p in files[:3]:shutil.copy2(p,OUT/p.name)
 with zipfile.ZipFile(OUT/'three_cohort_ci_statistics.zip','w',zipfile.ZIP_DEFLATED) as z:

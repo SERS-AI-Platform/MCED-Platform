@@ -58,7 +58,7 @@ from src.sers.config import RESULTS_DIR, FIG_DIR  # noqa: E402
 
 # These will be set in main()
 PROJECT_ROOT = _DEFAULT_PROJECT_ROOT
-DATA_DIR = _DEFAULT_PROJECT_ROOT / "data" / "raw_data"
+DATA_DIR = _DEFAULT_PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
 DATA_TYPE = "raw_spectrum"  # or "processed_csv"
 OUTPUT_DIR = RESULTS_DIR / "training" / "stacking_v2"
 FIG_OUTPUT_DIR = FIG_DIR / "training" / "stacking_v2"
@@ -93,7 +93,7 @@ THERMO_MAP = {
     "9. Colorectal cancer (300개)": "CRC",
     "10-1. C-Pancreatic cancer (70개)": "CPAN",
     "10-3. Y-Pancreatic cancer (YPAN)": "YPAN",
-    "11 BLC (299개)": "BLC", "12. Y-Normal (YNOR)": "YNOR",
+    "BLC_1st_20260319-20260320": "BLC", "12. Y-Normal (YNOR)": "YNOR",
 }
 
 GROUP_ALIASES = {"CPAN": "PAN", "YPAN": "PAN", "YNOR": "NOR"}
@@ -1528,7 +1528,7 @@ def load_val_group_data(group_name, grid):
             X_3ch, df_meta, include=set(raw_groups), label="val-group"
         )
     else:
-        data_dir = PROJECT_ROOT / "data" / "raw_data"
+        data_dir = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
 
         # Full folder mapping (includes groups not in training, e.g. SPAN)
         import yaml
@@ -1940,7 +1940,7 @@ def main():
                         help="Project root directory (default: auto-detect from script location)")
     parser.add_argument("--data-dir", type=Path, default=None,
                         help="Raw spectra directory, or a processed_spectra*.csv path when --data-type processed_csv "
-                             "(default: <project-root>/data/raw_data)")
+                             "(default: <project-root>/data/02_sers_primary_pooled_acquisition/thermo_retro_12groups_undated)")
     parser.add_argument("--data-type", choices=["raw_spectrum", "processed_csv"], default="raw_spectrum",
                         help="Data format: 'raw_spectrum' (load via load_raw_multichannel) or "
                              "'processed_csv' (expects group, sample_id, replicate, x_... columns)")
@@ -1973,7 +1973,7 @@ def main():
         PROJECT_ROOT = args.project_root.expanduser().resolve()
     
     if args.data_dir is None:
-        DATA_DIR = PROJECT_ROOT / "data" / "raw_data"
+        DATA_DIR = PROJECT_ROOT / "data" / "02_sers_primary_pooled_acquisition" / "thermo_retro_12groups_undated"
     else:
         DATA_DIR = args.data_dir.expanduser().resolve()
     

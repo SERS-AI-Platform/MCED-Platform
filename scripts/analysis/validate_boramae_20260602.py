@@ -33,7 +33,7 @@ sys.path.insert(0, str(REPO / "scripts" / "deployment"))
 DATA = Path(
     os.environ.get(
         "SERS_BORAMAE_DATA_DIR",
-        REPO / "data" / "Thermo" / "20260602_Urine test",
+        REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_mapping_multi_20260819-20260908" / "20260602_Urine test",
     )
 )
 MODEL_DIR = REPO / "artifacts" / "usersnet" / "v1.0.0"

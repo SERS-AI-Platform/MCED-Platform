@@ -25,7 +25,7 @@ from .aecd_raw_spectra_ingest import (
     validate_files,
 )
 
-DEFAULT_MAPPING_ROOT: Final = Path("/home/user/SERS-AI/data/mapping")
+DEFAULT_MAPPING_ROOT: Final = Path("/home/user/SERS-AI/data/03_sers_date_lot_balanced_acquisition/thermo_mapping_BNOR-BPRO_20260810-20260814")
 DEFAULT_BATCH_SIZE: Final = 25
 INSERT_SQL: Final = """
     INSERT INTO measurement.raw_spectra (

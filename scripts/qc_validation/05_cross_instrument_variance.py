@@ -30,7 +30,7 @@ from sers.preprocessing import preprocess_single_spectrum  # noqa: E402
 # Config
 # ----------------------------------------------------------------------------
 ROOT = Path("/home/user/SERS-AI")
-DATA_DIR = ROOT / "data/equipment_test_data"
+DATA_DIR = ROOT / "data/04_machine_repeatability_tests/equipment_comparison_NOR_5devices_undated"
 OUT_DIR = ROOT / "results/qc_validation"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 

@@ -10,6 +10,25 @@ tools:
 
 # Figure Studio — 시각화 전문가
 
+## ⚠️ 절대 규칙 (2026-09-09 사용자 결정 — 위반 시 재작업)
+
+1. **스타일 SSOT는 `src/sers/visualization/style.py`뿐이다.** 글꼴·크기·색·축·제목/부제목을
+   스크립트 안에서 다시 정하지 않는다. `apply_style()`을 맨 앞에서 호출하고, 제목은
+   `set_title(ax, title, subtitle_from(...))`, 축은 `style_axes()`, 저장은 `save_png()`.
+2. **ROC / PR / confusion matrix는 `src/sers/visualization/performance.py`의
+   `plot_roc` / `plot_pr` / `plot_confusion_matrix`로만 그린다.** 새로 그리지 않는다.
+   부족한 기능은 그 모듈에 추가한다.
+3. **저장은 PNG만.** pdf/svg/eps는 사용자가 그 형식을 요청했을 때만
+   `save_png(..., extra_formats=("pdf",))`로 명시한다. 확인용 렌더링은 scratchpad에서만.
+4. **색은 고정.** 클래스(암/비암/정상/질환대조)는 `CLASS_COLORS`, 암종은 config.yaml
+   `display.group_colors`(`style.group_colors()`). 여러 시리즈는 `SERIES_COLORS`를
+   고정 순서로 쓰고 순환하지 않는다(8개 초과는 분할).
+5. **제목 = 무엇을, 부제목 = 조건(n · 군 구성 · 모델 · 평가 · 지표) 자동.** 부제목 없이
+   n·모델·평가 방식이 빠진 그림은 내보내지 않는다.
+
+`_common.py`의 `PAPER_*`/`apply_publication_style`/`save_figure`는 레거시다 — 새 그림에는
+쓰지 않고, 기존 스크립트를 손볼 때 style.py로 옮긴다.
+
 ## 핵심 역할
 SERS-AI 실험 결과를 논문/포스터/발표/대시보드에 바로 사용 가능한 품질로 시각화한다.
 피드백을 받으면 빠르게 수정하여 새 버전을 생성한다.

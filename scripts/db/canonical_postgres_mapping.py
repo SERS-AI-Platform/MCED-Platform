@@ -77,7 +77,24 @@ def normalize_label(group_code: str | None, sample_id: str) -> str | None:
     return f"{group}_{int(sample_id)}"
 
 
+# Acquisition conditions formerly encoded in folder names (renamed 2026-09-15, see data/99_manifests/path_rename_map.csv)
+_FOLDER_CONDITIONS: dict[str, tuple[str, float, float, int]] = {
+    "BLC_2nd_20260407-20260409": ("2026-04-07", 1.0, 0.05, 100),
+    "thermo_boramae_liquid_BNOR-BPRO_20260709-20260710": ("2026-07-09", 1.0, 0.05, 100),
+}
+
+
 def run_metadata(source_root: str, source_batch: str) -> RunMetadata:
+    if source_batch in _FOLDER_CONDITIONS:
+        date, power, seconds, average = _FOLDER_CONDITIONS[source_batch]
+        return RunMetadata(
+            run_key=f"{source_root}::{source_batch}",
+            acquisition_date=date,
+            laser_power_mw=power,
+            integration_time_s=seconds,
+            average_count=average,
+            metadata_status="inferred_from_path",
+        )
     date_match = re.match(r"(20\d{6,})", source_batch)
     power_match = re.search(r"(\d+(?:\.\d+)?)\s*mW", source_batch, re.IGNORECASE)
     time_match = re.search(r"(\d+(?:\.\d+)?)\s*s(?:ec)?", source_batch, re.IGNORECASE)

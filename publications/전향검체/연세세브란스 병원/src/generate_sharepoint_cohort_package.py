@@ -25,7 +25,7 @@ PACKAGE: Final = ROOT / "sharepoint_upload" / PACKAGE_NAME
 CSV_DIR: Final = PACKAGE / "csv"
 WORKBOOK: Final = PACKAGE / f"{PACKAGE_NAME}.xlsx"
 ARCHIVE: Final = PACKAGE.parent / f"{PACKAGE_NAME}.zip"
-REACQUIRED_ROOT: Final = REPO / "data" / "임상데이터"
+REACQUIRED_ROOT: Final = REPO / "data" / "03_sers_date_lot_balanced_acquisition" / "thermo_retest_12groups_20260416-20260519"
 YNOR_TRACE: Final = (
     REPO / "results" / "raw_data_vs_clinical_reference" / "ynor_id_remapping_trace.csv"
 )
