@@ -2062,3 +2062,10 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
 - **② SERS 군 구분(같은 비교, 17밴드 LR 5-fold×5 CV AUC raw / SNV)**: 정상 vs 전립선 관련 질환(같은 lot) **0.43 / 0.40** (LC-MS 패널 0.98–0.99) · GG1–2 vs GG3–5(같은 lot, v11 등급) 0.44 / 0.47 · 정상 vs 전립선암 0.63 / 0.66 (**lot 교란**) · 양성질환 vs 전립선암 0.46 / 0.45 (lot 교란). 밴드 단일 AUC 136검정 FDR 0개.
 - 관측: 이 45명·이 측정 조건에서 LC-MS 후보 feature와 SERS 밴드 면적 사이 연관은 우연과 구분되지 않음. LC-MS에서 가장 강했던 양성질환군 차이(검출 0%↔100% feature 다수)는 같은 lot SERS에서 재현되지 않음. 원인(SERS 감도 밖 물질 / 상대값·PQN vs 비정규화 raw / n 22–23 검정력)은 이 자료로 구분 불가.
 - ⚠️ 한계: LC 값은 PQN(희석 보정) 상대값이라 raw arm 상관은 소변 농도 차이를 함께 봄 · 층당 n 22/23, 검출 시료만이면 16~22 · 등급 불일치 BPRO_29(보고서 GG1 / v11 GG2), BPRO_32(시료명 G5 / 값·v11 GG4) — v11 기준(사용자 결정) · 표적 정량(요산·hypoxanthine·xanthine·creatinine, 동위원소 희석)과 전체 feature 시료별 행렬은 업체에 요청 필요.
+
+#### LCMS-1 정정·보충 (2026-10-14, 같은 날)
+- **feature 수 정정**: 보충자료2 시료별 값은 **29 feature 열**(28 아님; 986 = 29 × 17 × 2). 위 본문 "28"은 29로 읽을 것.
+- **검출 여부 검정 추가**(LC 결과 상당수가 검출률 차이라 상관만으로는 미검정): lot 층 안 검출 vs 미검출(각 ≥5) 밴드 AUC·Mann–Whitney 646검정 → p<0.05 35개(5.4%, 우연 기대 수준), **FDR 0개**. 산출물 `detection_vs_band.csv`.
+- 후보별 최강 상관(34검정 중 최소 p, q는 986 전체 BH) `per_candidate_best.csv`: 최소 q 0.12(indole-3-acetic acid O-glucuronide–621, 2-HPMA–935). 보고서 주요 후보 중 **xanthine·thiamine·CAR 12:1·methyl stearate는 시료별 값이 없어 비교 불가**.
+- 비교 주의: LC-MS 패널 AUC(약 6,000 feature 중 선택한 20개, 업체 계산)와 SERS 17 고정 밴드 CV AUC는 같은 조건의 비교가 아님.
+- 사용 밴드 파일 사본 `bands_used.csv`(sha256 a6a75309c61d), 스크립트 커밋 a240966, DB run 331 + run_metrics 15행.
