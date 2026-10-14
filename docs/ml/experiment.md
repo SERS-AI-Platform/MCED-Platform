@@ -2069,3 +2069,4 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
 - 후보별 최강 상관(34검정 중 최소 p, q는 986 전체 BH) `per_candidate_best.csv`: 최소 q 0.12(indole-3-acetic acid O-glucuronide–621, 2-HPMA–935). 보고서 주요 후보 중 **xanthine·thiamine·CAR 12:1·methyl stearate는 시료별 값이 없어 비교 불가**.
 - 비교 주의: LC-MS 패널 AUC(약 6,000 feature 중 선택한 20개, 업체 계산)와 SERS 17 고정 밴드 CV AUC는 같은 조건의 비교가 아님.
 - 사용 밴드 파일 사본 `bands_used.csv`(sha256 a6a75309c61d), 스크립트 커밋 a240966, DB run 331 + run_metrics 15행.
+- (감사 반영) 본문 한계의 "검출 시료만이면 16~22" → 실제 포함 검정의 층당 n은 **8~23**(포함 기준 층당 ≥8). "모두 q ≥ 0.12" → 최소 q **0.117**. LC-MS 패널 AUC(정상 vs 양성질환)는 보고서 3.5장 양이온 0.987·음이온 0.980.
