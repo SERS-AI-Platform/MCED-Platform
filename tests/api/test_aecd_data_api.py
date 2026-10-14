@@ -58,6 +58,7 @@ class DeployedSchemaCursor:
             float,
             list[float],
             list[float],
+            int | None,
         ]
     ]:
         return [
@@ -78,6 +79,7 @@ class DeployedSchemaCursor:
                 402.0,
                 [400.0, 401.0, 402.0],
                 [0.1, 0.2, 0.3],
+                3,
             )
         ]
 
@@ -172,6 +174,7 @@ def test_spectra_returns_page_with_deployed_measurement_columns(
     # Then
     assert page.total == 1
     assert page.items[0].replicate_number == 1
+    assert page.items[0].grade_group == 3
 
 
 def test_health_when_repository_is_available() -> None:
