@@ -2073,3 +2073,23 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
 
 - **PL-6 보충 ② (2026-10-15, 사용자: "SU가 lot마다 스펙트럼이 다르다는 게 말이 안 된다")**: SU 포장 평균(5 point, rm_snv) 72개, PCA5 거리 ÷ 같은 포장 반분 잡음 거리(PL-5 보충 ②와 같은 방식), 세션 내 계산. lot 두 개를 같이 쓴 날 4일(9/10·9/14·9/17·9/21)을 이용해 날짜와 lot을 갈라 비교. 포장 쌍 거리비 중앙값: 같은 날·같은 lot **2.04**(140쌍) · 같은 날·다른 lot **2.25**(32쌍) · 다른 날·같은 lot **2.84**(160쌍) · 다른 날·다른 lot 2.95(2,224쌍). → **SU에서는 lot보다 측정일 차이가 더 크다**(lot만 다를 때 +0.2, 날만 다를 때 +0.8). PL-5 보충 ③·PL-6의 "SU lot 차이"(lot 맞히기 0.784)는 대부분 측정일 차이일 수 있음 — 후보: SU 병 보관 중 변화(BSA·포도당), 그날 장비·레이저 상태, 그날 준비 조건. ⚠️ 같은 날·다른 lot 쌍은 4일·32쌍뿐, 같은 lot의 다른 날은 대개 며칠 이내, 통계 검정 없음. 검체에서는 같은 날 lot 차이가 유의했음(BM-6, p=0.0001)과 대비 — SU와 검체의 lot 반응이 다르다는 PL-7 보충과 같은 방향.
 - **PL-6 보충 ③ (2026-10-15, 사용자: "arPLS로 바꿔서 같은 날 비교 다시")**: 보충 ②와 같은 방식, 바탕선만 arPLS(lam 1e5)로 바꿔 rolling-min과 나란히, PCA5와 625 파수 전체 둘 다. 포장 쌍 거리비 중앙값 (같은 날·같은 lot / 같은 날·다른 lot / 다른 날·같은 lot / 다른 날·다른 lot): rolling-min PCA5 2.04 / 2.25 / 2.84 / 2.95 · 625 1.46 / 1.57 / 1.82 / 1.93 — arPLS PCA5 **2.12 / 2.39 / 2.91 / 3.12** · 625 1.48 / 1.61 / 1.90 / 2.02. → **바탕선을 바꿔도 "날이 다를 때 > lot이 다를 때" 순서 그대로**(arPLS: lot만 다를 때 +0.27, 날만 다를 때 +0.79). arPLS에서 모든 거리가 조금 커짐(잡음 대비 차이가 덜 깎임). 날짜 효과는 rolling-min 계단형 바탕선 때문이 아님. ⚠️ 보충 ②와 같은 한계(같은 날·다른 lot 4일·32쌍, 검정 없음).
+
+### PDAC-1: 췌장암 집중 — 췌장암 vs 비암 모델 + 임상 특성 + LC-MS 후보 밴드 (2026-10-15) ✅
+> 사용자: 췌장암 집중 영문 덱(DESIGN.md 양식 .pptx). 췌장암 = PAN(CBNUH·SNUH, 후향) + YPAN(Yonsei, 전향) + KPAN(KIMS, 후향, 임상정보 없음), **SPAN 제외**. 대조 = NOR + YNOR + DIA + HBP + H.D.(보라매 BNOR 제외), 전향+후향 합침. 치료 전/후 검체는 구분 표시(사용자 결정). YNOR는 DB diagnoses 기준 healthy 10(측정 9) / 양성 췌장질환 20(낭종 10·만성췌장염 4·기타 양성 6)으로 표기. LC-MS 후보 6개(사용자 제공 그림, PDAC 5 vs 대조 5)는 기밀 — 덱에서 Metabolite A–F로 가림.
+- 데이터: 환원제 lot BCCP0922 · Thermo DXR3xi · 검체당 36 point · 597검체(PDAC 178 / 대조 419) → 2단계 QC 후 ver1 **570**(167/403), ver2 537. 사례·대조가 strip lot 805A01~806B01을 공유함을 사전 확인.
+- 규약: AS-PA768a/BM-9와 동일(PL-3 스펙트럼 LR balanced, StratifiedGroupKFold(5) 검체 단위, 5 seed, 검체 점수 = OOF 확률 평균). QC는 전체 코호트에서 1회, subset별 따로 CV.
+
+| subset (ver1) | PDAC / 대조 | AUC ± SD | 민감도 | 특이도 |
+|---|---|---|---|---|
+| 전체 | 167 / 403 | **0.879 ± 0.005** | 0.71 | 0.86 |
+| 치료 후 검체 제외 | 152 / 403 | 0.871 ± 0.002 | 0.69 | 0.87 |
+| KIMS 제외 | 116 / 403 | 0.859 ± 0.006 | 0.63 | 0.89 |
+| 질환대조군(YNOR·DIA·HBP·H.D., 평균 ~60세) | 167 / 168 | **0.888 ± 0.005** | 0.78 | 0.84 |
+| 같은 병원 CBNUH PAN vs 정상 | 63 / 137 | 0.949 ± 0.006 | 0.77 | 0.96 |
+| 같은 병원 Yonsei YPAN vs YNOR | 23 / 14 | 0.837 ± 0.046 | 0.82 | 0.66 |
+
+- ver2: 전체 0.876, 질환대조군 0.899, CBNUH 0.925, Yonsei 0.762.
+- 임상(측정된 검체 기준): 정상(NOR) 평균 33.0세·남 91% vs PDAC 65~67세 → 나이 교란 우려로 질환대조군 subset 추가, 거기서도 AUC 유지(나이 단독 설명 아님). CA19-9 ≥37 U/mL: PDAC 44/70(62.9%), 치료 후 제외 41/59(69.5%), 대조 3/415 양성(특이도 99.3%). 문헌 79–81% / 82–90%(Ballehaninna & Chamberlain, J Gastrointest Oncol 2012). CA19-9는 텍스트 저장(<1, <2, >120000 → 경계값). KIMS 임상값 없음, CBNUH CA19-9 10/80, SNUH BMI 없음.
+- LC-MS 후보 → SERS: Thermo 표준품 있는 3개(A–C)만 매핑(D–F 표준품 없음, 문헌 피크 미사용). 표준품(2025, 변경 전 기판) 특이 피크 상위 3개 ±8 cm-1 밴드 9개, 597검체 point 중앙값. 전체 대조 기준 B(782·1080·1451)↑ = LC-MS 방향 일치, **A 675↓·C 717↓은 LC-MS와 반대**(C 717은 주된 소변 723 밴드와 겹침 → 물질 귀속 불가), 9밴드 LR 패널 AUC 전체 0.744 ± 0.007 / 질환대조 0.818 ± 0.007.
+- ⚠️ 한계: 사례·대조가 다른 병원·측정일에서 옴(병원·배치 교란 미배제) · 내부 CV뿐, 외부 시험셋 없음 · Yonsei 같은 병원 n 23/14 · 밴드 분석은 QC 미적용·탐색적 · LC-MS는 5 vs 5 · PAN 1명 DB cohort_group 'colorectal'(PAN으로 유지, 검토 필요).
+- 스크립트(`SERS-AI-ci-tiered`, 커밋 fd5f77b): `scripts/analysis/pdac_focus_cross.py`, `pdac_clinical_features.py`, `pdac_metabolite_bands.py`, `pdac_focus_deck.py`. 산출물 `SERS-AI-ci-tiered/results/pdac_focus_cross/`, `pdac_focus_clinical/`, `pdac_metabolite_bands/`, `pdac_focus_deck_figures/`. 덱 `docs/presentation/2026-10-15_Pancreatic_Cancer_Focus.pptx`. DB run 332 + run_metrics 36행 (experiment.runs·run_metrics ID 시퀀스가 실제 최대값보다 뒤처져 있어 ID를 명시해 넣음 — 시퀀스 재설정은 하지 않음).
