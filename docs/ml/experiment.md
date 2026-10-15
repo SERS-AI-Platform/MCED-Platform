@@ -2100,3 +2100,26 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
   - 9/23(0810C01) 기준 거리 4.27로 다른 날(1.7~2.5)의 약 2배, 모든 비가 + 방향.
   - **장비**: Si 520 위치 520.18~521.03(SD 0.24 cm-1), PS 1001 SD 0.19, Si 세기 SD 0.16 log2, Si FWHM 일정(9/22만 한 화소 넓음), PS 세기 9/15 한 번 낮음(−1.3 log2). SU 지표 18 × 장비 지표 6 = 108 상관 중 최소 p 0.029(1154 비–PS 1602 위치) → 다중비교 감안 시 **장비 상태로 SU 날 차이가 설명되지 않음**.
   - 관측: 같은 SU의 날 차이는 피크 위치(장비 축)가 아니라 피크 간 상대 세기이고, 장비 보정 측정은 안정적이며 추세도 없다 → 남는 후보는 그날의 SU 준비·적하·건조 조건(분주, 적하량, 건조 시간, 온습도)과 그날 쓴 포장의 strip 상태. 기록에 이 조건들이 없어 구분 불가. ⚠️ 날 13개라 상관 검정력 낮음, 1000 밴드 해석은 추정.
+
+### LCMS-2: LC-MS/MS 후보 × SERS 파수 전체 상관 스펙트럼 (2026-10-15) ✅
+> 사용자: "2단계 파수 전체 상관 돌려줘" — LCMS-1의 17밴드 대신 600–1800 cm-1 1 cm-1 전 파수(1,201)마다 상관(statistical heterospectroscopy 방식).
+
+스크립트 `scripts/analysis/lcms_sers_wavenumber_corr.py`(커밋 0b7173f, LCMS-1 모듈 import), 산출물 `results/lcms_sers_wavenumber_corr_20261015/`(feature_max_corr.csv, corr_spectra.csv, corr_spectra_top4.png, summary.json, run.log). 검체·전처리·lot 처리 LCMS-1과 동일(45명, 5,445 스펙트럼, raw/SNV, lot 층 안 Spearman → Fisher z, 검출 시료만 층당 ≥8). config sha256 fca620838311.
+
+- **판정 방법**: feature×arm(58)마다 파수 최대 |ρ|를 LC 값 층 안 순열 1000회의 파수 최대 |ρ| 분포와 비교(FWER). 전체 검정 = 모든 feature에 **같은 순열**(LC 행 통째, 500회)을 적용해 "자기 귀무 95%를 넘는 feature×arm 수"의 분포와 비교.
+- **결과**: FWER p<0.05 **9/58**(우연 기대 약 3), 같은-순열 귀무 중앙값 3·95% 7 → **전체 p = 0.018**. 58개 BH 보정 후 q<0.05는 0개(최소 q 0.116).
+
+| feature (arm) | 최대 ρ @ 파수 | lot1 / lot6 ρ (그 파수) | FWER p |
+|---|---|---|---|
+| xanthopterin (SNV) | −0.73 @ 1176 | −0.83 / −0.58 | 0.003 |
+| xanthopterin (raw) | +0.71 @ 688 | +0.76 / +0.66 | 0.006 |
+| HEMA (SNV) | +0.62 @ 1221 | +0.82 / +0.30 | 0.007 |
+| indole-3-acetic acid O-glucuronide (SNV) | −0.62 @ 631 | −0.72 / −0.53 | 0.010 |
+| indole-3-acetic acid O-glucuronide (raw) | +0.63 @ 600 (격자 끝) | +0.67 / +0.59 | 0.012 |
+| 2-HPMA NEG (SNV) | −0.62 @ 946 | −0.48 / −0.73 | 0.012 |
+| 2-HPMA POS (SNV) | −0.60 @ 946 | −0.44 / −0.73 | 0.020 |
+| sulforaphane-NAC (raw) | −0.77 @ 1786 (격자 끝) | −0.24 / −0.94 | 0.032 |
+| isovalerylglycine (SNV) | −0.58 @ 1134 | −0.13 / −0.82 | 0.037 |
+
+- 관측: 전체 수준에서는 우연보다 많은 연관이 있음(p=0.018). 같은 분자의 독립 이온 측정(2-HPMA POS/NEG)이 같은 파수 946을 가리킴(LCMS-1 935 밴드 창 안). 두 lot 모두 같은 방향·크기인 것은 xanthopterin, indole-3-acetic acid O-glucuronide, 2-HPMA. 
+- ⚠️ 해석 주의: (1) 최대 파수를 같은 데이터에서 골라 lot별 ρ는 위로 치우침(선택 편향) — 독립 데이터 재현 필요. (2) xanthopterin raw는 파수 91%에서 ρ>0(중앙값 +0.32) → 특정 피크보다 전체 신호 세기(소변 농도)와의 연관; SNV는 중앙값 −0.01로 1176 부근 국소. (3) 600·1786은 격자 끝(baseline 가장자리) — 해석 제외 권장. (4) 2-HPMA·HEMA·sulforaphane-NAC는 보고서상 흡연·식이 지표(교란 요인). (5) 상관은 해당 파수가 그 분자에서 나온다는 증거 아님 — 표준품 스펙트럼·spike 필요. (6) 개별 feature는 58개 BH 후 유의 아님.
