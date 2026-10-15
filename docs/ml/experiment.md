@@ -2161,3 +2161,12 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
 - **LC-MS 원자료**: 후보 6개 모두 POS 모드, alignment ID = 사용자 그림과 일치. 시료 = 삼성 SMCXD02 대조 5 / 췌장암 5(EXP_004/007/010/018/019 = SPAN_4/7/10/18/19, 사용자 확인) — DB상 **5명 모두 수술 후, 4명 항암 후** 검체, 업체 보고서도 실험군에서 항암제 계열 물질 높음 언급. 기술 반복 5회 평균, MWU: A p 0.548(PDAC 1명 0) · B 0.056 · **C 0.032** · D 0.056 · **E 0.032** · F 0.310, BH q 모두 ≥ 0.083. 후보가 치료 영향일 수 있음.
 - ⚠️ 한계: PDAC-1과 동일(병원·측정일 교란, 내부 CV) · uSERS-Net base 모델 lr_peak는 문헌 고정 KNOWN_PEAKS 사용(DL-7 주의와 같음) · 인구학 분석은 PDAC·대조 합침(사용자 요청) — 대조군 안 결과를 함께 표시 · LC-MS n=5 vs 5.
 - 스크립트(`SERS-AI-ci-tiered`, 커밋 c9a1f4c): `pdac_usersnet_cross.py`, `pdac_demographic_spectra.py`, `pdac_lcms_candidates.py`, `pdac_asco_deck.py`. 산출물 `results/pdac_usersnet_cross/`, `pdac_demographic_spectra/`, `pdac_lcms_candidates/`. 덱 `docs/presentation/2026-10-15_AS&CO_Pancreatic_Cancer_SERS.pptx`. DB run 335 + run_metrics 12행(ID 명시 삽입).
+
+### PDAC-3: 췌장암 병기별 SERS 변화와 방향 일치 (2026-10-15) ✅
+> 사용자: AS&CO 덱 마지막에 병기("grade" = stage, 사용자 확인)에 따른 SERS 변화 + 방향이 같은지. 결정: AJCC 8판, 조기(I–II) vs 진행(III–IV), 비선암 제외, 스펙트럼 + uSERS-Net 점수.
+- 병기: Yonsei는 기록 overall_stage, CBNUH는 TNM에서 유도(M1→IV, T4 또는 N2→III, N1→IIB, T3N0→IIA, T2N0→IB, T1N0→IA, NX/MX는 T4·M1 아니면 미정). SNUH·KIMS 병기 없음. 비선암(SPN 2, NET 3) 제외.
+- 대상: PDAC-1/2 모델 세트(QC 570) 중 조기 **31**(CBNUH 29·Yonsei 2) / 진행 **34**(CBNUH 21·Yonsei 13) / 대조 403. 스펙트럼 = uSERS-Net ch0 검체 평균(PDAC-2 캐시), 점수 = PDAC-2 OOF(main, 5 seed 평균).
+- **방향**: 전체 PDAC vs 대조 차이 파수(BH q<0.05) 335개(36%) 중 **98%에서 조기·진행 차이 부호 같음**, Pearson r 0.83(전 파수 0.66). 진행의 변화 크기 중앙값 조기의 1.3배, 64% 파수에서 더 큼.
+- **점수**: 중앙값 대조 0.20 / 조기 0.77 / 진행 0.83 — 조기 vs 진행 MWU p 0.38(차이 없음), 대조<조기<진행 Spearman rho 0.42(p<0.001, 대조 대비 차이가 주도).
+- ⚠️ 한계: 조기는 거의 CBNUH, 진행에 Yonsei 13 → 병기와 병원 부분 교란 · 병기 n 31/34 · CBNUH 병기는 TNM 유도값(병리 기록 아님) · PDAC-1 한계 동일.
+- 스크립트 `SERS-AI-ci-tiered/scripts/analysis/pdac_stage_spectra.py` + 덱 10장(`pdac_asco_deck.py`), 커밋 4abb605. 산출물 `results/pdac_stage_spectra/`. DB run 336.
