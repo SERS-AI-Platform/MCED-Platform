@@ -136,7 +136,7 @@ def main() -> None:
     # figure: SNV z spectra of the 4 strongest features, threshold, best library match (scaled) in grey
     style.apply_style()
     top = res[res.arm == "snv"].head(4)
-    fig, axes = plt.subplots(len(top), 1, figsize=(10.0, 2.4 * len(top) + 1.0), sharex=True)
+    fig, axes = plt.subplots(len(top), 1, figsize=(13.0, 2.4 * len(top) + 1.0), sharex=True)
     for ax, r in zip(np.atleast_1d(axes), top.itertuples()):
         z = zcols[f"snv|{r.lcms_feature}"]
         best = libdf[(libdf.lcms_feature == r.lcms_feature) & (libdf["rank"] == 1)].iloc[0]
@@ -151,14 +151,14 @@ def main() -> None:
         ax.set_zorder(ax2.get_zorder() + 1)
         ax.patch.set_visible(False)
         name = r.lcms_feature.split(" ", 2)[2][:38]
-        ax.text(0.01, 0.95, f"{name}  (det lot1 {r.det_lot1}, lot6 {r.det_lot6})  FWER p {r.p_fwer:.3f}  |  "
-                f"July powder r {r.july_powder_shape_r:.2f}  |  best standard: {best.standard} (r {best.r:.2f})",
+        ax.text(0.01, 0.95, f"{name}  (detected: normal+benign {r.det_lot1}, cancer {r.det_lot6})  FWER p {r.p_fwer:.3f}  |  "
+                f"July powder r {r.july_powder_shape_r:.2f}  |  best std: {best.standard} (r {best.r:.2f})",
                 transform=ax.transAxes, fontsize=style.SIZE_ANNOTATION - 1, va="top")
         style.style_axes(ax, grid="x", ylabel="z")
     np.atleast_1d(axes)[-1].set_xlabel("Raman shift (cm-1)", fontsize=style.SIZE_LABEL)
     style.set_title(np.atleast_1d(axes)[0], "SERS difference: LC-MS detected minus not detected (SNV)",
-                    "n=45 Boramae Aug mapping | within-lot Welch t, Stouffer z | dashed = 95% of permutation max |z| "
-                    f"(n={N_PERM}) | grey = best-matching 2025 standard (scaled)")
+                    "n=45 Aug mapping (normal+benign 22 = lot 1, cancer 23 = lot 6) | within-lot Welch t, Stouffer z | "
+                    f"dashed = permutation 95% max |z| (n={N_PERM}) | grey = best 2025 standard")
     style.save_png(fig, OUT / "presence_diff_top4.png")
 
     summary = {

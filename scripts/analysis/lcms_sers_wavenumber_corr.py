@@ -139,7 +139,7 @@ def main() -> None:
     # figure: top 4 feature x arm correlation spectra with their permutation threshold
     style.apply_style()
     top = res.head(4)
-    fig, axes = plt.subplots(len(top), 1, figsize=(10.0, 2.4 * len(top) + 1.0), sharex=True)
+    fig, axes = plt.subplots(len(top), 1, figsize=(13.0, 2.4 * len(top) + 1.0), sharex=True)
     mean_snv = arms["snv"].mean().values
     for ax, r in zip(np.atleast_1d(axes), top.itertuples()):
         key = f"{r.arm}|{r.lcms_feature}"
@@ -160,8 +160,8 @@ def main() -> None:
         style.style_axes(ax, grid="x", ylabel="rho")
     np.atleast_1d(axes)[-1].set_xlabel("Raman shift (cm-1)", fontsize=style.SIZE_LABEL)
     style.set_title(np.atleast_1d(axes)[0], "LC-MS/MS candidate vs SERS correlation spectra (top 4)",
-                    "n=45 Boramae (lot1 22 / lot6 23) | within-lot Spearman, Fisher-z pooled | "
-                    f"dashed = 95% of permutation max |rho| (n={N_PERM}) | grey = mean SNV spectrum")
+                    "n=45 (normal+benign 22 = lot 1, cancer 23 = lot 6) | within-lot Spearman, Fisher-z pooled | "
+                    f"dashed = permutation 95% max |rho| (n={N_PERM}) | grey = mean SNV spectrum")
     style.save_png(fig, OUT / "corr_spectra_top4.png")
 
     summary = {
