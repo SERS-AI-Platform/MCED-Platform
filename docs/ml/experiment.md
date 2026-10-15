@@ -2144,3 +2144,20 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
 - 보조: 8월 feature별 상관 스펙트럼끼리의 유사도 중앙값 |r| 0.24–0.25, 첫 주성분 31–37%·상위 3개 67–69% → 단일 요인은 아니나 공통 패턴이 상당 부분.
 - 관측: 8월 mapping에서 나온 LC–SERS 상관 패턴은 같은 소변의 독립 SERS 측정(다른 날·다른 시약·분말)에서 재현됨 — 특히 분말. 8월 lot/측정일 교란이나 SERS 측정 잡음으로 생긴 것은 아님.
 - ⚠️ 해석 한계(중요): 이 재현은 **같은 45명·같은 LC 값의 재측정 재현**이다. 45명 안에서 우연히 생긴 "사람 수준" 연관(검체 선택·다중검정 우연)은 재측정해도 그대로 재현되므로, 이것으로 모집단 수준 연관이 확인된 것은 아님(그 근거는 LCMS-2 전체 p=0.018뿐). 새 검체 LC-MS 또는 표준품·spike가 필요. 다른 한계: 2-HPMA·HEMA·sulforaphane-NAC는 흡연·식이 지표 · 600/1786 격자 끝 · 7월 point 4–5개 · 액상이 분말보다 약한 이유 미확인(시약·점 수·제형).
+
+### PDAC-2: AS&CO 덱 — uSERS-Net 1단계 + 나이·BMI·성별에 따른 SERS 변화 + LC-MS 원자료 (2026-10-15) ✅
+> 사용자: AS&CO용 덱(장비 모델명 비공개 → Instrument 1/2/3), 모델을 uSERS-Net으로, 같은 병원 비교 제외, 치료 시점 mixed·미기록은 치료 전으로 표기, 나이·BMI·성별 결합 + 검정, 인구학 층별 SERS 변화 장 추가. LC-MS 원자료 폴더(JNPMEDI SMCXD2 보고서 2025-09-04) 제공 → `data/06_supporting_or_previous_outputs/lcmsms_untargeted_SMCXD2_PDAC_20250904/`로 복사(git-ignored).
+- **uSERS-Net(STK-V2 1단계)**: PDAC-1과 같은 570검체(QC 동일)·StratifiedGroupKFold(5)×5 seed. 10 base + ElasticNet meta, outer fold마다 재학습(inner 5-fold OOF). 췌장암만 있어 2단계(암종) 미정의 → 1단계만.
+
+| subset | PDAC / 대조 | AUC ± SD | 민감도 | 특이도 |
+|---|---|---|---|---|
+| 전체 | 167 / 403 | **0.876 ± 0.007** | 0.75 | 0.84 |
+| 치료 후 제외 | 152 / 403 | 0.869 ± 0.005 | 0.72 | 0.85 |
+| KIMS 제외 | 116 / 403 | 0.850 ± 0.011 | 0.70 | 0.83 |
+| 질환대조군 | 167 / 168 | **0.874 ± 0.007** | 0.79 | 0.80 |
+
+- 같은 규약 PL-3 LR(PDAC-1): 0.879 / 0.888 — uSERS-Net과 비슷(차이는 seed SD 수준).
+- **나이·BMI·성별에 따른 SERS**(570 중 임상값 있는 검체, KIMS 제외, uSERS-Net ch0 평균 스펙트럼): 양 극단 층 비교 — 나이 <40 vs ≥60: 파수 39% BH q<0.05, LR CV AUC 전체 0.87 / **대조군 안 0.88** · 성별 M vs F: 31%, 0.72 / 0.75 · BMI <23 vs ≥25: 6%, 0.60 / 0.54. → 나이가 소변 SERS에 강하게 드러남(암 없이도). 모델 cohort에서 PDAC 중앙 67세 vs 대조 47세(MWU p<0.001), 남성 54% vs 81%(χ² p<0.001).
+- **LC-MS 원자료**: 후보 6개 모두 POS 모드, alignment ID = 사용자 그림과 일치. 시료 = 삼성 SMCXD02 대조 5 / 췌장암 5(EXP_004/007/010/018/019 = SPAN_4/7/10/18/19, 사용자 확인) — DB상 **5명 모두 수술 후, 4명 항암 후** 검체, 업체 보고서도 실험군에서 항암제 계열 물질 높음 언급. 기술 반복 5회 평균, MWU: A p 0.548(PDAC 1명 0) · B 0.056 · **C 0.032** · D 0.056 · **E 0.032** · F 0.310, BH q 모두 ≥ 0.083. 후보가 치료 영향일 수 있음.
+- ⚠️ 한계: PDAC-1과 동일(병원·측정일 교란, 내부 CV) · uSERS-Net base 모델 lr_peak는 문헌 고정 KNOWN_PEAKS 사용(DL-7 주의와 같음) · 인구학 분석은 PDAC·대조 합침(사용자 요청) — 대조군 안 결과를 함께 표시 · LC-MS n=5 vs 5.
+- 스크립트(`SERS-AI-ci-tiered`, 커밋 c9a1f4c): `pdac_usersnet_cross.py`, `pdac_demographic_spectra.py`, `pdac_lcms_candidates.py`, `pdac_asco_deck.py`. 산출물 `results/pdac_usersnet_cross/`, `pdac_demographic_spectra/`, `pdac_lcms_candidates/`. 덱 `docs/presentation/2026-10-15_AS&CO_Pancreatic_Cancer_SERS.pptx`. DB run 335 + run_metrics 12행(ID 명시 삽입).
