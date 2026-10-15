@@ -2131,3 +2131,16 @@ CRC 186 = 161.3/47.6 (v9와 일치), PAN 78 = 161.9/66.5 로 각각 올바르게
 - PAN_79(CBNUH) 나이 16세 — DB 확인 필요(덱 각주 표시).
 - 기밀: 후보 대사체 실명·LC-MS 방향은 git-ignored `data/06_supporting_or_previous_outputs/lcmsms_pdac_candidates_20261015/candidates.json`로 이동(스크립트에서 제거). 단 최초 커밋 fd5f77b(로컬, 미push)에는 실명 3개가 남아 있음 — 그 위에 다른 세션 커밋 bfadde0이 있어 이력 정리는 사용자 결정 대기.
 - 수정 커밋 `SERS-AI-ci-tiered` 2e0e2c1. 덱 재생성 완료(같은 경로).
+
+### LCMS-3: LCMS-2 상관의 7월 SERS 재측정 재현 (2026-10-15) ✅
+> 사용자: "8~9월 데이터로 재현" → 45명 중 8~9월 재측정은 6명(09-18~29, 정상·양성만, 36 point)뿐이라 불가 → 사용자 "7월 분석도 해봐".
+
+스크립트 `scripts/analysis/lcms_sers_july_replication.py`(커밋 bceb39a, LCMS-1·2 모듈 import), 산출물 `results/lcms_sers_july_replication_20261015/`(prespecified_hits_replication.csv, shape_agreement.csv, summary.json, run.log). 7월 세트(환원제 변경 전, 축 보정 없음): **액상** DB run 98·99(07-09/10, 45명 × 5 point = 225) · **분말** run 110(07-16, 45명 × 4–5 point = 224). DB는 7월 파일을 환자 번호로 연결(파일 "BPRO 20" → BNOR_20 = 8월 같은 환자). 층 = 8월 lot 구분과 같은 군 구분(정상+양성 / 암). 전처리·밴드값 LCMS-1과 동일, 파수값은 ±3 cm-1 평균.
+
+- **① 사전 고정 9개(LCMS-2 FWER p<0.05) 재현**(한쪽 순열 2000회, 8월 방향):
+  - 액상: 같은 방향 8/9, p<0.05 2/9(xanthopterin raw 688 ρ +0.45, sulforaphane-NAC raw 1786 −0.47[격자 끝]), BH 후 0.
+  - 분말: 같은 방향 **9/9**, BH q<0.05 **7/9** — xanthopterin raw 688 +0.63, indole-3-acetic acid O-glucuronide SNV 631 −0.48, 2-HPMA NEG/POS 946 −0.39/−0.32, isovalerylglycine 1134 −0.46, HEMA 1221 +0.33, indole raw 600 +0.57(격자 끝). 미재현: xanthopterin SNV 1176(−0.18), sulforaphane-NAC 1786.
+- **② 상관 스펙트럼 모양 일치**(8월 vs 7월 Pearson r, 같은 순열 200회): 액상 평균 r 0.26(귀무 95% 0.07, 전체 p=0.005), feature별 BH q<0.05 8/58 · 분말 평균 r **0.58**(귀무 95% 0.12, p=0.005), 52/58.
+- 보조: 8월 feature별 상관 스펙트럼끼리의 유사도 중앙값 |r| 0.24–0.25, 첫 주성분 31–37%·상위 3개 67–69% → 단일 요인은 아니나 공통 패턴이 상당 부분.
+- 관측: 8월 mapping에서 나온 LC–SERS 상관 패턴은 같은 소변의 독립 SERS 측정(다른 날·다른 시약·분말)에서 재현됨 — 특히 분말. 8월 lot/측정일 교란이나 SERS 측정 잡음으로 생긴 것은 아님.
+- ⚠️ 해석 한계(중요): 이 재현은 **같은 45명·같은 LC 값의 재측정 재현**이다. 45명 안에서 우연히 생긴 "사람 수준" 연관(검체 선택·다중검정 우연)은 재측정해도 그대로 재현되므로, 이것으로 모집단 수준 연관이 확인된 것은 아님(그 근거는 LCMS-2 전체 p=0.018뿐). 새 검체 LC-MS 또는 표준품·spike가 필요. 다른 한계: 2-HPMA·HEMA·sulforaphane-NAC는 흡연·식이 지표 · 600/1786 격자 끝 · 7월 point 4–5개 · 액상이 분말보다 약한 이유 미확인(시약·점 수·제형).
