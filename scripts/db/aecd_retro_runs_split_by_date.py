@@ -6,7 +6,7 @@ grid because no acquisition date survived in the repo copy. The Thermo PC upload
 (e.g. 20250326_Normal_1mW_0.05s_Ave100). Every spectrum of these runs matches exactly one uploaded
 file by sha256, so its date is known.
 
-Rule (user 2026-10-20: one run per date, like every other run): run = grid session x date.
+Rule (user 2026-10-19: one run per date, like every other run): run = grid session x date.
 The original run keeps its earliest date; each further date becomes a new run that copies the
 original's instrument/conditions. measurement_id values do not change; only measurement_run_id
 moves. Nothing else references these runs (run_calibrations / experiment.measurement_context: 0 rows).
@@ -31,7 +31,7 @@ import psycopg2
 LOADER_TAG = "loader=aecd_historical_measurement_load:thermo_retro"
 UNKNOWN_RE = re.compile(r"measurement_date=unknown \([^)]*\)")
 GROUPS_RE = re.compile(r"; group folders=[^;]*")
-DATED_NOTE = "measurement_date from original Thermo PC folder name (raman02 upload, sha256 match; split by date 2026-10-20)"
+DATED_NOTE = "measurement_date from original Thermo PC folder name (raman02 upload, sha256 match; split by date 2026-10-19)"
 
 
 def ledger_folders(path: str) -> dict[str, set[str]]:
