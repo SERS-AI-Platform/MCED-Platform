@@ -427,6 +427,43 @@ def src_handheld_retest() -> tuple[dict[str, Run], list[File]]:
     return runs, files
 
 
+THERMO_PC_SETS = (
+    # (data/03 folder, run key, date, operator, notes); Thermo PC (raman02) upload mirrored from the NAS
+    ("thermo_KPAN_20250328", "kpan0328", date(2025, 3, 28), UNRECORDED,
+     ["original folder=20250328_K-Pancreatic_1mW_0.05s_Ave100"]),
+    ("thermo_BLC_x10_20260403", "blcx10_0403", date(2026, 4, 3), UNRECORDED,
+     ["original folder=20260403_Bladder_1mW_0.05s_Ave 100_x10 (meaning of x10 not recorded)",
+      "folder note: 85번 재측정 필요 (신호대잡음비 너무 낮음) — BLC_85 loaded as acquired"]),
+    ("thermo_SPAN_20260715", "span0715", date(2026, 7, 15), "엄찬호",
+     ["original folder=20260715_Urine test_엄찬호_Thermo(SPAN)",
+      "folder note: 약 1년전 제작 센서 사용"]),
+)
+
+
+def src_thermo_pc_dated() -> tuple[dict[str, Run], list[File]]:
+    """Dated Thermo sets that first reached the repo via the Thermo PC upload (2026-10-19).
+    Date and conditions (1 mW, 0.05 s, 785 nm) come from the original folder name: the upload
+    does not keep file times. Si/PS subfolders are calibration controls; _ave files are skipped."""
+    runs: dict[str, Run] = {}
+    files: list[File] = []
+    for folder, key, day, operator, notes in THERMO_PC_SETS:
+        root = DATA / "03_sers_date_lot_balanced_acquisition" / folder
+        runs[key] = Run(key, day, operator=operator, laser_power_mw=1.0, exposure_time_s=0.05,
+                        laser_wavelength_nm=785, notes=[
+            f"source_root={root.relative_to(REPO)}",
+            f"canonical copy={HH_RETEST_NAS.rsplit('/', 1)[0]}/raman02 (sha256 in _ledger/uploads.csv)",
+            "date and conditions from original folder name", *notes])
+        for p in csvs(root):
+            stem, rep, ave = split_rep(p)
+            if ave:
+                continue
+            if p.parent.name in ("Si", "PS"):
+                files.append(File(p, key, "control", control_type=p.parent.name, source_kind="calibration"))
+            else:
+                files.append(File(p, key, "clinical", label=clinical_label(stem), rep=rep))
+    return runs, files
+
+
 METABOLITE_SHARE = Path("/mnt/c/Users/user/OneDrive - solum/헬스케어-R BD - RnBD/퇴사자/▷보티낫린"
                         "/4. Metabolite/Experimental data")
 
@@ -557,7 +594,7 @@ def src_metrohm() -> tuple[dict[str, Run], list[File]]:
 
 
 SOURCES = {"mbsu": src_mbsu, "april": src_april, "raw_dated": src_raw_dated, "july": src_july,
-           "april_spa": src_april_spa, "handheld": src_handheld, "handheld_retest": src_handheld_retest,
+           "april_spa": src_april_spa, "handheld": src_handheld, "handheld_retest": src_handheld_retest, "thermo_pc_dated": src_thermo_pc_dated,
            "metabolite": src_metabolite,
            "thermo_retro": src_thermo_retro, "medical": src_medical, "metrohm": src_metrohm}
 
